@@ -2,14 +2,20 @@
 @model ShakabaArchive.Web.Pages.Account.UsersModel
 @{
     ViewData["Title"] = "المستخدمون والصلاحيات";
+    var isEditing = Model.EditingUser is not null;
 }
 
-<div class="mb-3">
-    <h1 class="h4 mb-1">المستخدمون والصلاحيات</h1>
-    <p class="muted mb-0">
-        الأدمن الرئيسي يظهر أولاً ويضيف المستخدمين والثلاثة الموافقين.
-        بيانات مدخلي البيانات لا تُحفظ في الأرشيف إلا بعد موافقة أحد الثلاثة.
-    </p>
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div>
+        <h1 class="h4 mb-1">المستخدمون والصلاحيات</h1>
+        <p class="muted mb-0">
+            الأدمن الرئيسي يضيف ويعدّل ويحذف المستخدمين، ويعيّن الثلاثة الموافقين على صحة البيانات.
+        </p>
+    </div>
+    @if (User.IsInRole("Admin") && !isEditing)
+    {
+        <a class="btn btn-accent" href="#add-user">إضافة مستخدم</a>
+    }
 </div>
 
 @if (!User.IsInRole("Admin"))
@@ -32,6 +38,58 @@ else
         — الأدمن الرئيسي منفصل عنهم.
     </div>
 
+    <div class="card-panel mb-3" id="add-user">
+        <h2 class="h6 mb-3">@(isEditing ? $"تعديل مستخدم: {Model.EditingUser!.DisplayName}" : "إضافة مستخدم جديد")</h2>
+        <form method="post"
+              asp-page-handler="@(isEditing ? "Update" : "Create")"
+              class="row g-2 align-items-end">
+            @if (isEditing)
+            {
+                <input type="hidden" name="userId" value="@Model.EditingUser!.Id" />
+            }
+            <div class="col-md-3">
+                <label class="form-label">الاسم</label>
+                <input class="form-control" asp-for="Form.DisplayName" required />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">البريد</label>
+                <input class="form-control" asp-for="Form.Email" type="email" required />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">الهاتف</label>
+                <input class="form-control" asp-for="Form.Phone" required />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">@(isEditing ? "كلمة مرور جديدة (اختياري)" : "كلمة المرور")</label>
+                @if (isEditing)
+                {
+                    <input class="form-control" asp-for="Form.Password" type="password" />
+                }
+                else
+                {
+                    <input class="form-control" asp-for="Form.Password" type="password" required />
+                }
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">الصلاحية</label>
+                <select class="form-select" asp-for="Form.Role">
+                    <option value="@((int)UserRole.Editor)">مدخل بيانات</option>
+                    <option value="@((int)UserRole.Approver)">موافق على صحة البيانات</option>
+                    <option value="@((int)UserRole.Admin)">أدمن رئيسي</option>
+                </select>
+            </div>
+            <div class="col-12 d-flex flex-wrap gap-2 mt-2">
+                <button class="btn btn-accent" type="submit">
+                    @(isEditing ? "حفظ التعديل" : "إضافة المستخدم")
+                </button>
+                @if (isEditing)
+                {
+                    <a class="btn btn-soft" asp-page="./Users">إلغاء</a>
+                }
+            </div>
+        </form>
+    </div>
+
     <div class="card-panel">
         <div class="table-responsive">
             <table class="table align-middle mb-0">
@@ -42,6 +100,7 @@ else
                     <th>الهاتف</th>
                     <th>الدور</th>
                     <th>الصلاحيات</th>
+                    <th style="width:160px">إجراءات</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -85,10 +144,24 @@ else
                                 </label>
                             </form>
                         </td>
+                        <td>
+                            <div class="d-flex flex-wrap gap-1">
+                                <a class="btn btn-sm btn-soft" asp-page="./Users" asp-route-editId="@u.Id">تعديل</a>
+                                <form method="post" asp-page-handler="Delete" class="d-inline"
+                                      onsubmit="return confirm('حذف المستخدم @u.DisplayName؟');">
+                                    <input type="hidden" name="userId" value="@u.Id" />
+                                    <button class="btn btn-sm btn-danger-soft" type="submit">حذف</button>
+                                </form>
+                            </div>
+                        </td>
                     </tr>
                 }
                 </tbody>
             </table>
         </div>
+        @if (Model.Users.Count == 0)
+        {
+            <p class="muted mt-3 mb-0">لا يوجد مستخدمون بعد. أضف مستخدماً من النموذج أعلاه.</p>
+        }
     </div>
 }

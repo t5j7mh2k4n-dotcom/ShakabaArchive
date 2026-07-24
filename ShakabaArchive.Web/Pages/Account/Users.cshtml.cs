@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using ShakabaArchive.Models;
@@ -13,6 +15,14 @@ public class UsersModel : PageModel
     public string? Message { get; private set; }
     public string? Error { get; private set; }
 
+    [BindProperty(SupportsGet = true)]
+    public int? EditId { get; set; }
+
+    public AppUser? EditingUser { get; private set; }
+
+    [BindProperty]
+    public UserFormInput Form { get; set; } = new();
+
     public void OnGet()
     {
         if (!User.IsInRole("Admin"))
@@ -20,18 +30,82 @@ public class UsersModel : PageModel
         Load();
         Message = TempData["Flash"] as string;
         Error = TempData["FlashError"] as string;
+
+        if (EditId is int id)
+        {
+            EditingUser = Users.FirstOrDefault(u => u.Id == id);
+            if (EditingUser is not null)
+            {
+                Form = new UserFormInput
+                {
+                    DisplayName = EditingUser.DisplayName,
+                    Email = EditingUser.Email,
+                    Phone = EditingUser.Phone,
+                    Role = EditingUser.IsAdmin || EditingUser.Role == UserRole.Admin
+                        ? UserRole.Admin
+                        : EditingUser.Role
+                };
+            }
+        }
     }
 
-    public IActionResult OnPostSetRole(int userId, UserRole role)
+    public IActionResult OnPostCreate()
     {
         if (!User.IsInRole("Admin"))
             return Forbid();
 
-        var (ok, error) = LocalUserService.SetUserRole(userId, role);
+        var (ok, error, _) = LocalUserService.CreateUser(
+            Form.Email,
+            Form.Phone,
+            Form.DisplayName,
+            Form.Password ?? "",
+            Form.Role);
+
         if (!ok)
             TempData["FlashError"] = error;
         else
-            TempData["Flash"] = "تم تحديث صلاحية المستخدم.";
+            TempData["Flash"] = "تمت إضافة المستخدم بنجاح.";
+
+        return RedirectToPage();
+    }
+
+    public IActionResult OnPostUpdate(int userId)
+    {
+        if (!User.IsInRole("Admin"))
+            return Forbid();
+
+        var (ok, error) = LocalUserService.UpdateUser(
+            userId,
+            Form.Email,
+            Form.Phone,
+            Form.DisplayName,
+            string.IsNullOrWhiteSpace(Form.Password) ? null : Form.Password,
+            Form.Role);
+
+        if (!ok)
+        {
+            TempData["FlashError"] = error;
+            return RedirectToPage(new { editId = userId });
+        }
+
+        TempData["Flash"] = "تم تعديل المستخدم بنجاح.";
+        return RedirectToPage();
+    }
+
+    public IActionResult OnPostDelete(int userId)
+    {
+        if (!User.IsInRole("Admin"))
+            return Forbid();
+
+        var currentId = int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id)
+            ? id
+            : (int?)null;
+
+        var (ok, error) = LocalUserService.DeleteUser(userId, currentId);
+        if (!ok)
+            TempData["FlashError"] = error;
+        else
+            TempData["Flash"] = "تم حذف المستخدم.";
 
         return RedirectToPage();
     }
@@ -60,5 +134,21 @@ public class UsersModel : PageModel
     {
         Users = LocalUserService.ListUsers();
         ApproverCount = LocalUserService.CountApprovers();
+    }
+
+    public class UserFormInput
+    {
+        [Required(ErrorMessage = "أدخل الاسم")]
+        public string DisplayName { get; set; } = "";
+
+        [Required(ErrorMessage = "أدخل البريد")]
+        public string Email { get; set; } = "";
+
+        [Required(ErrorMessage = "أدخل الهاتف")]
+        public string Phone { get; set; } = "";
+
+        public string? Password { get; set; }
+
+        public UserRole Role { get; set; } = UserRole.Editor;
     }
 }

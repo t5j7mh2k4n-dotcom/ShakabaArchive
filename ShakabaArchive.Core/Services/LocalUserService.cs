@@ -252,25 +252,9 @@ public static class LocalUserService
         var user = db.Users.FirstOrDefault(u => u.Id == userId);
         if (user is null) return (false, "المستخدم غير موجود.");
 
-        var wasAdmin = user.IsAdmin || user.Role == UserRole.Admin;
-        if (wasAdmin && role != UserRole.Admin)
-        {
-            var otherAdmins = db.Users.Count(u =>
-                u.Id != userId && (u.IsAdmin || u.Role == UserRole.Admin));
-            if (otherAdmins == 0)
-                return (false, "لا يمكن إزالة الأدمن الرئيسي الوحيد.");
-        }
+        var result = SetUserRoleInDb(db, user, role);
+        if (!result.Ok) return result;
 
-        if (role == UserRole.Approver)
-        {
-            var others = db.Users.Count(u =>
-                u.Id != userId && u.Role == UserRole.Approver && !u.IsAdmin);
-            if (others >= ApprovalService.MaxApprovers && user.Role != UserRole.Approver)
-                return (false, $"لا يمكن تعيين أكثر من {ApprovalService.MaxApprovers} موافقين على صحة البيانات.");
-        }
-
-        user.Role = role;
-        user.IsAdmin = role == UserRole.Admin;
         db.SaveChanges();
         return (true, "");
     }
@@ -290,6 +274,140 @@ public static class LocalUserService
     {
         using var db = CreateContext();
         return db.Users.AsNoTracking().FirstOrDefault(u => u.Id == id);
+    }
+
+    public static (bool Ok, string Error, AppUser? User) CreateUser(
+        string email,
+        string phone,
+        string displayName,
+        string password,
+        UserRole role)
+    {
+        email = email.Trim().ToLowerInvariant();
+        phone = phone.Trim();
+        displayName = displayName.Trim();
+
+        if (string.IsNullOrWhiteSpace(email) || !email.Contains('@'))
+            return (false, "أدخل بريداً إلكترونياً صحيحاً.", null);
+        if (string.IsNullOrWhiteSpace(phone) || phone.Length < 8)
+            return (false, "أدخل رقم هاتف صحيحاً.", null);
+        if (string.IsNullOrWhiteSpace(displayName))
+            return (false, "أدخل الاسم الظاهر.", null);
+        if (string.IsNullOrWhiteSpace(password) || password.Length < 6)
+            return (false, "كلمة المرور يجب أن تكون 6 أحرف على الأقل.", null);
+
+        if (role == UserRole.Approver && CountApprovers() >= ApprovalService.MaxApprovers)
+            return (false, $"لا يمكن إضافة أكثر من {ApprovalService.MaxApprovers} موافقين على صحة البيانات.", null);
+
+        using var db = CreateContext();
+        if (db.Users.Any(u => u.Email == email))
+            return (false, "هذا البريد مسجّل مسبقاً.", null);
+        if (db.Users.Any(u => u.Phone == phone))
+            return (false, "رقم الهاتف مسجّل مسبقاً.", null);
+
+        var user = new AppUser
+        {
+            Email = email,
+            Phone = phone,
+            DisplayName = displayName,
+            PasswordHash = PasswordHasher.Hash(password),
+            IsAdmin = role == UserRole.Admin,
+            Role = role,
+            InviteCodeUsed = "ADMIN-ADD",
+            CreatedAt = DateTime.UtcNow
+        };
+        db.Users.Add(user);
+        db.SaveChanges();
+        return (true, "", user);
+    }
+
+    public static (bool Ok, string Error) UpdateUser(
+        int userId,
+        string email,
+        string phone,
+        string displayName,
+        string? newPassword,
+        UserRole role)
+    {
+        email = email.Trim().ToLowerInvariant();
+        phone = phone.Trim();
+        displayName = displayName.Trim();
+
+        if (string.IsNullOrWhiteSpace(email) || !email.Contains('@'))
+            return (false, "أدخل بريداً إلكترونياً صحيحاً.");
+        if (string.IsNullOrWhiteSpace(phone) || phone.Length < 8)
+            return (false, "أدخل رقم هاتف صحيحاً.");
+        if (string.IsNullOrWhiteSpace(displayName))
+            return (false, "أدخل الاسم الظاهر.");
+        if (!string.IsNullOrWhiteSpace(newPassword) && newPassword.Length < 6)
+            return (false, "كلمة المرور يجب أن تكون 6 أحرف على الأقل.");
+
+        using var db = CreateContext();
+        var user = db.Users.FirstOrDefault(u => u.Id == userId);
+        if (user is null) return (false, "المستخدم غير موجود.");
+
+        if (db.Users.Any(u => u.Id != userId && u.Email == email))
+            return (false, "هذا البريد مسجّل مسبقاً.");
+        if (db.Users.Any(u => u.Id != userId && u.Phone == phone))
+            return (false, "رقم الهاتف مسجّل مسبقاً.");
+
+        var roleResult = SetUserRoleInDb(db, user, role);
+        if (!roleResult.Ok) return roleResult;
+
+        user.Email = email;
+        user.Phone = phone;
+        user.DisplayName = displayName;
+        if (!string.IsNullOrWhiteSpace(newPassword))
+            user.PasswordHash = PasswordHasher.Hash(newPassword);
+
+        db.SaveChanges();
+        return (true, "");
+    }
+
+    public static (bool Ok, string Error) DeleteUser(int userId, int? currentAdminId = null)
+    {
+        using var db = CreateContext();
+        var user = db.Users.FirstOrDefault(u => u.Id == userId);
+        if (user is null) return (false, "المستخدم غير موجود.");
+
+        if (currentAdminId is int selfId && user.Id == selfId)
+            return (false, "لا يمكنك حذف حسابك وأنت مسجّل الدخول.");
+
+        if (user.IsAdmin || user.Role == UserRole.Admin)
+        {
+            var otherAdmins = db.Users.Count(u =>
+                u.Id != userId && (u.IsAdmin || u.Role == UserRole.Admin));
+            if (otherAdmins == 0)
+                return (false, "لا يمكن حذف الأدمن الرئيسي الوحيد.");
+        }
+
+        db.Users.Remove(user);
+        db.SaveChanges();
+        return (true, "");
+    }
+
+    private static (bool Ok, string Error) SetUserRoleInDb(UsersDbContext db, AppUser user, UserRole role)
+    {
+        var wasAdmin = user.IsAdmin || user.Role == UserRole.Admin;
+        if (wasAdmin && role != UserRole.Admin)
+        {
+            var otherAdmins = db.Users.Count(u =>
+                u.Id != user.Id && (u.IsAdmin || u.Role == UserRole.Admin));
+            if (otherAdmins == 0)
+                return (false, "لا يمكن إزالة الأدمن الرئيسي الوحيد.");
+        }
+
+        if (role == UserRole.Approver)
+        {
+            var others = db.Users.Count(u =>
+                u.Id != user.Id && u.Role == UserRole.Approver && !u.IsAdmin);
+            if (others >= ApprovalService.MaxApprovers && user.Role != UserRole.Approver)
+                return (false, $"لا يمكن تعيين أكثر من {ApprovalService.MaxApprovers} موافقين على صحة البيانات.");
+        }
+
+        user.Role = role;
+        user.IsAdmin = role == UserRole.Admin;
+        return (true, "");
     }
 
     public static (bool Ok, string Error, AppUser? User) Register(
