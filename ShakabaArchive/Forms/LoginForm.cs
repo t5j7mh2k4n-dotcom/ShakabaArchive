@@ -59,13 +59,13 @@ public sealed class LoginForm : Form
 
         layout.Controls.Add(new Label { Text = "البريد أو الهاتف", Dock = DockStyle.Fill, TextAlign = ContentAlignment.BottomRight }, 0, 0);
         _user.Dock = DockStyle.Fill;
-        _user.Text = "admin@shakaba.local";
+        _user.Text = "abohosam@shukaba.local";
         layout.Controls.Add(_user, 0, 1);
 
         layout.Controls.Add(new Label { Text = "كلمة المرور", Dock = DockStyle.Fill, TextAlign = ContentAlignment.BottomRight }, 0, 2);
         _pass.Dock = DockStyle.Fill;
         _pass.UseSystemPasswordChar = true;
-        _pass.Text = "admin123";
+        _pass.Text = "Om123456@";
         layout.Controls.Add(_pass, 0, 3);
 
         var loginBtn = AppTheme.PrimaryButton("دخول إلى الأرشيف");

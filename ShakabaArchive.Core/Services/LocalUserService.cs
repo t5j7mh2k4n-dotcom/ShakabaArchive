@@ -125,15 +125,43 @@ public static class LocalUserService
 
     private static void SeedAdminIfEmpty(UsersDbContext db)
     {
+        const string adminEmail = "abohosam@shukaba.local";
+        const string adminPassword = "Om123456@";
+
+        // ترقية الحساب الافتراضي القديم إن وُجد
+        var legacy = db.Users.FirstOrDefault(u => u.Email == "admin@shakaba.local");
+        if (legacy is not null)
+        {
+            legacy.Email = adminEmail;
+            legacy.Phone = legacy.Phone is "0000000000" or "" ? "0000000000" : legacy.Phone;
+            legacy.DisplayName = "أبو حسام";
+            legacy.PasswordHash = PasswordHasher.Hash(adminPassword);
+            legacy.IsAdmin = true;
+            db.SaveChanges();
+            return;
+        }
+
+        var existingAdmin = db.Users.FirstOrDefault(u => u.Email == adminEmail);
+        if (existingAdmin is not null)
+        {
+            existingAdmin.PasswordHash = PasswordHasher.Hash(adminPassword);
+            existingAdmin.IsAdmin = true;
+            existingAdmin.DisplayName = string.IsNullOrWhiteSpace(existingAdmin.DisplayName)
+                ? "أبو حسام"
+                : existingAdmin.DisplayName;
+            db.SaveChanges();
+            return;
+        }
+
         if (db.Users.Any())
             return;
 
         db.Users.Add(new AppUser
         {
-            Email = "admin@shakaba.local",
+            Email = adminEmail,
             Phone = "0000000000",
-            DisplayName = "أمين الأرشيف",
-            PasswordHash = PasswordHasher.Hash("admin123"),
+            DisplayName = "أبو حسام",
+            PasswordHash = PasswordHasher.Hash(adminPassword),
             IsAdmin = true,
             InviteCodeUsed = "ADMIN",
             CreatedAt = DateTime.UtcNow

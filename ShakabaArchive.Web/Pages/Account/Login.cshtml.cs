@@ -11,7 +11,7 @@ namespace ShakabaArchive.Web.Pages.Account;
 public class LoginModel : PageModel
 {
     [BindProperty, Required(ErrorMessage = "أدخل البريد أو الهاتف")]
-    public string Login { get; set; } = "admin@shakaba.local";
+    public string Login { get; set; } = "abohosam@shukaba.local";
 
     [BindProperty, Required(ErrorMessage = "أدخل كلمة المرور")]
     public string Password { get; set; } = "";
