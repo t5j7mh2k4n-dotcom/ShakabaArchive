@@ -51,4 +51,18 @@ public class IndexModel(ArchiveDbContext db) : PageModel
 
         People = await query.OrderBy(p => p.FullName).ToListAsync();
     }
+
+    public async Task<IActionResult> OnPostDeleteAsync(int id)
+    {
+        if (User.Identity?.IsAuthenticated != true)
+            return Forbid();
+
+        var person = await db.People.Include(p => p.Events).FirstOrDefaultAsync(p => p.Id == id);
+        if (person is null)
+            return RedirectToPage(new { q = Q, nationality = Nationality });
+
+        db.People.Remove(person);
+        await db.SaveChangesAsync();
+        return RedirectToPage(new { q = Q, nationality = Nationality });
+    }
 }

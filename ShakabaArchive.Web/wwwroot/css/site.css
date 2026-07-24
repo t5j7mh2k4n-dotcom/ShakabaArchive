@@ -230,3 +230,14 @@ html, body {
   background: var(--accent-soft);
   color: var(--accent);
 }
+
+.btn-danger-soft {
+  background: #f3d6d3;
+  color: #8c3730;
+  border: none;
+}
+
+.btn-danger-soft:hover {
+  background: #e8bdb8;
+  color: #6f2a24;
+}
