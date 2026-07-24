@@ -6,7 +6,24 @@
 
 <section class="hero">
     <h1>أرشيف الشكابة شاع الدين</h1>
-    <p class="muted mb-3">أرشيف الشكابة شاع الدين — إهداء إلى روح المرحوم — عبدالمحمود محمد علي — تصميم عمر عبدالمحمود</p>
+    @{
+        const string dedication = "أرشيف الشكابة شاع الدين — إهداء إلى روح المرحوم — عبدالمحمود محمد علي — تصميم عمر عبدالمحمود";
+    }
+    <div class="dedication-marquee" aria-label="@dedication">
+        <div class="dedication-track dedication-track-a" aria-hidden="true">
+            <span>@dedication</span>
+            <span>@dedication</span>
+            <span>@dedication</span>
+            <span>@dedication</span>
+        </div>
+        <div class="dedication-track dedication-track-b" aria-hidden="true">
+            <span>@dedication</span>
+            <span>@dedication</span>
+            <span>@dedication</span>
+            <span>@dedication</span>
+        </div>
+        <p class="visually-hidden">@dedication</p>
+    </div>
     <form method="get" asp-page="/People/Index" class="row g-2 search-bar">
         <div class="col-md-8">
             <input class="form-control form-control-lg" name="q" placeholder="رقم وطني، اسم، جنسية، قبيلة، حي..." />
