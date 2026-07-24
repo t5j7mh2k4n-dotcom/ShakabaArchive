@@ -10,8 +10,9 @@ RUN dotnet publish ShakabaArchive.Web/ShakabaArchive.Web.csproj -c Release -o /a
 
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
 WORKDIR /app
-ENV ASPNETCORE_URLS=http://0.0.0.0:8080
 ENV ASPNETCORE_ENVIRONMENT=Production
+ENV ASPNETCORE_URLS=http://0.0.0.0:8080
 EXPOSE 8080
 COPY --from=build /app/publish .
-ENTRYPOINT ["dotnet", "ShakabaArchive.Web.dll"]
+# Render يمرّر PORT — نستمع عليه إن وُجد
+CMD ["sh", "-c", "export ASPNETCORE_URLS=http://0.0.0.0:${PORT:-8080}; exec dotnet ShakabaArchive.Web.dll"]
