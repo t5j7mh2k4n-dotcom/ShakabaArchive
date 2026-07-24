@@ -59,7 +59,7 @@ public sealed class LoginForm : Form
 
         layout.Controls.Add(new Label { Text = "البريد أو الهاتف", Dock = DockStyle.Fill, TextAlign = ContentAlignment.BottomRight }, 0, 0);
         _user.Dock = DockStyle.Fill;
-        _user.Text = "abohosam@shukaba.local";
+        _user.Text = "abohosam@shakaba.local";
         layout.Controls.Add(_user, 0, 1);
 
         layout.Controls.Add(new Label { Text = "كلمة المرور", Dock = DockStyle.Fill, TextAlign = ContentAlignment.BottomRight }, 0, 2);

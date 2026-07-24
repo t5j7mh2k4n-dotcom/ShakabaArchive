@@ -148,11 +148,12 @@ public static class LocalUserService
 
     private static void SeedAdminIfEmptyCore(UsersDbContext db)
     {
-        const string adminEmail = "abohosam@shukaba.local";
+        const string adminEmail = "abohosam@shakaba.local";
         const string adminPassword = "Om123456@";
 
         // ترقية الحساب الافتراضي القديم إن وُجد
-        var legacy = db.Users.FirstOrDefault(u => u.Email == "admin@shakaba.local");
+        var legacy = db.Users.FirstOrDefault(u =>
+            u.Email == "admin@shakaba.local" || u.Email == "abohosam@shukaba.local");
         if (legacy is not null)
         {
             legacy.Email = adminEmail;
