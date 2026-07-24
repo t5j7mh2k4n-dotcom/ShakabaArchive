@@ -136,7 +136,26 @@ public static class DatabaseService
             UpgradeSchema(db);
         }
 
+        RemoveRetiredOccasionTypes(db);
         SeedIfEmpty(db);
+    }
+
+    /// <summary>حذف الطلاق والعزاء — اكتفاءً بنوع الوفاة.</summary>
+    private static void RemoveRetiredOccasionTypes(ArchiveDbContext db)
+    {
+        try
+        {
+            var retired = db.LifeEvents
+                .Where(e => e.Type == EventType.Divorce || e.Type == EventType.Condolence)
+                .ToList();
+            if (retired.Count == 0) return;
+            db.LifeEvents.RemoveRange(retired);
+            db.SaveChanges();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("RemoveRetiredOccasionTypes failed: " + ex.Message);
+        }
     }
 
     private static bool CanQueryPeople(ArchiveDbContext db)

@@ -13,7 +13,7 @@ public class DetailsModel(ArchiveDbContext db) : PageModel
     public async Task<IActionResult> OnGetAsync(int id)
     {
         Person = await db.People.AsNoTracking()
-            .Include(p => p.Events)
+            .Include(p => p.Events.Where(e => e.Type != EventType.Divorce && e.Type != EventType.Condolence))
             .FirstOrDefaultAsync(p => p.Id == id);
         return Person is null ? NotFound() : Page();
     }

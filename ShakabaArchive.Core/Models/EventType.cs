@@ -60,8 +60,6 @@ public static class EventTypeLabels
         (EventType.Graduation, "تخرج", EventMood.Joy),
         (EventType.JoyCeremony, "مناسبة فرح عامة", EventMood.Joy),
         (EventType.Death, "وفاة", EventMood.Sorrow),
-        (EventType.Condolence, "عزاء / مناسبة ترح", EventMood.Sorrow),
-        (EventType.Divorce, "طلاق", EventMood.Sorrow),
         (EventType.Migration, "هجرة / انتقال", EventMood.Neutral),
         (EventType.Other, "مناسبة أخرى", EventMood.Neutral)
     ];

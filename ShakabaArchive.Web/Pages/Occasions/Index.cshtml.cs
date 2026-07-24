@@ -13,6 +13,7 @@ public class IndexModel(ArchiveDbContext db) : PageModel
     {
         Events = await db.LifeEvents.AsNoTracking()
             .Include(e => e.Person)
+            .Where(e => e.Type != EventType.Divorce && e.Type != EventType.Condolence)
             .OrderByDescending(e => e.EventDate)
             .ThenByDescending(e => e.Id)
             .Take(200)
