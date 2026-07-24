@@ -3,10 +3,10 @@
 <div class="row g-3">
     <div class="col-md-6">
         <label class="form-label">نوع المناسبة</label>
-        <select class="form-select" asp-for="Type" asp-items="Model.TypeOptions"></select>
+        <select class="form-select" asp-for="Type" asp-items="Model.TypeOptions" id="eventType"></select>
     </div>
     <div class="col-md-6">
-        <label class="form-label">التاريخ</label>
+        <label class="form-label">تاريخ المناسبة</label>
         <input class="form-control" asp-for="EventDate" type="date" />
     </div>
     <div class="col-md-6">
@@ -14,19 +14,129 @@
         <input class="form-control" asp-for="Place" />
     </div>
     <div class="col-md-6">
-        <label class="form-label">العنوان</label>
-        <input class="form-control" asp-for="Title" />
+        <label class="form-label">عنوان المناسبة</label>
+        <input class="form-control" asp-for="Title" placeholder="مثال: حفل زواج / تخرج / عزاء" />
     </div>
-    <div class="col-md-6">
-        <label class="form-label">الطرف الآخر / ذو صلة</label>
-        <input class="form-control" asp-for="RelatedPersonName" />
+
+    <div class="col-12 section-birth border rounded p-3" style="background:#f7fbf8">
+        <h2 class="h6 text-success mb-3">بيانات المولود الجديد (كاملة)</h2>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">اسم المولود</label>
+                <input class="form-control" asp-for="ChildFullName" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">النوع</label>
+                <select class="form-select" asp-for="ChildGender">
+                    <option>ذكر</option>
+                    <option>أنثى</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">الجنسية</label>
+                <input class="form-control" asp-for="ChildNationality" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">اسم الأم</label>
+                <input class="form-control" asp-for="MotherName" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">الرقم الوطني للمولود (إن وُجد)</label>
+                <input class="form-control" asp-for="ChildNationalId" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">القبيلة</label>
+                <input class="form-control" asp-for="ChildTribe" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">الحي</label>
+                <input class="form-control" asp-for="ChildNeighborhood" />
+            </div>
+            <div class="col-12">
+                <div class="form-check">
+                    <input class="form-check-input" asp-for="CreateChildPersonRecord" />
+                    <label class="form-check-label" asp-for="CreateChildPersonRecord">إنشاء سجل شخص جديد للمولود في الأرشيف</label>
+                </div>
+            </div>
+        </div>
     </div>
+
+    <div class="col-12 section-marriage border rounded p-3" style="background:#f7fbf8">
+        <h2 class="h6 text-success mb-3">بيانات الزواج / الخطوبة (كاملة)</h2>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">اسم الطرف الآخر</label>
+                <input class="form-control" asp-for="RelatedPersonName" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">اسم والد الطرف الآخر</label>
+                <input class="form-control" asp-for="RelatedFatherName" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">هاتف للتواصل</label>
+                <input class="form-control" asp-for="RelatedPhone" />
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 section-grad border rounded p-3" style="background:#f7fbf8">
+        <h2 class="h6 text-success mb-3">بيانات التخرج (كاملة)</h2>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">المؤسسة / الجامعة / المدرسة</label>
+                <input class="form-control" asp-for="Institution" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">التخصص</label>
+                <input class="form-control" asp-for="Specialty" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">الدرجة / الشهادة</label>
+                <input class="form-control" asp-for="Degree" placeholder="بكالوريوس، ثانوي، دبلوم..." />
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 section-general border rounded p-3" style="background:#f7fbf8">
+        <h2 class="h6 mb-3">بيانات مناسبة عامة (أفراح / أتراح)</h2>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">اسم ذو صلة</label>
+                <input class="form-control" name="RelatedPersonName" value="@Model.RelatedPersonName" id="RelatedGeneral" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">هاتف</label>
+                <input class="form-control" asp-for="RelatedPhone" />
+            </div>
+        </div>
+    </div>
+
     <div class="col-md-6">
         <label class="form-label">مصدر المعلومة</label>
         <input class="form-control" asp-for="SourceNote" />
     </div>
     <div class="col-12">
-        <label class="form-label">التفاصيل</label>
-        <textarea class="form-control" asp-for="Details" rows="3"></textarea>
+        <label class="form-label">تفاصيل المناسبة</label>
+        <textarea class="form-control" asp-for="Details" rows="4" placeholder="اكتب تفاصيل المناسبة كاملة..."></textarea>
     </div>
 </div>
+
+<script>
+(() => {
+  const typeEl = document.getElementById('eventType');
+  if (!typeEl) return;
+  const show = () => {
+    const v = parseInt(typeEl.value, 10);
+    const birth = document.querySelector('.section-birth');
+    const marriage = document.querySelector('.section-marriage');
+    const grad = document.querySelector('.section-grad');
+    const general = document.querySelector('.section-general');
+    if (birth) birth.style.display = v === 0 ? '' : 'none';
+    if (marriage) marriage.style.display = (v === 1 || v === 7) ? '' : 'none';
+    if (grad) grad.style.display = v === 6 ? '' : 'none';
+    if (general) general.style.display = (v === 0 || v === 1 || v === 7 || v === 6) ? 'none' : '';
+  };
+  typeEl.addEventListener('change', show);
+  show();
+})();
+</script>

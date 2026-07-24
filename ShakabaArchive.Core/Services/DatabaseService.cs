@@ -284,23 +284,35 @@ public static class DatabaseService
 
     private static void UpgradeSchema(ArchiveDbContext db)
     {
-        try
-        {
-            db.Database.ExecuteSqlRaw("ALTER TABLE People ADD COLUMN Tribe TEXT NOT NULL DEFAULT ''");
-        }
-        catch { /* already exists */ }
+        TryAlter(db, "ALTER TABLE People ADD COLUMN Tribe TEXT NOT NULL DEFAULT ''");
+        TryAlter(db, "ALTER TABLE People ADD COLUMN Neighborhood TEXT NOT NULL DEFAULT ''");
+        TryAlter(db, "ALTER TABLE People ADD COLUMN DocumentImagePath TEXT NOT NULL DEFAULT ''");
 
-        try
-        {
-            db.Database.ExecuteSqlRaw("ALTER TABLE People ADD COLUMN Neighborhood TEXT NOT NULL DEFAULT ''");
-        }
-        catch { /* already exists */ }
+        TryAlter(db, "ALTER TABLE LifeEvents ADD COLUMN Mood INTEGER NOT NULL DEFAULT 0");
+        TryAlter(db, "ALTER TABLE \"LifeEvents\" ADD COLUMN \"Mood\" integer NOT NULL DEFAULT 0");
 
-        try
-        {
-            db.Database.ExecuteSqlRaw("ALTER TABLE People ADD COLUMN DocumentImagePath TEXT NOT NULL DEFAULT ''");
-        }
-        catch { /* already exists */ }
+        TryAlter(db, "ALTER TABLE LifeEvents ADD COLUMN RelatedFatherName TEXT NOT NULL DEFAULT ''");
+        TryAlter(db, "ALTER TABLE \"LifeEvents\" ADD COLUMN \"RelatedFatherName\" text NOT NULL DEFAULT ''");
+        TryAlter(db, "ALTER TABLE LifeEvents ADD COLUMN RelatedPhone TEXT NOT NULL DEFAULT ''");
+        TryAlter(db, "ALTER TABLE \"LifeEvents\" ADD COLUMN \"RelatedPhone\" text NOT NULL DEFAULT ''");
+        TryAlter(db, "ALTER TABLE LifeEvents ADD COLUMN ChildFullName TEXT NOT NULL DEFAULT ''");
+        TryAlter(db, "ALTER TABLE \"LifeEvents\" ADD COLUMN \"ChildFullName\" text NOT NULL DEFAULT ''");
+        TryAlter(db, "ALTER TABLE LifeEvents ADD COLUMN ChildGender TEXT NOT NULL DEFAULT ''");
+        TryAlter(db, "ALTER TABLE \"LifeEvents\" ADD COLUMN \"ChildGender\" text NOT NULL DEFAULT ''");
+        TryAlter(db, "ALTER TABLE LifeEvents ADD COLUMN MotherName TEXT NOT NULL DEFAULT ''");
+        TryAlter(db, "ALTER TABLE \"LifeEvents\" ADD COLUMN \"MotherName\" text NOT NULL DEFAULT ''");
+        TryAlter(db, "ALTER TABLE LifeEvents ADD COLUMN Institution TEXT NOT NULL DEFAULT ''");
+        TryAlter(db, "ALTER TABLE \"LifeEvents\" ADD COLUMN \"Institution\" text NOT NULL DEFAULT ''");
+        TryAlter(db, "ALTER TABLE LifeEvents ADD COLUMN Specialty TEXT NOT NULL DEFAULT ''");
+        TryAlter(db, "ALTER TABLE \"LifeEvents\" ADD COLUMN \"Specialty\" text NOT NULL DEFAULT ''");
+        TryAlter(db, "ALTER TABLE LifeEvents ADD COLUMN Degree TEXT NOT NULL DEFAULT ''");
+        TryAlter(db, "ALTER TABLE \"LifeEvents\" ADD COLUMN \"Degree\" text NOT NULL DEFAULT ''");
+    }
+
+    private static void TryAlter(ArchiveDbContext db, string sql)
+    {
+        try { db.Database.ExecuteSqlRaw(sql); }
+        catch { /* column may already exist or provider syntax differs */ }
     }
 
     private static void SeedIfEmpty(ArchiveDbContext db)
@@ -329,6 +341,7 @@ public static class DatabaseService
             {
                 PersonId = sample.Id,
                 Type = EventType.Birth,
+                Mood = EventMood.Joy,
                 EventDate = sample.BirthDate,
                 Place = sample.BirthPlace,
                 Title = "ميلاد",

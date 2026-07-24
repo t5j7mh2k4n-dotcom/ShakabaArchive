@@ -29,9 +29,18 @@ public class EditModel(ArchiveDbContext db) : PageModel
             EventDate = ev.EventDate,
             Place = ev.Place,
             Title = ev.Title,
-            RelatedPersonName = ev.RelatedPersonName,
             Details = ev.Details,
-            SourceNote = ev.SourceNote
+            RelatedPersonName = ev.RelatedPersonName,
+            RelatedFatherName = ev.RelatedFatherName,
+            RelatedPhone = ev.RelatedPhone,
+            ChildFullName = ev.ChildFullName,
+            ChildGender = string.IsNullOrWhiteSpace(ev.ChildGender) ? "ذكر" : ev.ChildGender,
+            MotherName = ev.MotherName,
+            Institution = ev.Institution,
+            Specialty = ev.Specialty,
+            Degree = ev.Degree,
+            SourceNote = ev.SourceNote,
+            CreateChildPersonRecord = false
         };
         return Page();
     }
@@ -42,11 +51,22 @@ public class EditModel(ArchiveDbContext db) : PageModel
         if (ev is null) return NotFound();
 
         ev.Type = Input.Type;
-        ev.EventDate = Input.EventDate;
+        ev.Mood = EventTypeLabels.MoodOf(Input.Type);
+        ev.EventDate = Input.EventDate.HasValue
+            ? DateTime.SpecifyKind(Input.EventDate.Value.Date, DateTimeKind.Utc)
+            : null;
         ev.Place = Input.Place.Trim();
         ev.Title = string.IsNullOrWhiteSpace(Input.Title) ? EventTypeLabels.ToArabic(Input.Type) : Input.Title.Trim();
-        ev.RelatedPersonName = Input.RelatedPersonName.Trim();
         ev.Details = Input.Details.Trim();
+        ev.RelatedPersonName = Input.RelatedPersonName.Trim();
+        ev.RelatedFatherName = Input.RelatedFatherName.Trim();
+        ev.RelatedPhone = Input.RelatedPhone.Trim();
+        ev.ChildFullName = Input.ChildFullName.Trim();
+        ev.ChildGender = Input.ChildGender.Trim();
+        ev.MotherName = Input.MotherName.Trim();
+        ev.Institution = Input.Institution.Trim();
+        ev.Specialty = Input.Specialty.Trim();
+        ev.Degree = Input.Degree.Trim();
         ev.SourceNote = Input.SourceNote.Trim();
         await db.SaveChangesAsync();
         return RedirectToPage("/People/Details", new { id = PersonId });

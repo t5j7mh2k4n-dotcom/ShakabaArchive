@@ -60,6 +60,7 @@
                     {
                         <td>
                             <div class="d-flex gap-1 flex-wrap">
+                                <a class="btn btn-sm btn-soft" asp-page="/Occasions/Create" asp-route-personId="@p.Id">مناسبة</a>
                                 <a class="btn btn-sm btn-soft" asp-page="Edit" asp-route-id="@p.Id">تعديل</a>
                                 <form method="post" asp-page-handler="Delete" class="d-inline"
                                       onsubmit="return confirm('حذف هذا السجل وجميع مناسباته؟');">

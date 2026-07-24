@@ -14,10 +14,12 @@
         <nav class="d-flex flex-wrap gap-3 align-items-center">
             <a asp-page="/Index">الرئيسية</a>
             <a asp-page="/People/Index">السجلات</a>
+            <a asp-page="/Occasions/Index">المناسبات</a>
             <a class="btn-whatsapp-nav" href="@WhatsAppShare.SiteShareUrl()" target="_blank" rel="noopener">واتساب</a>
             @if (User.Identity?.IsAuthenticated == true)
             {
                 <a asp-page="/People/Create">إضافة شخص</a>
+                <a asp-page="/Occasions/Create">إضافة مناسبة</a>
                 @if (User.IsInRole("Admin"))
                 {
                     <a asp-page="/Account/Invites">أرقام الدعوة</a>

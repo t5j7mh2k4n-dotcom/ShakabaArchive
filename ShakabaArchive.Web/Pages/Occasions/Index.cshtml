@@ -1,0 +1,56 @@
+@page
+@model ShakabaArchive.Web.Pages.Occasions.IndexModel
+@{
+    ViewData["Title"] = "المناسبات";
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <h1 class="h3 mb-0">سجل المناسبات</h1>
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <a class="btn btn-accent" asp-page="Create">إضافة مناسبة</a>
+    }
+</div>
+
+<div class="card-panel">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead>
+            <tr>
+                <th>النوع</th>
+                <th>التصنيف</th>
+                <th>العنوان</th>
+                <th>الشخص</th>
+                <th>التاريخ</th>
+                <th>المكان</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var e in Model.Events)
+            {
+                <tr>
+                    <td>@EventTypeLabels.ToArabic(e.Type)</td>
+                    <td>
+                        <span class="badge @(e.Mood == EventMood.Sorrow ? "text-bg-danger" : "badge-soft")">
+                            @EventTypeLabels.MoodArabic(e.Mood)
+                        </span>
+                    </td>
+                    <td>@e.Title</td>
+                    <td>
+                        @if (e.Person is not null)
+                        {
+                            <a asp-page="/People/Details" asp-route-id="@e.PersonId">@e.Person.FullName</a>
+                        }
+                    </td>
+                    <td>@(e.EventDate?.ToString("yyyy-MM-dd") ?? "—")</td>
+                    <td>@e.Place</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+    @if (Model.Events.Count == 0)
+    {
+        <p class="muted mt-3 mb-0">لا توجد مناسبات بعد.</p>
+    }
+</div>

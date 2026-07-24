@@ -36,6 +36,8 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AuthorizeFolder("/People");
     options.Conventions.AllowAnonymousToPage("/People/Index");
     options.Conventions.AllowAnonymousToPage("/People/Details");
+    options.Conventions.AuthorizeFolder("/Occasions");
+    options.Conventions.AllowAnonymousToPage("/Occasions/Index");
     options.Conventions.AuthorizePage("/Account/Invites");
 });
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)

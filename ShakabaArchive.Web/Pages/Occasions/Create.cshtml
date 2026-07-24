@@ -1,0 +1,52 @@
+@page
+@model ShakabaArchive.Web.Pages.Occasions.CreateModel
+@{
+    ViewData["Title"] = "إضافة مناسبة";
+}
+
+<div class="card-panel mb-3">
+    <h1 class="h4 mb-2">إضافة مناسبة اجتماعية</h1>
+    <p class="muted mb-0">مولود جديد، زواج، تخرج، أفراح أو أتراح — ببيانات كاملة.</p>
+</div>
+
+<div class="row g-2 mb-3">
+    @foreach (var t in EventTypeLabels.All)
+    {
+        var cls = t.Mood == EventMood.Sorrow ? "btn-outline-danger" : "btn-outline-success";
+        <div class="col-6 col-md-4 col-lg-3">
+            <a class="btn @cls w-100 py-3"
+               asp-page="/Occasions/Create"
+               asp-route-type="@((int)t.Value)"
+               asp-route-personId="@Model.PersonId">
+                @t.Label
+                <div class="small">@EventTypeLabels.MoodArabic(t.Mood)</div>
+            </a>
+        </div>
+    }
+</div>
+
+<div class="card-panel">
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger">@Model.ErrorMessage</div>
+    }
+    <form method="post">
+        <div class="mb-3">
+            <label class="form-label">صاحب المناسبة (من السجلات)</label>
+            <select class="form-select" asp-for="PersonId" asp-items="Model.PersonOptions">
+                <option value="">— اختر شخصاً —</option>
+            </select>
+            <div class="form-text">
+                إن لم يوجد السجل:
+                <a asp-page="/People/Create">أضف شخصاً أولاً</a>
+            </div>
+        </div>
+
+        <partial name="/Pages/People/Events/_EventForm.cshtml" for="Input" />
+
+        <div class="d-flex gap-2 mt-3">
+            <button class="btn btn-accent" type="submit">حفظ المناسبة</button>
+            <a class="btn btn-soft" asp-page="/People/Index">رجوع للسجلات</a>
+        </div>
+    </form>
+</div>

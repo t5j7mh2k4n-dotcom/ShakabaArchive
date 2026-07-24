@@ -25,8 +25,8 @@ public sealed class EventEditForm : Form
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
 
-        foreach (var (value, label) in EventTypeLabels.All)
-            _type.Items.Add(new TypeItem(value, label));
+        foreach (var item in EventTypeLabels.All)
+            _type.Items.Add(new TypeItem(item.Value, item.Label));
         _type.DisplayMember = nameof(TypeItem.Label);
         _type.SelectedIndex = 0;
         _place.Text = "الشكابة شاع الدين";

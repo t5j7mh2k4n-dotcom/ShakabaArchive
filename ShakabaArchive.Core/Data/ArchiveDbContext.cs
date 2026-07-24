@@ -44,7 +44,17 @@ public class ArchiveDbContext : DbContext
             e.Property(x => x.Title).HasMaxLength(200);
             e.Property(x => x.Place).HasMaxLength(200);
             e.Property(x => x.RelatedPersonName).HasMaxLength(200);
+            e.Property(x => x.RelatedFatherName).HasMaxLength(120);
+            e.Property(x => x.RelatedPhone).HasMaxLength(40);
+            e.Property(x => x.ChildFullName).HasMaxLength(200);
+            e.Property(x => x.ChildGender).HasMaxLength(20);
+            e.Property(x => x.MotherName).HasMaxLength(120);
+            e.Property(x => x.Institution).HasMaxLength(200);
+            e.Property(x => x.Specialty).HasMaxLength(200);
+            e.Property(x => x.Degree).HasMaxLength(120);
             e.Property(x => x.SourceNote).HasMaxLength(300);
+            e.HasIndex(x => x.Type);
+            e.HasIndex(x => x.Mood);
         });
     }
 }

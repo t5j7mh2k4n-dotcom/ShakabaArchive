@@ -1,17 +1,6 @@
 @page
 @model ShakabaArchive.Web.Pages.People.Events.CreateModel
 @{
-    ViewData["Title"] = "مناسبة جديدة";
+    // يتم التحويل إلى صفحة المناسبات الشاملة
 }
-
-<div class="card-panel">
-    <h1 class="h4 mb-3">إضافة مناسبة — @Model.PersonName</h1>
-    <form method="post">
-        <input type="hidden" asp-for="PersonId" />
-        <partial name="_EventForm" for="Input" />
-        <div class="d-flex gap-2 mt-3">
-            <button class="btn btn-accent" type="submit">حفظ</button>
-            <a class="btn btn-soft" asp-page="/People/Details" asp-route-id="@Model.PersonId">إلغاء</a>
-        </div>
-    </form>
-</div>
+<p class="muted">جاري التحويل لإضافة المناسبة...</p>

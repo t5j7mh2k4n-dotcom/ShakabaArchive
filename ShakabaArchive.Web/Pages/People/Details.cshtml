@@ -27,7 +27,7 @@ else
             @if (User.Identity?.IsAuthenticated == true)
             {
                 <a class="btn btn-accent" asp-page="Edit" asp-route-id="@p.Id">تعديل</a>
-                <a class="btn btn-soft" asp-page="/People/Events/Create" asp-route-personId="@p.Id">مناسبة جديدة</a>
+                <a class="btn btn-soft" asp-page="/Occasions/Create" asp-route-personId="@p.Id">مناسبة جديدة</a>
             }
         </div>
     </div>
@@ -49,7 +49,13 @@ else
             </div>
 
             <div class="card-panel mt-3">
-                <h2 class="h5 mb-3">المناسبات الاجتماعية</h2>
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                <h2 class="h5 mb-0">المناسبات الاجتماعية</h2>
+                @if (User.Identity?.IsAuthenticated == true)
+                {
+                    <a class="btn btn-sm btn-accent" asp-page="/Occasions/Create" asp-route-personId="@p.Id">إضافة مناسبة</a>
+                }
+            </div>
                 @if (p.Events.Count == 0)
                 {
                     <p class="muted mb-0">لا توجد مناسبات مسجّلة.</p>
@@ -61,6 +67,7 @@ else
                             <thead>
                             <tr>
                                 <th>النوع</th>
+                                <th>التصنيف</th>
                                 <th>التاريخ</th>
                                 <th>المكان</th>
                                 <th>التفاصيل</th>
@@ -75,9 +82,28 @@ else
                             {
                                 <tr>
                                     <td>@EventTypeLabels.ToArabic(e.Type)</td>
+                                    <td>@EventTypeLabels.MoodArabic(e.Mood)</td>
                                     <td>@(e.EventDate?.ToString("yyyy-MM-dd") ?? "—")</td>
                                     <td>@e.Place</td>
-                                    <td>@e.Title @(string.IsNullOrWhiteSpace(e.RelatedPersonName) ? "" : $"— {e.RelatedPersonName}")</td>
+                                    <td>
+                                        <div>@e.Title</div>
+                                        @if (!string.IsNullOrWhiteSpace(e.RelatedPersonName))
+                                        {
+                                            <div class="small muted">ذو صلة: @e.RelatedPersonName @e.RelatedFatherName</div>
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(e.ChildFullName))
+                                        {
+                                            <div class="small muted">المولود: @e.ChildFullName (@e.ChildGender)</div>
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(e.Institution))
+                                        {
+                                            <div class="small muted">@e.Institution — @e.Specialty — @e.Degree</div>
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(e.Details))
+                                        {
+                                            <div class="small">@e.Details</div>
+                                        }
+                                    </td>
                                     @if (User.Identity?.IsAuthenticated == true)
                                     {
                                         <td>
