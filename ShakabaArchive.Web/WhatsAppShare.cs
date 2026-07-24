@@ -4,7 +4,7 @@ namespace ShakabaArchive.Web;
 
 public static class WhatsAppShare
 {
-    public const string PublicSiteUrl = "https://shakabaarchive.onrender.com";
+    public const string PublicSiteUrl = "https://shukabaarchive.onrender.com";
 
     public static string SiteShareUrl()
     {
