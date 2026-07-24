@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+**/.vs/
+**/App_Data/
+**/uploads/*
+!**/uploads/.gitkeep
+**/*.user
+**/*.db
+.env
+ShakabaArchive.Web/appsettings.json

@@ -1,0 +1,63 @@
+@page
+@model ShakabaArchive.Web.Pages.People.IndexModel
+@{
+    ViewData["Title"] = "السجلات";
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <h1 class="h3 mb-0">سجلات الأرشيف</h1>
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <a class="btn btn-accent" asp-page="Create">إضافة شخص</a>
+    }
+</div>
+
+<form method="get" class="card-panel mb-3">
+    <div class="row g-2 search-bar">
+        <div class="col-md-6">
+            <input class="form-control" name="q" value="@Model.Q" placeholder="بحث..." />
+        </div>
+        <div class="col-md-4">
+            <select class="form-select" name="nationality" asp-items="Model.NationalityOptions">
+                <option value="">كل الجنسيات</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button class="btn btn-soft w-100" type="submit">تصفية</button>
+        </div>
+    </div>
+</form>
+
+<div class="card-panel">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead>
+            <tr>
+                <th>الاسم</th>
+                <th>الرقم الوطني</th>
+                <th>الجنسية</th>
+                <th>القبيلة</th>
+                <th>الحي</th>
+                <th>المناسبات</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var p in Model.People)
+            {
+                <tr>
+                    <td><a asp-page="Details" asp-route-id="@p.Id">@p.FullName</a></td>
+                    <td>@p.NationalId</td>
+                    <td>@p.Nationality</td>
+                    <td>@p.Tribe</td>
+                    <td>@p.Neighborhood</td>
+                    <td><span class="badge badge-soft">@p.Events.Count</span></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+    @if (Model.People.Count == 0)
+    {
+        <p class="muted mt-3 mb-0">لا توجد نتائج.</p>
+    }
+</div>

@@ -1,0 +1,118 @@
+:root {
+  --bg: #f3efe6;
+  --panel: #fffcf7;
+  --ink: #1f2924;
+  --muted: #5f6b63;
+  --accent: #2e5a4a;
+  --accent-soft: #d6e4dc;
+  --line: #d7d0c3;
+}
+
+html, body {
+  background:
+    radial-gradient(circle at 10% 0%, #e7efe9 0%, transparent 45%),
+    radial-gradient(circle at 90% 10%, #efe6d7 0%, transparent 40%),
+    var(--bg);
+  color: var(--ink);
+  font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+  min-height: 100%;
+}
+
+.site-header {
+  background: linear-gradient(120deg, #234a3d, #2e5a4a 55%, #3a6b57);
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(35, 74, 61, 0.18);
+}
+
+.brand {
+  color: #fff;
+  font-weight: 700;
+  font-size: 1.25rem;
+  text-decoration: none;
+}
+
+.site-header a {
+  color: #e8f2ec;
+  text-decoration: none;
+}
+
+.site-header a:hover { color: #fff; }
+
+.btn-login {
+  background: rgba(255,255,255,0.14);
+  border: 1px solid rgba(255,255,255,0.28);
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+}
+
+.site-footer {
+  color: var(--muted);
+  border-top: 1px solid var(--line);
+  margin-top: 2rem;
+  font-size: 0.92rem;
+}
+
+.hero {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 2rem;
+  margin-bottom: 1.5rem;
+}
+
+.hero h1 {
+  color: var(--accent);
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.muted { color: var(--muted); }
+
+.card-panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 1.25rem;
+}
+
+.table thead th {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+}
+
+.btn-accent {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+}
+
+.btn-accent:hover {
+  background: #24493c;
+  color: #fff;
+}
+
+.btn-soft {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border: none;
+}
+
+.search-bar .form-control,
+.search-bar .form-select {
+  border-color: var(--line);
+}
+
+.doc-preview {
+  max-width: 280px;
+  max-height: 320px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  object-fit: contain;
+  background: #fff;
+}
+
+.badge-soft {
+  background: var(--accent-soft);
+  color: var(--accent);
+}

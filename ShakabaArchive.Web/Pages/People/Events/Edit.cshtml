@@ -1,0 +1,20 @@
+@page "{id:int}"
+@model ShakabaArchive.Web.Pages.People.Events.EditModel
+@{
+    ViewData["Title"] = "تعديل مناسبة";
+}
+
+<div class="card-panel">
+    <h1 class="h4 mb-3">تعديل مناسبة</h1>
+    <form method="post">
+        <input type="hidden" asp-for="Id" />
+        <input type="hidden" asp-for="PersonId" />
+        <partial name="_EventForm" for="Input" />
+        <div class="d-flex gap-2 mt-3">
+            <button class="btn btn-accent" type="submit">حفظ</button>
+            <a class="btn btn-soft" asp-page="/People/Details" asp-route-id="@Model.PersonId">إلغاء</a>
+            <button class="btn btn-outline-danger ms-auto" type="submit" asp-page-handler="Delete"
+                    onclick="return confirm('حذف هذه المناسبة؟');">حذف</button>
+        </div>
+    </form>
+</div>

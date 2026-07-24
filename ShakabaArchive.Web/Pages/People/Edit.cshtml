@@ -1,0 +1,19 @@
+@page "{id:int}"
+@model ShakabaArchive.Web.Pages.People.EditModel
+@{
+    ViewData["Title"] = "تعديل شخص";
+}
+
+<div class="card-panel">
+    <h1 class="h4 mb-3">تعديل سجل شخص</h1>
+    <form method="post" enctype="multipart/form-data">
+        <input type="hidden" asp-for="Id" />
+        <partial name="_PersonForm" for="Input" />
+        <div class="d-flex gap-2 mt-3">
+            <button class="btn btn-accent" type="submit">حفظ التعديلات</button>
+            <a class="btn btn-soft" asp-page="Details" asp-route-id="@Model.Id">إلغاء</a>
+            <button class="btn btn-outline-danger ms-auto" type="submit" asp-page-handler="Delete"
+                    onclick="return confirm('حذف هذا الشخص وجميع مناسباته؟');">حذف</button>
+        </div>
+    </form>
+</div>

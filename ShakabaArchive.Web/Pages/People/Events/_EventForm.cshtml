@@ -1,0 +1,32 @@
+@model ShakabaArchive.Web.Pages.People.Events.EventFormModel
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <label class="form-label">نوع المناسبة</label>
+        <select class="form-select" asp-for="Type" asp-items="Model.TypeOptions"></select>
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">التاريخ</label>
+        <input class="form-control" asp-for="EventDate" type="date" />
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">المكان</label>
+        <input class="form-control" asp-for="Place" />
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">العنوان</label>
+        <input class="form-control" asp-for="Title" />
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">الطرف الآخر / ذو صلة</label>
+        <input class="form-control" asp-for="RelatedPersonName" />
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">مصدر المعلومة</label>
+        <input class="form-control" asp-for="SourceNote" />
+    </div>
+    <div class="col-12">
+        <label class="form-label">التفاصيل</label>
+        <textarea class="form-control" asp-for="Details" rows="3"></textarea>
+    </div>
+</div>

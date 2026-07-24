@@ -1,0 +1,42 @@
+@page
+@model ShakabaArchive.Web.Pages.Account.RegisterModel
+@{
+    ViewData["Title"] = "تسجيل مستخدم جديد";
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card-panel">
+            <h1 class="h4 mb-3">تسجيل مستخدم جديد</h1>
+            <p class="muted">يلزم <strong>رقم الدعوة</strong> الذي يعطيه أمين الأرشيف، مع البريد ورقم الهاتف.</p>
+            @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+            {
+                <div class="alert alert-danger">@Model.ErrorMessage</div>
+            }
+            <form method="post">
+                <div class="mb-3">
+                    <label class="form-label">رقم الدعوة</label>
+                    <input class="form-control" asp-for="InviteCode" placeholder="مثال: 48291357" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">الاسم</label>
+                    <input class="form-control" asp-for="DisplayName" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">البريد الإلكتروني</label>
+                    <input class="form-control" asp-for="Email" type="email" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">رقم الهاتف</label>
+                    <input class="form-control" asp-for="Phone" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">كلمة المرور</label>
+                    <input class="form-control" asp-for="Password" type="password" />
+                </div>
+                <button class="btn btn-accent w-100" type="submit">إنشاء الحساب</button>
+            </form>
+            <p class="mt-3 mb-0"><a asp-page="/Account/Login">رجوع لتسجيل الدخول</a></p>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,65 @@
+@page
+@model ShakabaArchive.Web.Pages.Account.InvitesModel
+@{
+    ViewData["Title"] = "أرقام الدعوة";
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div>
+        <h1 class="h4 mb-1">أرقام دعوة المستخدمين الجدد</h1>
+        <p class="muted mb-0">أنشئ رقماً وأرسله للمستخدم ليسجّل بالإيميل والهاتف. الملف محلي على جهازك.</p>
+    </div>
+</div>
+
+@if (!Model.IsAdmin)
+{
+    <div class="alert alert-warning">هذه الصفحة للأمين فقط.</div>
+}
+else
+{
+    <div class="card-panel mb-3">
+        <form method="post" class="row g-2 align-items-end">
+            <div class="col-md-8">
+                <label class="form-label">ملاحظة (اختياري)</label>
+                <input class="form-control" asp-for="Note" placeholder="مثال: دعوة لفلان" />
+            </div>
+            <div class="col-md-4">
+                <button class="btn btn-accent w-100" type="submit">إنشاء رقم جديد</button>
+            </div>
+        </form>
+        @if (!string.IsNullOrEmpty(Model.LastCreatedCode))
+        {
+            <div class="alert alert-success mt-3 mb-0">
+                الرقم الجديد: <strong style="font-size:1.3rem;letter-spacing:2px">@Model.LastCreatedCode</strong>
+                — انسخه وأرسله للمستخدم.
+            </div>
+        }
+    </div>
+
+    <div class="card-panel">
+        <h2 class="h6 mb-3">الأرقام</h2>
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead>
+                <tr>
+                    <th>الرقم</th>
+                    <th>ملاحظة</th>
+                    <th>الحالة</th>
+                    <th>تاريخ الإنشاء</th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var c in Model.Codes)
+                {
+                    <tr>
+                        <td><code>@c.Code</code></td>
+                        <td>@c.Note</td>
+                        <td>@(c.IsUsed ? "مستخدم" : "متاح")</td>
+                        <td>@c.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}

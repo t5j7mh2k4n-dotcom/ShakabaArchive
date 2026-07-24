@@ -1,0 +1,28 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>ShakabaArchive</RootNamespace>
+    <AssemblyName>ShakabaArchive</AssemblyName>
+    <Product>أرشيف الشكابة شاع الدين</Product>
+    <AssemblyTitle>أرشيف الشكابة شاع الدين</AssemblyTitle>
+    <Description>سجل أرشيفي إنساني لمواطني وسكان الشكابة شاع الدين — مواليد ومناسبات اجتماعية</Description>
+    <Version>1.0.0</Version>
+    <ApplicationHighDpiMode>SystemAware</ApplicationHighDpiMode>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ShakabaArchive.Core\ShakabaArchive.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

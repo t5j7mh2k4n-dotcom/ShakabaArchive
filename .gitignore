@@ -1,0 +1,13 @@
+**/bin/
+**/obj/
+**/.vs/
+**/App_Data/
+ShakabaArchive.Web/wwwroot/uploads/*
+!ShakabaArchive.Web/wwwroot/uploads/.gitkeep
+*.user
+*.db
+.env
+.DS_Store
+# لا ترفع كلمة سر قاعدة البيانات إلى GitHub
+ShakabaArchive.Web/appsettings.json
+ShakabaArchive/appsettings.json

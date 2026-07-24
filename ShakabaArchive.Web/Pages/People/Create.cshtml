@@ -1,0 +1,16 @@
+@page
+@model ShakabaArchive.Web.Pages.People.CreateModel
+@{
+    ViewData["Title"] = "إضافة شخص";
+}
+
+<div class="card-panel">
+    <h1 class="h4 mb-3">إضافة سجل شخص</h1>
+    <form method="post" enctype="multipart/form-data">
+        <partial name="_PersonForm" for="Input" />
+        <div class="d-flex gap-2 mt-3">
+            <button class="btn btn-accent" type="submit">حفظ</button>
+            <a class="btn btn-soft" asp-page="Index">إلغاء</a>
+        </div>
+    </form>
+</div>

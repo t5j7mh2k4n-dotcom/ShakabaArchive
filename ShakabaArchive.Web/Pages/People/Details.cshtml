@@ -1,0 +1,111 @@
+@page "{id:int}"
+@model ShakabaArchive.Web.Pages.People.DetailsModel
+@{
+    ViewData["Title"] = Model.Person?.FullName ?? "تفاصيل";
+    var p = Model.Person!;
+}
+
+@if (Model.Person is null)
+{
+    <div class="alert alert-warning">السجل غير موجود.</div>
+}
+else
+{
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+        <div>
+            <h1 class="h3 mb-1">@p.FullName</h1>
+            <div class="muted">@p.NationalId — @p.Nationality</div>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-soft" asp-page="Index">رجوع</a>
+            @if (User.Identity?.IsAuthenticated == true)
+            {
+                <a class="btn btn-accent" asp-page="Edit" asp-route-id="@p.Id">تعديل</a>
+                <a class="btn btn-soft" asp-page="/People/Events/Create" asp-route-personId="@p.Id">مناسبة جديدة</a>
+            }
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-lg-8">
+            <div class="card-panel">
+                <dl class="row mb-0">
+                    <dt class="col-sm-3">الأب</dt><dd class="col-sm-9">@p.FatherName</dd>
+                    <dt class="col-sm-3">الأم</dt><dd class="col-sm-9">@p.MotherName</dd>
+                    <dt class="col-sm-3">النوع</dt><dd class="col-sm-9">@p.Gender</dd>
+                    <dt class="col-sm-3">الميلاد</dt><dd class="col-sm-9">@(p.BirthDate?.ToString("yyyy-MM-dd") ?? "—") — @p.BirthPlace</dd>
+                    <dt class="col-sm-3">الإقامة</dt><dd class="col-sm-9">@p.Residence</dd>
+                    <dt class="col-sm-3">القبيلة</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.Tribe) ? "—" : p.Tribe)</dd>
+                    <dt class="col-sm-3">الحي</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.Neighborhood) ? "—" : p.Neighborhood)</dd>
+                    <dt class="col-sm-3">الهاتف</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.Phone) ? "—" : p.Phone)</dd>
+                    <dt class="col-sm-3">ملاحظات</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.Notes) ? "—" : p.Notes)</dd>
+                </dl>
+            </div>
+
+            <div class="card-panel mt-3">
+                <h2 class="h5 mb-3">المناسبات الاجتماعية</h2>
+                @if (p.Events.Count == 0)
+                {
+                    <p class="muted mb-0">لا توجد مناسبات مسجّلة.</p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table align-middle mb-0">
+                            <thead>
+                            <tr>
+                                <th>النوع</th>
+                                <th>التاريخ</th>
+                                <th>المكان</th>
+                                <th>التفاصيل</th>
+                                @if (User.Identity?.IsAuthenticated == true)
+                                {
+                                    <th></th>
+                                }
+                            </tr>
+                            </thead>
+                            <tbody>
+                            @foreach (var e in p.Events.OrderByDescending(x => x.EventDate))
+                            {
+                                <tr>
+                                    <td>@EventTypeLabels.ToArabic(e.Type)</td>
+                                    <td>@(e.EventDate?.ToString("yyyy-MM-dd") ?? "—")</td>
+                                    <td>@e.Place</td>
+                                    <td>@e.Title @(string.IsNullOrWhiteSpace(e.RelatedPersonName) ? "" : $"— {e.RelatedPersonName}")</td>
+                                    @if (User.Identity?.IsAuthenticated == true)
+                                    {
+                                        <td>
+                                            <a asp-page="/People/Events/Edit" asp-route-id="@e.Id">تعديل</a>
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card-panel">
+                <h2 class="h6 mb-3">صورة الوثيقة</h2>
+                @if (!string.IsNullOrWhiteSpace(p.DocumentImagePath))
+                {
+                    var ext = System.IO.Path.GetExtension(p.DocumentImagePath).ToLowerInvariant();
+                    if (ext == ".pdf")
+                    {
+                        <a href="~/uploads/@p.DocumentImagePath" target="_blank">فتح ملف PDF</a>
+                    }
+                    else
+                    {
+                        <img class="doc-preview w-100" src="~/uploads/@p.DocumentImagePath" alt="وثيقة" />
+                    }
+                }
+                else
+                {
+                    <p class="muted mb-0">لا توجد صورة مرفقة.</p>
+                }
+            </div>
+        </div>
+    </div>
+}

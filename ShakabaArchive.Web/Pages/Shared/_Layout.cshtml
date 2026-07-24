@@ -1,0 +1,50 @@
+﻿<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] — أرشيف الشكابة شاع الدين</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.rtl.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+<header class="site-header">
+    <div class="container py-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <a class="brand" asp-page="/Index">أرشيف الشكابة شاع الدين</a>
+        <nav class="d-flex flex-wrap gap-3 align-items-center">
+            <a asp-page="/Index">الرئيسية</a>
+            <a asp-page="/People/Index">السجلات</a>
+            @if (User.Identity?.IsAuthenticated == true)
+            {
+                <a asp-page="/People/Create">إضافة شخص</a>
+                @if (User.IsInRole("Admin"))
+                {
+                    <a asp-page="/Account/Invites">أرقام الدعوة</a>
+                }
+                <span class="muted">@User.Identity.Name</span>
+                <a asp-page="/Account/Logout">خروج</a>
+            }
+            else
+            {
+                <a asp-page="/Account/Register">تسجيل</a>
+                <a class="btn-login" asp-page="/Account/Login">دخول</a>
+            }
+        </nav>
+    </div>
+</header>
+
+<main class="container py-4">
+    @RenderBody()
+</main>
+
+<footer class="site-footer">
+    <div class="container py-3">
+        توثيق إنساني مجتمعي لسكان الشكابة شاع الدين — ليس بديلاً عن السجلات الرسمية.
+    </div>
+</footer>
+
+<script src="~/lib/jquery/dist/jquery.min.js"></script>
+<script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+@await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

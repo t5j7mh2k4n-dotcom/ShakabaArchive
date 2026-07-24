@@ -1,0 +1,67 @@
+@model ShakabaArchive.Web.Pages.People.PersonInput
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <label class="form-label">الرقم الوطني / الهوية</label>
+        <input class="form-control" asp-for="NationalId" />
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">الاسم الكامل</label>
+        <input class="form-control" asp-for="FullName" />
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">اسم الأب</label>
+        <input class="form-control" asp-for="FatherName" />
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">اسم الأم</label>
+        <input class="form-control" asp-for="MotherName" />
+    </div>
+    <div class="col-md-4">
+        <label class="form-label">الجنسية</label>
+        <input class="form-control" asp-for="Nationality" />
+    </div>
+    <div class="col-md-4">
+        <label class="form-label">النوع</label>
+        <select class="form-select" asp-for="Gender">
+            <option>ذكر</option>
+            <option>أنثى</option>
+        </select>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label">تاريخ الميلاد</label>
+        <input class="form-control" asp-for="BirthDate" type="date" />
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">مكان الميلاد</label>
+        <input class="form-control" asp-for="BirthPlace" />
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">مكان الإقامة</label>
+        <input class="form-control" asp-for="Residence" />
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">القبيلة</label>
+        <input class="form-control" asp-for="Tribe" />
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">الحي / الحلة</label>
+        <input class="form-control" asp-for="Neighborhood" />
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">الهاتف</label>
+        <input class="form-control" asp-for="Phone" />
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">صورة الوثيقة</label>
+        <input class="form-control" type="file" name="Document" accept=".jpg,.jpeg,.png,.webp,.gif,.pdf" />
+        @if (!string.IsNullOrWhiteSpace(Model?.DocumentImagePath))
+        {
+            <div class="form-text">الحالية: @Model.DocumentImagePath</div>
+        }
+    </div>
+    <div class="col-12">
+        <label class="form-label">ملاحظات</label>
+        <textarea class="form-control" asp-for="Notes" rows="3"></textarea>
+    </div>
+</div>

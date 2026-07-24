@@ -1,0 +1,76 @@
+﻿@page
+@model IndexModel
+@{
+    ViewData["Title"] = "الرئيسية";
+}
+
+<section class="hero">
+    <h1>أرشيف الشكابة شاع الدين</h1>
+    <p class="muted mb-3">سجل أرشيفي إنساني لمواليد ومناسبات مواطني وسكان المنطقة — البحث بالرقم الوطني أو الجنسية أو القبيلة أو الحي.</p>
+    <form method="get" asp-page="/People/Index" class="row g-2 search-bar">
+        <div class="col-md-8">
+            <input class="form-control form-control-lg" name="q" placeholder="رقم وطني، اسم، جنسية، قبيلة، حي..." />
+        </div>
+        <div class="col-md-4">
+            <button class="btn btn-accent btn-lg w-100" type="submit">بحث في الأرشيف</button>
+        </div>
+    </form>
+</section>
+
+<div class="row g-3">
+    <div class="col-md-4">
+        <div class="card-panel text-center">
+            <div class="display-6 text-success">@Model.PeopleCount</div>
+            <div class="muted">سجل شخص</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card-panel text-center">
+            <div class="display-6 text-success">@Model.EventsCount</div>
+            <div class="muted">مناسبة مؤرشفة</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card-panel text-center">
+            <div class="display-6 text-success">@Model.NationalitiesCount</div>
+            <div class="muted">جنسية</div>
+        </div>
+    </div>
+</div>
+
+<div class="card-panel mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="h5 mb-0">أحدث السجلات</h2>
+        <a asp-page="/People/Index">عرض الكل</a>
+    </div>
+    @if (Model.Recent.Count == 0)
+    {
+        <p class="muted mb-0">لا توجد سجلات بعد.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                <tr>
+                    <th>الاسم</th>
+                    <th>الرقم الوطني</th>
+                    <th>الجنسية</th>
+                    <th>الحي</th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var p in Model.Recent)
+                {
+                    <tr>
+                        <td><a asp-page="/People/Details" asp-route-id="@p.Id">@p.FullName</a></td>
+                        <td>@p.NationalId</td>
+                        <td>@p.Nationality</td>
+                        <td>@p.Neighborhood</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
