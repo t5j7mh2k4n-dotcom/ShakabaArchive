@@ -16,8 +16,14 @@ else
             <h1 class="h3 mb-1">@p.FullName</h1>
             <div class="muted">@p.NationalId — @p.Nationality</div>
         </div>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 flex-wrap">
             <a class="btn btn-soft" asp-page="Index">رجوع</a>
+            @{
+                var detailsUrl = $"{WhatsAppShare.PublicSiteUrl}/People/Details/{p.Id}";
+            }
+            <a class="btn btn-whatsapp"
+               href="@WhatsAppShare.PersonShareUrl(p.FullName, detailsUrl)"
+               target="_blank" rel="noopener">واتساب</a>
             @if (User.Identity?.IsAuthenticated == true)
             {
                 <a class="btn btn-accent" asp-page="Edit" asp-route-id="@p.Id">تعديل</a>

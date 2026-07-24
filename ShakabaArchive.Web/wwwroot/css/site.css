@@ -92,6 +92,30 @@ html, body {
   color: #fff;
 }
 
+.btn-whatsapp {
+  background: #25d366;
+  color: #fff !important;
+  border: none;
+  padding: 0.55rem 1rem;
+  border-radius: 999px;
+  text-decoration: none;
+  display: inline-block;
+  font-weight: 600;
+}
+
+.btn-whatsapp:hover {
+  background: #1ebe57;
+  color: #fff !important;
+}
+
+.btn-whatsapp-nav {
+  background: #25d366;
+  color: #fff !important;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.92rem;
+}
+
 .btn-soft {
   background: var(--accent-soft);
   color: var(--accent);

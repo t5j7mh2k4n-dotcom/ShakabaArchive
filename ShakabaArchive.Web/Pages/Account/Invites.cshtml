@@ -2,12 +2,13 @@
 @model ShakabaArchive.Web.Pages.Account.InvitesModel
 @{
     ViewData["Title"] = "أرقام الدعوة";
+    var registerUrl = $"{WhatsAppShare.PublicSiteUrl}/Account/Register";
 }
 
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
     <div>
         <h1 class="h4 mb-1">أرقام دعوة المستخدمين الجدد</h1>
-        <p class="muted mb-0">أنشئ رقماً وأرسله للمستخدم ليسجّل بالإيميل والهاتف. الملف محلي على جهازك.</p>
+        <p class="muted mb-0">أنشئ رقماً ثم أرسله عبر واتساب مع رابط التسجيل.</p>
     </div>
 </div>
 
@@ -30,8 +31,14 @@ else
         @if (!string.IsNullOrEmpty(Model.LastCreatedCode))
         {
             <div class="alert alert-success mt-3 mb-0">
-                الرقم الجديد: <strong style="font-size:1.3rem;letter-spacing:2px">@Model.LastCreatedCode</strong>
-                — انسخه وأرسله للمستخدم.
+                <div class="mb-2">
+                    الرقم الجديد: <strong style="font-size:1.3rem;letter-spacing:2px">@Model.LastCreatedCode</strong>
+                </div>
+                <a class="btn btn-whatsapp"
+                   href="@WhatsAppShare.InviteShareUrl(Model.LastCreatedCode, registerUrl)"
+                   target="_blank" rel="noopener">
+                    إرسال الرقم والرابط عبر واتساب
+                </a>
             </div>
         }
     </div>
@@ -46,6 +53,7 @@ else
                     <th>ملاحظة</th>
                     <th>الحالة</th>
                     <th>تاريخ الإنشاء</th>
+                    <th></th>
                 </tr>
                 </thead>
                 <tbody>
@@ -56,6 +64,14 @@ else
                         <td>@c.Note</td>
                         <td>@(c.IsUsed ? "مستخدم" : "متاح")</td>
                         <td>@c.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                        <td>
+                            @if (!c.IsUsed)
+                            {
+                                <a class="btn btn-sm btn-whatsapp"
+                                   href="@WhatsAppShare.InviteShareUrl(c.Code, registerUrl)"
+                                   target="_blank" rel="noopener">واتساب</a>
+                            }
+                        </td>
                     </tr>
                 }
                 </tbody>
