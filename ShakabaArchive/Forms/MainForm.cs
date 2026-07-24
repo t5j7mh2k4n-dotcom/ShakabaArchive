@@ -53,7 +53,7 @@ public sealed class MainForm : Form
         };
         var sub = new Label
         {
-            Text = "توثيق إنساني لمواطني وسكان المنطقة — البحث بالرقم الوطني أو الجنسية",
+            Text = "أرشيف إلكتروني خاص بمواطني الشكابة شاع الدين — إهداء إلى روح المرحوم عبدالمحمود محمد علي — تصميم عمر عبدالمحمود",
             Font = AppTheme.SmallFont,
             ForeColor = Color.FromArgb(220, 235, 228),
             AutoSize = true,

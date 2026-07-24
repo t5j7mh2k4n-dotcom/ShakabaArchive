@@ -29,7 +29,7 @@ public sealed class LoginForm : Form
 
         var sub = new Label
         {
-            Text = "الدخول بالبريد أو رقم الهاتف — المستخدمون على هذا الجهاز",
+            Text = "أرشيف إلكتروني خاص بمواطني الشكابة شاع الدين — إهداء إلى روح المرحوم عبدالمحمود محمد علي — تصميم عمر عبدالمحمود",
             Font = AppTheme.SmallFont,
             ForeColor = AppTheme.Muted,
             Dock = DockStyle.Top,
