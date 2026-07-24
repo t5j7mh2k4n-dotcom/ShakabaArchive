@@ -11,12 +11,10 @@ public sealed class PersonEditForm : Form
     private readonly TextBox _fullName = AppTheme.Field();
     private readonly TextBox _father = AppTheme.Field();
     private readonly TextBox _mother = AppTheme.Field();
-    private readonly TextBox _nationality = AppTheme.Field();
     private readonly ComboBox _gender = new() { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
     private readonly DateTimePicker _birth = new() { Format = DateTimePickerFormat.Short, Dock = DockStyle.Fill, ShowCheckBox = true };
     private readonly TextBox _birthPlace = AppTheme.Field();
     private readonly TextBox _residence = AppTheme.Field();
-    private readonly TextBox _tribe = AppTheme.Field();
     private readonly TextBox _neighborhood = AppTheme.Field();
     private readonly TextBox _phone = AppTheme.Field();
     private readonly TextBox _notes = AppTheme.Field();
@@ -28,13 +26,12 @@ public sealed class PersonEditForm : Form
         _id = id;
         AppTheme.ApplyForm(this);
         Text = id is null ? "إضافة سجل شخص" : "تعديل سجل شخص";
-        Size = new Size(580, 720);
+        Size = new Size(580, 640);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
 
         _gender.Items.AddRange(["ذكر", "أنثى"]);
         _gender.SelectedIndex = 0;
-        _nationality.Text = "سوداني";
         _birthPlace.Text = "الشكابة شاع الدين";
         _residence.Text = "الشكابة شاع الدين";
         _notes.Multiline = true;
@@ -47,38 +44,36 @@ public sealed class PersonEditForm : Form
             Dock = DockStyle.Fill,
             Padding = new Padding(16),
             ColumnCount = 2,
-            RowCount = 16
+            RowCount = 14
         };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 32));
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 68));
-        for (var i = 0; i < 15; i++)
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, i is 12 or 13 ? 56 : 34));
+        for (var i = 0; i < 13; i++)
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, i is 10 or 11 ? 56 : 34));
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
 
         AddRow(layout, 0, "الرقم الوطني / الهوية", _nationalId);
         AddRow(layout, 1, "الاسم الكامل", _fullName);
         AddRow(layout, 2, "اسم الأب", _father);
         AddRow(layout, 3, "اسم الأم", _mother);
-        AddRow(layout, 4, "الجنسية", _nationality);
-        AddRow(layout, 5, "النوع", _gender);
-        AddRow(layout, 6, "تاريخ الميلاد", _birth);
-        AddRow(layout, 7, "مكان الميلاد", _birthPlace);
-        AddRow(layout, 8, "مكان الإقامة", _residence);
-        AddRow(layout, 9, "القبيلة", _tribe);
-        AddRow(layout, 10, "الحي / الحلة", _neighborhood);
-        AddRow(layout, 11, "الهاتف", _phone);
-        AddRow(layout, 12, "ملاحظات", _notes);
-        AddRow(layout, 13, "صورة الوثيقة", _docPath);
+        AddRow(layout, 4, "النوع", _gender);
+        AddRow(layout, 5, "تاريخ الميلاد", _birth);
+        AddRow(layout, 6, "مكان الميلاد", _birthPlace);
+        AddRow(layout, 7, "مكان الإقامة", _residence);
+        AddRow(layout, 8, "الحي / الحلة", _neighborhood);
+        AddRow(layout, 9, "الهاتف", _phone);
+        AddRow(layout, 10, "ملاحظات", _notes);
+        AddRow(layout, 11, "صورة الوثيقة", _docPath);
         _browseDoc.Dock = DockStyle.Fill;
         _browseDoc.Click += (_, _) => BrowseDocument();
         layout.SetColumnSpan(_browseDoc, 2);
-        layout.Controls.Add(_browseDoc, 0, 14);
+        layout.Controls.Add(_browseDoc, 0, 12);
 
         var save = AppTheme.PrimaryButton("حفظ السجل");
         save.Dock = DockStyle.Fill;
         save.Click += (_, _) => Save();
         layout.SetColumnSpan(save, 2);
-        layout.Controls.Add(save, 0, 15);
+        layout.Controls.Add(save, 0, 13);
 
         Controls.Add(layout);
         if (id is not null)
@@ -128,7 +123,6 @@ public sealed class PersonEditForm : Form
         _fullName.Text = p.FullName;
         _father.Text = p.FatherName;
         _mother.Text = p.MotherName;
-        _nationality.Text = p.Nationality;
         _gender.SelectedItem = p.Gender;
         if (p.BirthDate is { } d)
         {
@@ -138,7 +132,6 @@ public sealed class PersonEditForm : Form
         else _birth.Checked = false;
         _birthPlace.Text = p.BirthPlace;
         _residence.Text = p.Residence;
-        _tribe.Text = p.Tribe;
         _neighborhood.Text = p.Neighborhood;
         _phone.Text = p.Phone;
         _notes.Text = p.Notes;
@@ -172,12 +165,12 @@ public sealed class PersonEditForm : Form
         person.FullName = _fullName.Text.Trim();
         person.FatherName = _father.Text.Trim();
         person.MotherName = _mother.Text.Trim();
-        person.Nationality = _nationality.Text.Trim();
+        person.Nationality = "";
         person.Gender = _gender.SelectedItem?.ToString() ?? "ذكر";
         person.BirthDate = _birth.Checked ? _birth.Value.Date : null;
         person.BirthPlace = _birthPlace.Text.Trim();
         person.Residence = _residence.Text.Trim();
-        person.Tribe = _tribe.Text.Trim();
+        person.Tribe = "";
         person.Neighborhood = _neighborhood.Text.Trim();
         person.Phone = _phone.Text.Trim();
         person.Notes = _notes.Text.Trim();

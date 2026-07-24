@@ -7,13 +7,14 @@ public class Person
     public string FullName { get; set; } = string.Empty;
     public string FatherName { get; set; } = string.Empty;
     public string MotherName { get; set; } = string.Empty;
-    public string Nationality { get; set; } = "سوداني";
+    /// <summary>حقل قديم — لم يعد يُعرض.</summary>
+    public string Nationality { get; set; } = "";
     public string Gender { get; set; } = "ذكر";
     public DateTime? BirthDate { get; set; }
     public string BirthPlace { get; set; } = "الشكابة شاع الدين";
     public string Residence { get; set; } = "الشكابة شاع الدين";
 
-    /// <summary>القبيلة أو العشيرة.</summary>
+    /// <summary>حقل قديم — لم يعد يُعرض.</summary>
     public string Tribe { get; set; } = string.Empty;
 
     /// <summary>الحي أو الحلة داخل الشكابة شاع الدين.</summary>

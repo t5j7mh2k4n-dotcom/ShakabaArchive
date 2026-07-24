@@ -36,14 +36,14 @@ public class CreateModel(ArchiveDbContext db) : PageModel
             FullName = Input.FullName,
             FatherName = Input.FatherName,
             MotherName = Input.MotherName,
-            Nationality = Input.Nationality,
+            Nationality = "",
             Gender = Input.Gender,
             BirthDate = Input.BirthDate.HasValue
                 ? DateTime.SpecifyKind(Input.BirthDate.Value.Date, DateTimeKind.Utc)
                 : null,
             BirthPlace = Input.BirthPlace,
             Residence = Input.Residence,
-            Tribe = Input.Tribe,
+            Tribe = "",
             Neighborhood = Input.Neighborhood,
             Phone = Input.Phone,
             Notes = Input.Notes,
@@ -80,7 +80,7 @@ public class PersonInput
 
     public string FatherName { get; set; } = "";
     public string MotherName { get; set; } = "";
-    public string Nationality { get; set; } = "سوداني";
+    public string Nationality { get; set; } = "";
     public string Gender { get; set; } = "ذكر";
     public DateTime? BirthDate { get; set; }
     public string BirthPlace { get; set; } = "الشكابة شاع الدين";

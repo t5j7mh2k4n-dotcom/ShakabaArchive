@@ -26,7 +26,7 @@
     </div>
     <form method="get" asp-page="/People/Index" class="row g-2 search-bar">
         <div class="col-md-8">
-            <input class="form-control form-control-lg" name="q" placeholder="رقم وطني، اسم، جنسية، قبيلة، حي..." />
+            <input class="form-control form-control-lg" name="q" placeholder="رقم وطني، اسم، مكان ميلاد، حي..." />
         </div>
         <div class="col-md-4">
             <button class="btn btn-accent btn-lg w-100" type="submit">بحث في الأرشيف</button>
@@ -54,8 +54,8 @@
     </div>
     <div class="col-md-4">
         <div class="card-panel text-center">
-            <div class="display-6 text-success">@Model.NationalitiesCount</div>
-            <div class="muted">جنسية</div>
+            <div class="display-6 text-success">@Model.BirthPlacesCount</div>
+            <div class="muted">مكان ميلاد</div>
         </div>
     </div>
 </div>
@@ -77,7 +77,7 @@
                 <tr>
                     <th>الاسم</th>
                     <th>الرقم الوطني</th>
-                    <th>الجنسية</th>
+                    <th>مكان الميلاد</th>
                     <th>الحي</th>
                 </tr>
                 </thead>
@@ -87,7 +87,7 @@
                     <tr>
                         <td><a asp-page="/People/Details" asp-route-id="@p.Id">@p.FullName</a></td>
                         <td>@p.NationalId</td>
-                        <td>@p.Nationality</td>
+                        <td>@p.BirthPlace</td>
                         <td>@p.Neighborhood</td>
                     </tr>
                 }

@@ -19,8 +19,8 @@
             <input class="form-control" name="q" value="@Model.Q" placeholder="بحث..." />
         </div>
         <div class="col-md-4">
-            <select class="form-select" name="nationality" asp-items="Model.NationalityOptions">
-                <option value="">كل الجنسيات</option>
+            <select class="form-select" name="birthPlace" asp-items="Model.BirthPlaceOptions">
+                <option value="">كل أماكن الميلاد</option>
             </select>
         </div>
         <div class="col-md-2">
@@ -36,8 +36,7 @@
             <tr>
                 <th>الاسم</th>
                 <th>الرقم الوطني</th>
-                <th>الجنسية</th>
-                <th>القبيلة</th>
+                <th>مكان الميلاد</th>
                 <th>الحي</th>
                 <th>المناسبات</th>
                 @if (canManage)
@@ -52,8 +51,7 @@
                 <tr>
                     <td><a asp-page="Details" asp-route-id="@p.Id">@p.FullName</a></td>
                     <td>@p.NationalId</td>
-                    <td>@p.Nationality</td>
-                    <td>@p.Tribe</td>
+                    <td>@p.BirthPlace</td>
                     <td>@p.Neighborhood</td>
                     <td><span class="badge badge-soft">@p.Events.Count</span></td>
                     @if (canManage)

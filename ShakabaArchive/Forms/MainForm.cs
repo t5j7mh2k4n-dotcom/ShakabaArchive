@@ -7,7 +7,7 @@ namespace ShakabaArchive.Forms;
 public sealed class MainForm : Form
 {
     private readonly TextBox _search = AppTheme.Field();
-    private readonly ComboBox _filterNationality = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 160 };
+    private readonly ComboBox _filterBirthPlace = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 180 };
     private readonly DataGridView _peopleGrid = new();
     private readonly DataGridView _eventsGrid = new();
     private readonly Label _status = new();
@@ -28,7 +28,7 @@ public sealed class MainForm : Form
 
         Load += (_, _) =>
         {
-            RefreshNationalities();
+            RefreshBirthPlaces();
             ReloadPeople();
         };
     }
@@ -90,7 +90,7 @@ public sealed class MainForm : Form
         };
 
         _search.Width = 220;
-        _search.PlaceholderText = "بحث: رقم وطني / اسم / جنسية / قبيلة / حي";
+        _search.PlaceholderText = "بحث: رقم وطني / اسم / مكان ميلاد / حي";
         _search.KeyDown += (_, e) =>
         {
             if (e.KeyCode == Keys.Enter)
@@ -100,9 +100,9 @@ public sealed class MainForm : Form
             }
         };
 
-        _filterNationality.Items.Add("كل الجنسيات");
-        _filterNationality.SelectedIndex = 0;
-        _filterNationality.SelectedIndexChanged += (_, _) => ReloadPeople();
+        _filterBirthPlace.Items.Add("كل أماكن الميلاد");
+        _filterBirthPlace.SelectedIndex = 0;
+        _filterBirthPlace.SelectedIndexChanged += (_, _) => ReloadPeople();
 
         var searchBtn = AppTheme.SecondaryButton("بحث");
         searchBtn.Width = 80;
@@ -115,7 +115,7 @@ public sealed class MainForm : Form
             using var f = new PersonEditForm();
             if (f.ShowDialog(this) == DialogResult.OK)
             {
-                RefreshNationalities();
+                RefreshBirthPlaces();
                 ReloadPeople();
             }
         };
@@ -144,7 +144,7 @@ public sealed class MainForm : Form
             using var f = new SettingsForm();
             if (f.ShowDialog(this) == DialogResult.OK)
             {
-                RefreshNationalities();
+                RefreshBirthPlaces();
                 ReloadPeople();
                 UpdateStatus();
             }
@@ -158,7 +158,7 @@ public sealed class MainForm : Form
         bar.Controls.Add(settingsBtn);
         bar.Controls.Add(searchBtn);
         bar.Controls.Add(_search);
-        bar.Controls.Add(_filterNationality);
+        bar.Controls.Add(_filterBirthPlace);
         return bar;
     }
 
@@ -231,47 +231,47 @@ public sealed class MainForm : Form
         _status.Text = $"التخزين: {DatabaseService.ProviderLabel}  |  المجلد: {DatabaseService.DataFolder}";
     }
 
-    private void RefreshNationalities()
+    private void RefreshBirthPlaces()
     {
-        var selected = _filterNationality.SelectedItem?.ToString();
+        var selected = _filterBirthPlace.SelectedItem?.ToString();
         using var db = DatabaseService.CreateContext();
         var list = db.People.AsNoTracking()
-            .Select(p => p.Nationality)
+            .Select(p => p.BirthPlace)
             .Where(n => n != null && n != "")
             .Distinct()
             .OrderBy(n => n)
             .ToList();
 
-        _filterNationality.Items.Clear();
-        _filterNationality.Items.Add("كل الجنسيات");
+        _filterBirthPlace.Items.Clear();
+        _filterBirthPlace.Items.Add("كل أماكن الميلاد");
         foreach (var n in list)
-            _filterNationality.Items.Add(n);
+            _filterBirthPlace.Items.Add(n);
 
         var idx = 0;
         if (!string.IsNullOrEmpty(selected))
         {
-            for (var i = 0; i < _filterNationality.Items.Count; i++)
+            for (var i = 0; i < _filterBirthPlace.Items.Count; i++)
             {
-                if (_filterNationality.Items[i]?.ToString() == selected)
+                if (_filterBirthPlace.Items[i]?.ToString() == selected)
                 {
                     idx = i;
                     break;
                 }
             }
         }
-        _filterNationality.SelectedIndex = idx;
+        _filterBirthPlace.SelectedIndex = idx;
     }
 
     private void ReloadPeople()
     {
         var q = _search.Text.Trim();
-        var nat = _filterNationality.SelectedItem?.ToString();
+        var place = _filterBirthPlace.SelectedItem?.ToString();
 
         using var db = DatabaseService.CreateContext();
         IQueryable<Person> query = db.People.AsNoTracking();
 
-        if (!string.IsNullOrEmpty(nat) && nat != "كل الجنسيات")
-            query = query.Where(p => p.Nationality == nat);
+        if (!string.IsNullOrEmpty(place) && place != "كل أماكن الميلاد")
+            query = query.Where(p => p.BirthPlace == place);
 
         if (!string.IsNullOrWhiteSpace(q))
         {
@@ -279,9 +279,8 @@ public sealed class MainForm : Form
                 p.NationalId.Contains(q) ||
                 p.FullName.Contains(q) ||
                 p.FatherName.Contains(q) ||
-                p.Nationality.Contains(q) ||
+                p.BirthPlace.Contains(q) ||
                 p.Residence.Contains(q) ||
-                p.Tribe.Contains(q) ||
                 p.Neighborhood.Contains(q));
         }
 
@@ -293,8 +292,7 @@ public sealed class MainForm : Form
                 الرقم_الوطني = p.NationalId,
                 الاسم = p.FullName,
                 الأب = p.FatherName,
-                الجنسية = p.Nationality,
-                القبيلة = p.Tribe,
+                مكان_الميلاد = p.BirthPlace,
                 الحي = p.Neighborhood,
                 النوع = p.Gender,
                 الميلاد = p.BirthDate,
@@ -336,7 +334,7 @@ public sealed class MainForm : Form
         var person = db.People.AsNoTracking().FirstOrDefault(p => p.Id == personId);
         if (person is null) return;
 
-        _personTitle.Text = $"{person.FullName}  —  {person.NationalId}  ({person.Nationality})";
+        _personTitle.Text = $"{person.FullName}  —  {person.NationalId}  ({person.BirthPlace})";
 
         var events = db.LifeEvents.AsNoTracking()
             .Where(e => e.PersonId == personId)
@@ -380,7 +378,7 @@ public sealed class MainForm : Form
         using var f = new PersonEditForm(id);
         if (f.ShowDialog(this) == DialogResult.OK)
         {
-            RefreshNationalities();
+            RefreshBirthPlaces();
             ReloadPeople();
         }
     }
@@ -398,7 +396,7 @@ public sealed class MainForm : Form
         if (p is null) return;
         db.People.Remove(p);
         db.SaveChanges();
-        RefreshNationalities();
+        RefreshBirthPlaces();
         ReloadPeople();
     }
 

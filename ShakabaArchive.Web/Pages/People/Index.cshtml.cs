@@ -10,31 +10,31 @@ namespace ShakabaArchive.Web.Pages.People;
 public class IndexModel(ArchiveDbContext db) : PageModel
 {
     public List<Person> People { get; private set; } = [];
-    public List<SelectListItem> NationalityOptions { get; private set; } = [];
+    public List<SelectListItem> BirthPlaceOptions { get; private set; } = [];
 
     [BindProperty(SupportsGet = true)]
     public string? Q { get; set; }
 
     [BindProperty(SupportsGet = true)]
-    public string? Nationality { get; set; }
+    public string? BirthPlace { get; set; }
 
     public async Task OnGetAsync()
     {
-        var nats = await db.People.AsNoTracking()
-            .Select(p => p.Nationality)
+        var places = await db.People.AsNoTracking()
+            .Select(p => p.BirthPlace)
             .Where(n => n != "")
             .Distinct()
             .OrderBy(n => n)
             .ToListAsync();
 
-        NationalityOptions = nats
-            .Select(n => new SelectListItem(n, n, n == Nationality))
+        BirthPlaceOptions = places
+            .Select(n => new SelectListItem(n, n, n == BirthPlace))
             .ToList();
 
         IQueryable<Person> query = db.People.AsNoTracking().Include(p => p.Events);
 
-        if (!string.IsNullOrWhiteSpace(Nationality))
-            query = query.Where(p => p.Nationality == Nationality);
+        if (!string.IsNullOrWhiteSpace(BirthPlace))
+            query = query.Where(p => p.BirthPlace == BirthPlace);
 
         if (!string.IsNullOrWhiteSpace(Q))
         {
@@ -43,8 +43,7 @@ public class IndexModel(ArchiveDbContext db) : PageModel
                 p.NationalId.Contains(q) ||
                 p.FullName.Contains(q) ||
                 p.FatherName.Contains(q) ||
-                p.Nationality.Contains(q) ||
-                p.Tribe.Contains(q) ||
+                p.BirthPlace.Contains(q) ||
                 p.Neighborhood.Contains(q) ||
                 p.Residence.Contains(q));
         }
@@ -59,10 +58,10 @@ public class IndexModel(ArchiveDbContext db) : PageModel
 
         var person = await db.People.Include(p => p.Events).FirstOrDefaultAsync(p => p.Id == id);
         if (person is null)
-            return RedirectToPage(new { q = Q, nationality = Nationality });
+            return RedirectToPage(new { q = Q, birthPlace = BirthPlace });
 
         db.People.Remove(person);
         await db.SaveChangesAsync();
-        return RedirectToPage(new { q = Q, nationality = Nationality });
+        return RedirectToPage(new { q = Q, birthPlace = BirthPlace });
     }
 }

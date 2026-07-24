@@ -344,12 +344,12 @@ public static class DatabaseService
                 FullName = "سجل تجريبي — احذفه بعد البدء",
                 FatherName = "—",
                 MotherName = "—",
-                Nationality = "سوداني",
+                Nationality = "",
                 Gender = "ذكر",
                 BirthDate = DateTime.SpecifyKind(new DateTime(1990, 1, 1), DateTimeKind.Utc),
                 BirthPlace = "الشكابة شاع الدين",
                 Residence = "الشكابة شاع الدين",
-                Tribe = "—",
+                Tribe = "",
                 Neighborhood = "—",
                 Notes = "هذا سجل توضيحي فقط."
             };

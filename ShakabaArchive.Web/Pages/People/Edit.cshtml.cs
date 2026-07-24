@@ -42,14 +42,14 @@ public class EditModel(ArchiveDbContext db) : PageModel
         draft.FullName = Input.FullName;
         draft.FatherName = Input.FatherName;
         draft.MotherName = Input.MotherName;
-        draft.Nationality = Input.Nationality;
+        draft.Nationality = "";
         draft.Gender = Input.Gender;
         draft.BirthDate = Input.BirthDate.HasValue
             ? DateTime.SpecifyKind(Input.BirthDate.Value.Date, DateTimeKind.Utc)
             : null;
         draft.BirthPlace = Input.BirthPlace;
         draft.Residence = Input.Residence;
-        draft.Tribe = Input.Tribe;
+        draft.Tribe = "";
         draft.Neighborhood = Input.Neighborhood;
         draft.Phone = Input.Phone;
         draft.Notes = Input.Notes;

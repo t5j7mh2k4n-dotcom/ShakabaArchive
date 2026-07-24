@@ -231,12 +231,12 @@ public static class ApprovalService
                     FullName = dto.ChildFullName.Trim(),
                     FatherName = parent.FullName,
                     MotherName = dto.MotherName?.Trim() ?? "",
-                    Nationality = string.IsNullOrWhiteSpace(dto.ChildNationality) ? "سوداني" : dto.ChildNationality.Trim(),
+                    Nationality = "",
                     Gender = string.IsNullOrWhiteSpace(dto.ChildGender) ? "ذكر" : dto.ChildGender,
                     BirthDate = dto.EventDate,
                     BirthPlace = dto.Place ?? "الشكابة شاع الدين",
                     Residence = parent.Residence,
-                    Tribe = dto.ChildTribe?.Trim() ?? "",
+                    Tribe = "",
                     Neighborhood = dto.ChildNeighborhood?.Trim() ?? "",
                     Notes = "أُضيف عبر مناسبة مولود جديد (بعد الاعتماد)",
                     CreatedAt = DateTime.UtcNow,
@@ -269,7 +269,7 @@ public class PersonDraft
     public string FullName { get; set; } = "";
     public string FatherName { get; set; } = "";
     public string MotherName { get; set; } = "";
-    public string Nationality { get; set; } = "سوداني";
+    public string Nationality { get; set; } = "";
     public string Gender { get; set; } = "ذكر";
     public DateTime? BirthDate { get; set; }
     public string BirthPlace { get; set; } = "الشكابة شاع الدين";

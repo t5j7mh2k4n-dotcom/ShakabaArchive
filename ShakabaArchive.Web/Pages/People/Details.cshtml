@@ -14,7 +14,7 @@ else
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
         <div>
             <h1 class="h3 mb-1">@p.FullName</h1>
-            <div class="muted">@p.NationalId — @p.Nationality</div>
+            <div class="muted">@p.NationalId — @p.BirthPlace</div>
         </div>
         <div class="d-flex gap-2 flex-wrap">
             <a class="btn btn-soft" asp-page="Index">رجوع</a>
@@ -39,9 +39,9 @@ else
                     <dt class="col-sm-3">الأب</dt><dd class="col-sm-9">@p.FatherName</dd>
                     <dt class="col-sm-3">الأم</dt><dd class="col-sm-9">@p.MotherName</dd>
                     <dt class="col-sm-3">النوع</dt><dd class="col-sm-9">@p.Gender</dd>
-                    <dt class="col-sm-3">الميلاد</dt><dd class="col-sm-9">@(p.BirthDate?.ToString("yyyy-MM-dd") ?? "—") — @p.BirthPlace</dd>
+                    <dt class="col-sm-3">تاريخ الميلاد</dt><dd class="col-sm-9">@(p.BirthDate?.ToString("yyyy-MM-dd") ?? "—")</dd>
+                    <dt class="col-sm-3">مكان الميلاد</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.BirthPlace) ? "—" : p.BirthPlace)</dd>
                     <dt class="col-sm-3">الإقامة</dt><dd class="col-sm-9">@p.Residence</dd>
-                    <dt class="col-sm-3">القبيلة</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.Tribe) ? "—" : p.Tribe)</dd>
                     <dt class="col-sm-3">الحي</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.Neighborhood) ? "—" : p.Neighborhood)</dd>
                     <dt class="col-sm-3">الهاتف</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.Phone) ? "—" : p.Phone)</dd>
                     <dt class="col-sm-3">ملاحظات</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.Notes) ? "—" : p.Notes)</dd>
