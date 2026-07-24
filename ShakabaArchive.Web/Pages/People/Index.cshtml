@@ -61,9 +61,9 @@
                                 <a class="btn btn-sm btn-soft" asp-page="/Occasions/Create" asp-route-personId="@p.Id">مناسبة</a>
                                 <a class="btn btn-sm btn-soft" asp-page="Edit" asp-route-id="@p.Id">تعديل</a>
                                 <form method="post" asp-page-handler="Delete" class="d-inline"
-                                      onsubmit="return confirm('حذف هذا السجل وجميع مناسباته؟');">
+                                      onsubmit="return confirm('إرسال طلب حذف هذا السجل؟ لن يُحذف إلا بعد موافقة أحد الثلاثة.');">
                                     <input type="hidden" name="id" value="@p.Id" />
-                                    <button type="submit" class="btn btn-sm btn-danger-soft">حذف</button>
+                                    <button type="submit" class="btn btn-sm btn-danger-soft">طلب حذف</button>
                                 </form>
                             </div>
                         </td>

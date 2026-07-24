@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using ShakabaArchive.Data;
 using ShakabaArchive.Models;
+using ShakabaArchive.Services;
+using ShakabaArchive.Web;
 
 namespace ShakabaArchive.Web.Pages.People;
 
@@ -53,15 +55,24 @@ public class IndexModel(ArchiveDbContext db) : PageModel
 
     public async Task<IActionResult> OnPostDeleteAsync(int id)
     {
-        if (User.Identity?.IsAuthenticated != true)
+        var appUser = User.CurrentAppUser();
+        if (appUser is null)
             return Forbid();
 
-        var person = await db.People.Include(p => p.Events).FirstOrDefaultAsync(p => p.Id == id);
+        var person = await db.People.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id);
         if (person is null)
             return RedirectToPage(new { q = Q, birthPlace = BirthPlace });
 
-        db.People.Remove(person);
-        await db.SaveChangesAsync();
-        return RedirectToPage(new { q = Q, birthPlace = BirthPlace });
+        await ApprovalService.SubmitAsync(
+            db,
+            appUser,
+            ChangeEntity.Person,
+            ChangeAction.Delete,
+            person.Id,
+            PersonDraft.From(person),
+            $"حذف: {person.FullName}");
+
+        TempData["Flash"] = "تم إرسال طلب الحذف بانتظار موافقة أحد الثلاثة على صحة البيانات.";
+        return RedirectToPage("/Approvals/Index");
     }
 }

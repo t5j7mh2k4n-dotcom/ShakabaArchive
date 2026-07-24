@@ -36,6 +36,26 @@ public class UsersModel : PageModel
         return RedirectToPage();
     }
 
+    public IActionResult OnPostSetPermissions(int userId, bool canApprove, bool isMainAdmin)
+    {
+        if (!User.IsInRole("Admin"))
+            return Forbid();
+
+        var role = isMainAdmin
+            ? UserRole.Admin
+            : canApprove
+                ? UserRole.Approver
+                : UserRole.Editor;
+
+        var (ok, error) = LocalUserService.SetUserRole(userId, role);
+        if (!ok)
+            TempData["FlashError"] = error;
+        else
+            TempData["Flash"] = "تم تحديث صلاحيات المستخدم.";
+
+        return RedirectToPage();
+    }
+
     private void Load()
     {
         Users = LocalUserService.ListUsers();

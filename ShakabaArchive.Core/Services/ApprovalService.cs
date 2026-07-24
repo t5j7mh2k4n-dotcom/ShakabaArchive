@@ -106,7 +106,7 @@ public static class ApprovalService
         string? note = null)
     {
         if (!reviewer.CanApprove)
-            return (false, "ليست لديك صلاحية الاعتماد.");
+            return (false, "ليست لديك صلاحية الموافقة على صحة البيانات.");
 
         var item = await db.PendingChanges.FirstOrDefaultAsync(x => x.Id == pendingId);
         if (item is null)
@@ -114,7 +114,7 @@ public static class ApprovalService
         if (item.Status != ChangeStatus.Pending)
             return (false, "تمت مراجعة هذا الطلب مسبقاً.");
         if (item.SubmittedByUserId == reviewer.Id && !reviewer.IsAdmin)
-            return (false, "لا يمكن اعتماد طلبك بنفسك — يعتمد أحد المخولين الآخرين.");
+            return (false, "لا يمكن اعتماد طلبك بنفسك — يوافق أحد الثلاثة الآخرين أو الأدمن الرئيسي.");
 
         try
         {

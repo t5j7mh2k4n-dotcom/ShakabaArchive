@@ -2,11 +2,11 @@ namespace ShakabaArchive.Models;
 
 public enum UserRole
 {
-    /// <summary>إدخال مؤقت فقط — ينتظر موافقة.</summary>
+    /// <summary>مدخل بيانات — لا يُحفظ إلا بعد موافقة أحد الثلاثة.</summary>
     Editor = 0,
-    /// <summary>من الثلاثة المخولين باعتماد الحفظ.</summary>
+    /// <summary>أحد الثلاثة الموافقين على صحة البيانات والحفظ.</summary>
     Approver = 1,
-    /// <summary>إدارة النظام + اعتماد.</summary>
+    /// <summary>الأدمن الرئيسي — يضيف المستخدمين والثلاثة الموافقين.</summary>
     Admin = 2
 }
 

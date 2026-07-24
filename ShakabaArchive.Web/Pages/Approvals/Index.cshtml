@@ -12,8 +12,8 @@
     string EntityAr(ChangeEntity e) => e == ChangeEntity.Person ? "شخص" : "مناسبة";
     string StatusAr(ChangeStatus s) => s switch
     {
-        ChangeStatus.Pending => "بانتظار الموافقة",
-        ChangeStatus.Approved => "معتمد",
+        ChangeStatus.Pending => "بانتظار موافقة أحد الثلاثة",
+        ChangeStatus.Approved => "تمت الموافقة وحُفظ",
         ChangeStatus.Rejected => "مرفوض",
         _ => s.ToString()
     };
@@ -21,9 +21,9 @@
 
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
     <div>
-        <h1 class="h4 mb-1">طلبات الحفظ والتعديل والحذف</h1>
+        <h1 class="h4 mb-1">الموافقة على صحة البيانات</h1>
         <p class="muted mb-0">
-            الإدخال مؤقت حتى يعتمد أحد المخولين الثلاثة (أو الأمين). لا يُحفظ في الأرشيف النهائي إلا بعد الموافقة.
+            ما يدخله المستخدمون يُحفظ مؤقتاً هنا. أي واحد من الثلاثة الموافقين (أو الأدمن الرئيسي) يعتمد صحة البيانات ليُرفع للأرشيف.
         </p>
     </div>
 </div>
@@ -40,7 +40,7 @@
 @if (!Model.CanReview)
 {
     <div class="alert alert-info">
-        أنت مدخل مؤقت: يمكنك إرسال الطلبات ومتابعة حالتها. الاعتماد من أحد المخولين الثلاثة فقط.
+        أنت مدخل بيانات: يمكنك الإدخال ومتابعة الطلبات. الحفظ النهائي بعد موافقة أحد الثلاثة فقط.
     </div>
 }
 
@@ -96,7 +96,7 @@
                                 {
                                     <form method="post" asp-page-handler="Approve" class="d-inline">
                                         <input type="hidden" name="id" value="@item.Id" />
-                                        <button class="btn btn-sm btn-accent" type="submit">اعتماد</button>
+                                        <button class="btn btn-sm btn-accent" type="submit">موافقة على صحة البيانات</button>
                                     </form>
                                     <form method="post" asp-page-handler="Reject" class="d-inline">
                                         <input type="hidden" name="id" value="@item.Id" />

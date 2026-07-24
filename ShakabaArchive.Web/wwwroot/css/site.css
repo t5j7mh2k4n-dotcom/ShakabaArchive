@@ -241,3 +241,37 @@ html, body {
   background: #e8bdb8;
   color: #6f2a24;
 }
+
+.perm-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem 1rem;
+  align-items: center;
+}
+
+.perm-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--ink);
+  cursor: pointer;
+  user-select: none;
+}
+
+.perm-check input[type="checkbox"] {
+  width: 1.15rem;
+  height: 1.15rem;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.perm-check input[type="checkbox"]:disabled {
+  cursor: default;
+  opacity: 0.85;
+}
+
+.table-admin-row td {
+  background: rgba(46, 90, 74, 0.06);
+}

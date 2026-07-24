@@ -29,7 +29,7 @@ public class IndexModel(ArchiveDbContext db) : PageModel
         if (!ok)
             TempData["FlashError"] = error;
         else
-            TempData["Flash"] = "تم اعتماد الطلب وتطبيق التغيير على الأرشيف.";
+            TempData["Flash"] = "تمت الموافقة على صحة البيانات وحفظها في الأرشيف.";
 
         return RedirectToPage();
     }

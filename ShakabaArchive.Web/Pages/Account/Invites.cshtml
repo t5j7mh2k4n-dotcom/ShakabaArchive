@@ -8,19 +8,19 @@
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
     <div>
         <h1 class="h4 mb-1">أرقام دعوة المستخدمين الجدد</h1>
-        <p class="muted mb-0">أنشئ رقماً مع الصلاحية المطلوبة، ثم أرسله عبر واتساب مع رابط التسجيل.</p>
+        <p class="muted mb-0">الأدمن الرئيسي يضيف المستخدمين والثلاثة الموافقين عبر رقم دعوة، ثم يرسله عبر واتساب.</p>
     </div>
 </div>
 
 @if (!Model.IsAdmin)
 {
-    <div class="alert alert-warning">هذه الصفحة للأمين فقط.</div>
+    <div class="alert alert-warning">هذه الصفحة للأدمن الرئيسي فقط.</div>
 }
 else
 {
     <div class="alert alert-info">
-        المخولون بالحفظ حالياً: <strong>@Model.ApproverCount</strong> / 3
-        — باقي الدعوات يُفضَّل أن تكون «مدخل مؤقت».
+        الموافقون على صحة البيانات: <strong>@Model.ApproverCount</strong> / 3
+        — باقي الدعوات لمدخلي البيانات (حفظهم بعد موافقة أحد الثلاثة).
     </div>
 
     <div class="card-panel mb-3">
@@ -32,8 +32,8 @@ else
             <div class="col-md-4">
                 <label class="form-label">صلاحية المستخدم الجديد</label>
                 <select class="form-select" asp-for="AssignRole">
-                    <option value="@((int)UserRole.Editor)">مدخل مؤقت (حتى الموافقة)</option>
-                    <option value="@((int)UserRole.Approver)">مخوّل بالحفظ (أحد الثلاثة)</option>
+                    <option value="@((int)UserRole.Editor)">مدخل بيانات (بعد موافقة أحد الثلاثة)</option>
+                    <option value="@((int)UserRole.Approver)">موافق على صحة البيانات (أحد الثلاثة)</option>
                 </select>
             </div>
             <div class="col-md-3">

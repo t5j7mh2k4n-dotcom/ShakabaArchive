@@ -214,17 +214,17 @@ public static class LocalUserService
     public static int CountApprovers()
     {
         using var db = CreateContext();
-        return db.Users.Count(u => u.Role == UserRole.Approver || u.Role == UserRole.Admin || u.IsAdmin);
+        // الثلاثة الموافقون فقط — الأدمن الرئيسي لا يُحسب ضمنهم
+        return db.Users.Count(u => u.Role == UserRole.Approver && !u.IsAdmin);
     }
 
     public static InviteCode CreateInvite(string? note = null, UserRole assignRole = UserRole.Editor)
     {
-        if (assignRole == UserRole.Approver || assignRole == UserRole.Admin)
+        if (assignRole == UserRole.Approver)
         {
-            var count = CountApprovers();
-            // عند إنشاء دعوة لمخوّل: نحسب الحاليين فقط؛ الاعتماد الفعلي عند التسجيل/التعيين
-            if (assignRole == UserRole.Approver && count >= ApprovalService.MaxApprovers)
-                throw new InvalidOperationException($"الحد الأقصى للمخولين بالحفظ هو {ApprovalService.MaxApprovers}.");
+            if (CountApprovers() >= ApprovalService.MaxApprovers)
+                throw new InvalidOperationException(
+                    $"الحد الأقصى للموافقين على صحة البيانات هو {ApprovalService.MaxApprovers}.");
         }
 
         using var db = CreateContext();
@@ -252,12 +252,21 @@ public static class LocalUserService
         var user = db.Users.FirstOrDefault(u => u.Id == userId);
         if (user is null) return (false, "المستخدم غير موجود.");
 
-        if (role is UserRole.Approver or UserRole.Admin)
+        var wasAdmin = user.IsAdmin || user.Role == UserRole.Admin;
+        if (wasAdmin && role != UserRole.Admin)
+        {
+            var otherAdmins = db.Users.Count(u =>
+                u.Id != userId && (u.IsAdmin || u.Role == UserRole.Admin));
+            if (otherAdmins == 0)
+                return (false, "لا يمكن إزالة الأدمن الرئيسي الوحيد.");
+        }
+
+        if (role == UserRole.Approver)
         {
             var others = db.Users.Count(u =>
-                u.Id != userId && (u.Role == UserRole.Approver || u.Role == UserRole.Admin || u.IsAdmin));
-            if (others >= ApprovalService.MaxApprovers && user.Role is not (UserRole.Approver or UserRole.Admin) && !user.IsAdmin)
-                return (false, $"لا يمكن تعيين أكثر من {ApprovalService.MaxApprovers} مخولين بالحفظ.");
+                u.Id != userId && u.Role == UserRole.Approver && !u.IsAdmin);
+            if (others >= ApprovalService.MaxApprovers && user.Role != UserRole.Approver)
+                return (false, $"لا يمكن تعيين أكثر من {ApprovalService.MaxApprovers} موافقين على صحة البيانات.");
         }
 
         user.Role = role;
@@ -269,7 +278,12 @@ public static class LocalUserService
     public static List<AppUser> ListUsers()
     {
         using var db = CreateContext();
-        return db.Users.AsNoTracking().OrderByDescending(u => u.Role).ThenBy(u => u.DisplayName).ToList();
+        // الأدمن الرئيسي أولاً، ثم الثلاثة الموافقون، ثم مدخلو البيانات
+        return db.Users.AsNoTracking()
+            .OrderByDescending(u => u.IsAdmin || u.Role == UserRole.Admin)
+            .ThenByDescending(u => u.Role == UserRole.Approver)
+            .ThenBy(u => u.DisplayName)
+            .ToList();
     }
 
     public static AppUser? FindById(int id)
@@ -313,10 +327,10 @@ public static class LocalUserService
         if (db.Users.Any(u => u.Phone == phone))
             return (false, "رقم الهاتف مسجّل مسبقاً.", null);
 
-        var role = invite.AssignRole;
-        if (role is UserRole.Approver or UserRole.Admin)
+        var role = invite.AssignRole == UserRole.Admin ? UserRole.Approver : invite.AssignRole;
+        if (role == UserRole.Approver)
         {
-            var approvers = db.Users.Count(u => u.Role == UserRole.Approver || u.Role == UserRole.Admin || u.IsAdmin);
+            var approvers = db.Users.Count(u => u.Role == UserRole.Approver && !u.IsAdmin);
             if (approvers >= ApprovalService.MaxApprovers)
                 role = UserRole.Editor;
         }

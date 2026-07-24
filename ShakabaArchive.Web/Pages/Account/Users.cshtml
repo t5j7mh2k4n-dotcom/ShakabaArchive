@@ -7,13 +7,14 @@
 <div class="mb-3">
     <h1 class="h4 mb-1">المستخدمون والصلاحيات</h1>
     <p class="muted mb-0">
-        ثلاثة مخولين بالحفظ كحد أقصى (يشمل الأمين). الباقون مدخلون مؤقتون — طلباتهم تنتظر الموافقة.
+        الأدمن الرئيسي يظهر أولاً ويضيف المستخدمين والثلاثة الموافقين.
+        بيانات مدخلي البيانات لا تُحفظ في الأرشيف إلا بعد موافقة أحد الثلاثة.
     </p>
 </div>
 
 @if (!User.IsInRole("Admin"))
 {
-    <div class="alert alert-warning">هذه الصفحة للأمين فقط.</div>
+    <div class="alert alert-warning">هذه الصفحة للأدمن الرئيسي فقط.</div>
 }
 else
 {
@@ -27,7 +28,8 @@ else
     }
 
     <div class="alert alert-info">
-        المخولون حالياً: <strong>@Model.ApproverCount</strong> / @Model.MaxApprovers
+        الموافقون على صحة البيانات: <strong>@Model.ApproverCount</strong> / @Model.MaxApprovers
+        — الأدمن الرئيسي منفصل عنهم.
     </div>
 
     <div class="card-panel">
@@ -38,24 +40,49 @@ else
                     <th>الاسم</th>
                     <th>البريد</th>
                     <th>الهاتف</th>
-                    <th>الصلاحية الحالية</th>
-                    <th>تعيين</th>
+                    <th>الدور</th>
+                    <th>الصلاحيات</th>
                 </tr>
                 </thead>
                 <tbody>
                 @foreach (var u in Model.Users)
                 {
-                    <tr>
-                        <td>@u.DisplayName</td>
+                    var isAdmin = u.IsAdmin || u.Role == UserRole.Admin;
+                    var isApprover = !isAdmin && u.Role == UserRole.Approver;
+                    <tr class="@(isAdmin ? "table-admin-row" : "")">
+                        <td>
+                            @u.DisplayName
+                            @if (isAdmin)
+                            {
+                                <span class="badge badge-soft ms-1">أدمن رئيسي</span>
+                            }
+                        </td>
                         <td>@u.Email</td>
                         <td>@u.Phone</td>
-                        <td>@RoleClaims.ToArabic(u.IsAdmin ? UserRole.Admin : u.Role)</td>
+                        <td>@RoleClaims.ToArabic(isAdmin ? UserRole.Admin : u.Role)</td>
                         <td>
-                            <form method="post" asp-page-handler="SetRole" class="d-flex flex-wrap gap-1">
+                            <form method="post" asp-page-handler="SetPermissions" class="perm-checks">
                                 <input type="hidden" name="userId" value="@u.Id" />
-                                <button class="btn btn-sm btn-soft" name="role" value="@((int)UserRole.Editor)" type="submit">مدخل مؤقت</button>
-                                <button class="btn btn-sm btn-accent" name="role" value="@((int)UserRole.Approver)" type="submit">مخوّل بالحفظ</button>
-                                <button class="btn btn-sm btn-outline-secondary" name="role" value="@((int)UserRole.Admin)" type="submit">أمين</button>
+                                <label class="perm-check">
+                                    <input type="checkbox" checked disabled />
+                                    <span>إدخال بيانات</span>
+                                </label>
+                                <label class="perm-check">
+                                    <input type="checkbox"
+                                           name="canApprove"
+                                           value="true"
+                                           @(isApprover || isAdmin ? "checked" : null)
+                                           onchange="this.form.submit()" />
+                                    <span>موافقة على صحة البيانات</span>
+                                </label>
+                                <label class="perm-check">
+                                    <input type="checkbox"
+                                           name="isMainAdmin"
+                                           value="true"
+                                           @(isAdmin ? "checked" : null)
+                                           onchange="this.form.submit()" />
+                                    <span>أدمن رئيسي</span>
+                                </label>
                             </form>
                         </td>
                     </tr>

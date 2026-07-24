@@ -25,8 +25,8 @@ public static class RoleClaims
 
     public static string ToArabic(UserRole role) => role switch
     {
-        UserRole.Admin => "أمين النظام",
-        UserRole.Approver => "مخوّل بالحفظ",
-        _ => "مدخل مؤقت"
+        UserRole.Admin => "أدمن رئيسي",
+        UserRole.Approver => "موافق على صحة البيانات",
+        _ => "مدخل بيانات"
     };
 }
