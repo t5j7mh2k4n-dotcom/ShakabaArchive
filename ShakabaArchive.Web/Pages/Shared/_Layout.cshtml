@@ -20,8 +20,10 @@
             {
                 <a asp-page="/People/Create">إضافة شخص</a>
                 <a asp-page="/Occasions/Create">إضافة مناسبة</a>
+                <a asp-page="/Approvals/Index">طلبات الموافقة</a>
                 @if (User.IsInRole("Admin"))
                 {
+                    <a asp-page="/Account/Users">المستخدمون</a>
                     <a asp-page="/Account/Invites">أرقام الدعوة</a>
                 }
                 <span class="muted">@User.Identity.Name</span>

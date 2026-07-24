@@ -10,10 +10,10 @@
         <input type="hidden" asp-for="Id" />
         <partial name="_PersonForm" for="Input" />
         <div class="d-flex gap-2 mt-3">
-            <button class="btn btn-accent" type="submit">حفظ التعديلات</button>
+            <button class="btn btn-accent" type="submit">إرسال التعديل للموافقة</button>
             <a class="btn btn-soft" asp-page="Details" asp-route-id="@Model.Id">إلغاء</a>
             <button class="btn btn-outline-danger ms-auto" type="submit" asp-page-handler="Delete"
-                    onclick="return confirm('حذف هذا الشخص وجميع مناسباته؟');">حذف</button>
+                    onclick="return confirm('إرسال طلب حذف هذا الشخص وجميع مناسباته؟ لن يُحذف إلا بعد موافقة أحد المخولين.');">طلب حذف</button>
         </div>
     </form>
 </div>

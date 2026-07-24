@@ -67,7 +67,18 @@ public static class LocalUserService
     {
         using var db = CreateContext();
         EnsureUserSchema(db);
+        UpgradeUserColumns(db);
         SeedAdminIfEmpty(db);
+    }
+
+    private static void UpgradeUserColumns(UsersDbContext db)
+    {
+        // SQLite
+        try { db.Database.ExecuteSqlRaw("ALTER TABLE Users ADD COLUMN Role INTEGER NOT NULL DEFAULT 0"); } catch { }
+        try { db.Database.ExecuteSqlRaw("ALTER TABLE InviteCodes ADD COLUMN AssignRole INTEGER NOT NULL DEFAULT 0"); } catch { }
+        // PostgreSQL / Neon
+        try { db.Database.ExecuteSqlRaw("""ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "Role" integer NOT NULL DEFAULT 0"""); } catch { }
+        try { db.Database.ExecuteSqlRaw("""ALTER TABLE "InviteCodes" ADD COLUMN IF NOT EXISTS "AssignRole" integer NOT NULL DEFAULT 0"""); } catch { }
     }
 
     private static void EnsureUserSchema(UsersDbContext db)
@@ -125,6 +136,18 @@ public static class LocalUserService
 
     private static void SeedAdminIfEmpty(UsersDbContext db)
     {
+        try
+        {
+            SeedAdminIfEmptyCore(db);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("SeedAdminIfEmpty failed: " + ex.Message);
+        }
+    }
+
+    private static void SeedAdminIfEmptyCore(UsersDbContext db)
+    {
         const string adminEmail = "abohosam@shukaba.local";
         const string adminPassword = "Om123456@";
 
@@ -137,6 +160,7 @@ public static class LocalUserService
             legacy.DisplayName = "أبو حسام";
             legacy.PasswordHash = PasswordHasher.Hash(adminPassword);
             legacy.IsAdmin = true;
+            legacy.Role = UserRole.Admin;
             db.SaveChanges();
             return;
         }
@@ -146,6 +170,7 @@ public static class LocalUserService
         {
             existingAdmin.PasswordHash = PasswordHasher.Hash(adminPassword);
             existingAdmin.IsAdmin = true;
+            existingAdmin.Role = UserRole.Admin;
             existingAdmin.DisplayName = string.IsNullOrWhiteSpace(existingAdmin.DisplayName)
                 ? "أبو حسام"
                 : existingAdmin.DisplayName;
@@ -163,6 +188,7 @@ public static class LocalUserService
             DisplayName = "أبو حسام",
             PasswordHash = PasswordHasher.Hash(adminPassword),
             IsAdmin = true,
+            Role = UserRole.Admin,
             InviteCodeUsed = "ADMIN",
             CreatedAt = DateTime.UtcNow
         });
@@ -170,7 +196,8 @@ public static class LocalUserService
         db.InviteCodes.Add(new InviteCode
         {
             Code = GenerateCode(),
-            Note = "رقم تجريبي — احذفه بعد الاستخدام",
+            Note = "رقم تجريبي — مدخل مؤقت",
+            AssignRole = UserRole.Editor,
             CreatedAt = DateTime.UtcNow
         });
 
@@ -183,8 +210,22 @@ public static class LocalUserService
         return n.ToString();
     }
 
-    public static InviteCode CreateInvite(string? note = null)
+    public static int CountApprovers()
     {
+        using var db = CreateContext();
+        return db.Users.Count(u => u.Role == UserRole.Approver || u.Role == UserRole.Admin || u.IsAdmin);
+    }
+
+    public static InviteCode CreateInvite(string? note = null, UserRole assignRole = UserRole.Editor)
+    {
+        if (assignRole == UserRole.Approver || assignRole == UserRole.Admin)
+        {
+            var count = CountApprovers();
+            // عند إنشاء دعوة لمخوّل: نحسب الحاليين فقط؛ الاعتماد الفعلي عند التسجيل/التعيين
+            if (assignRole == UserRole.Approver && count >= ApprovalService.MaxApprovers)
+                throw new InvalidOperationException($"الحد الأقصى للمخولين بالحفظ هو {ApprovalService.MaxApprovers}.");
+        }
+
         using var db = CreateContext();
         string code;
         do
@@ -196,11 +237,44 @@ public static class LocalUserService
         {
             Code = code,
             Note = note?.Trim() ?? "",
+            AssignRole = assignRole == UserRole.Admin ? UserRole.Approver : assignRole,
             CreatedAt = DateTime.UtcNow
         };
         db.InviteCodes.Add(invite);
         db.SaveChanges();
         return invite;
+    }
+
+    public static (bool Ok, string Error) SetUserRole(int userId, UserRole role)
+    {
+        using var db = CreateContext();
+        var user = db.Users.FirstOrDefault(u => u.Id == userId);
+        if (user is null) return (false, "المستخدم غير موجود.");
+
+        if (role is UserRole.Approver or UserRole.Admin)
+        {
+            var others = db.Users.Count(u =>
+                u.Id != userId && (u.Role == UserRole.Approver || u.Role == UserRole.Admin || u.IsAdmin));
+            if (others >= ApprovalService.MaxApprovers && user.Role is not (UserRole.Approver or UserRole.Admin) && !user.IsAdmin)
+                return (false, $"لا يمكن تعيين أكثر من {ApprovalService.MaxApprovers} مخولين بالحفظ.");
+        }
+
+        user.Role = role;
+        user.IsAdmin = role == UserRole.Admin;
+        db.SaveChanges();
+        return (true, "");
+    }
+
+    public static List<AppUser> ListUsers()
+    {
+        using var db = CreateContext();
+        return db.Users.AsNoTracking().OrderByDescending(u => u.Role).ThenBy(u => u.DisplayName).ToList();
+    }
+
+    public static AppUser? FindById(int id)
+    {
+        using var db = CreateContext();
+        return db.Users.AsNoTracking().FirstOrDefault(u => u.Id == id);
     }
 
     public static (bool Ok, string Error, AppUser? User) Register(
@@ -238,13 +312,22 @@ public static class LocalUserService
         if (db.Users.Any(u => u.Phone == phone))
             return (false, "رقم الهاتف مسجّل مسبقاً.", null);
 
+        var role = invite.AssignRole;
+        if (role is UserRole.Approver or UserRole.Admin)
+        {
+            var approvers = db.Users.Count(u => u.Role == UserRole.Approver || u.Role == UserRole.Admin || u.IsAdmin);
+            if (approvers >= ApprovalService.MaxApprovers)
+                role = UserRole.Editor;
+        }
+
         var user = new AppUser
         {
             Email = email,
             Phone = phone,
             DisplayName = displayName,
             PasswordHash = PasswordHasher.Hash(password),
-            IsAdmin = false,
+            IsAdmin = role == UserRole.Admin,
+            Role = role == UserRole.Admin ? UserRole.Admin : role,
             InviteCodeUsed = inviteCode,
             CreatedAt = DateTime.UtcNow
         };

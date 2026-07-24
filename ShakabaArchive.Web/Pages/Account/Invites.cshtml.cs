@@ -11,8 +11,13 @@ public class InvitesModel : PageModel
     [BindProperty]
     public string? Note { get; set; }
 
+    [BindProperty]
+    public UserRole AssignRole { get; set; } = UserRole.Editor;
+
     public bool IsAdmin { get; private set; }
+    public int ApproverCount { get; private set; }
     public string? LastCreatedCode { get; private set; }
+    public string? Error { get; private set; }
     public List<InviteCode> Codes { get; private set; } = [];
 
     public void OnGet()
@@ -26,8 +31,16 @@ public class InvitesModel : PageModel
         if (!IsAdmin)
             return Page();
 
-        var invite = LocalUserService.CreateInvite(Note);
-        LastCreatedCode = invite.Code;
+        try
+        {
+            var invite = LocalUserService.CreateInvite(Note, AssignRole);
+            LastCreatedCode = invite.Code;
+        }
+        catch (Exception ex)
+        {
+            Error = ex.Message;
+        }
+
         Load();
         return Page();
     }
@@ -35,6 +48,7 @@ public class InvitesModel : PageModel
     private void Load()
     {
         IsAdmin = User.IsInRole("Admin");
+        ApproverCount = LocalUserService.CountApprovers();
         using var db = LocalUserService.CreateContext();
         Codes = db.InviteCodes.AsNoTracking()
             .OrderByDescending(c => c.CreatedAt)

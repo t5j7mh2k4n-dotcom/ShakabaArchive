@@ -11,6 +11,7 @@ public class ArchiveDbContext : DbContext
 
     public DbSet<Person> People => Set<Person>();
     public DbSet<LifeEvent> LifeEvents => Set<LifeEvent>();
+    public DbSet<PendingChange> PendingChanges => Set<PendingChange>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -55,6 +56,16 @@ public class ArchiveDbContext : DbContext
             e.Property(x => x.SourceNote).HasMaxLength(300);
             e.HasIndex(x => x.Type);
             e.HasIndex(x => x.Mood);
+        });
+
+        modelBuilder.Entity<PendingChange>(e =>
+        {
+            e.HasIndex(x => x.Status);
+            e.HasIndex(x => x.SubmittedAt);
+            e.Property(x => x.Summary).HasMaxLength(400);
+            e.Property(x => x.SubmittedByName).HasMaxLength(120);
+            e.Property(x => x.ReviewedByName).HasMaxLength(120);
+            e.Property(x => x.ReviewNote).HasMaxLength(400);
         });
     }
 }

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using ShakabaArchive.Data;
 using ShakabaArchive.Models;
+using ShakabaArchive.Services;
 using ShakabaArchive.Web.Pages.People.Events;
 
 namespace ShakabaArchive.Web.Pages.Occasions;
@@ -35,6 +36,10 @@ public class CreateModel(ArchiveDbContext db) : PageModel
     {
         await LoadPeopleAsync();
 
+        var appUser = User.CurrentAppUser();
+        if (appUser is null)
+            return Challenge();
+
         if (PersonId is null or <= 0)
         {
             ErrorMessage = "اختر صاحب المناسبة من السجلات، أو أنشئ شخصاً أولاً.";
@@ -47,68 +52,17 @@ public class CreateModel(ArchiveDbContext db) : PageModel
             return Page();
         }
 
-        var person = await db.People.FirstAsync(p => p.Id == PersonId.Value);
+        var person = await db.People.AsNoTracking().FirstAsync(p => p.Id == PersonId.Value);
         var mood = EventTypeLabels.MoodOf(Input.Type);
         var title = string.IsNullOrWhiteSpace(Input.Title)
             ? EventTypeLabels.ToArabic(Input.Type)
             : Input.Title.Trim();
 
-        // مولود جديد: إنشاء سجل شخص اختياري
-        if (Input.Type == EventType.Birth
-            && Input.CreateChildPersonRecord
-            && !string.IsNullOrWhiteSpace(Input.ChildFullName))
-        {
-            var child = new Person
-            {
-                NationalId = string.IsNullOrWhiteSpace(Input.ChildNationalId)
-                    ? $"TEMP-{DateTime.UtcNow:yyyyMMddHHmmss}"
-                    : Input.ChildNationalId.Trim(),
-                FullName = Input.ChildFullName.Trim(),
-                FatherName = person.FullName,
-                MotherName = Input.MotherName.Trim(),
-                Nationality = string.IsNullOrWhiteSpace(Input.ChildNationality) ? "سوداني" : Input.ChildNationality.Trim(),
-                Gender = string.IsNullOrWhiteSpace(Input.ChildGender) ? "ذكر" : Input.ChildGender,
-                BirthDate = Input.EventDate.HasValue
-                    ? DateTime.SpecifyKind(Input.EventDate.Value.Date, DateTimeKind.Utc)
-                    : null,
-                BirthPlace = Input.Place.Trim(),
-                Residence = person.Residence,
-                Tribe = Input.ChildTribe.Trim(),
-                Neighborhood = Input.ChildNeighborhood.Trim(),
-                Notes = "أُضيف عبر مناسبة مولود جديد",
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
-            db.People.Add(child);
-            await db.SaveChangesAsync();
-
-            db.LifeEvents.Add(new LifeEvent
-            {
-                PersonId = child.Id,
-                Type = EventType.Birth,
-                Mood = EventMood.Joy,
-                EventDate = Input.EventDate.HasValue
-                    ? DateTime.SpecifyKind(Input.EventDate.Value.Date, DateTimeKind.Utc)
-                    : null,
-                Place = Input.Place.Trim(),
-                Title = title,
-                Details = Input.Details.Trim(),
-                ChildFullName = child.FullName,
-                ChildGender = child.Gender,
-                MotherName = child.MotherName,
-                RelatedPersonName = person.FullName,
-                SourceNote = Input.SourceNote.Trim(),
-                CreatedAt = DateTime.UtcNow
-            });
-            await db.SaveChangesAsync();
-            return RedirectToPage("/People/Details", new { id = child.Id });
-        }
-
-        db.LifeEvents.Add(new LifeEvent
+        var draft = new LifeEventDraft
         {
             PersonId = PersonId.Value,
-            Type = Input.Type,
-            Mood = mood,
+            Type = (int)Input.Type,
+            Mood = (int)mood,
             EventDate = Input.EventDate.HasValue
                 ? DateTime.SpecifyKind(Input.EventDate.Value.Date, DateTimeKind.Utc)
                 : null,
@@ -121,14 +75,32 @@ public class CreateModel(ArchiveDbContext db) : PageModel
             ChildFullName = Input.ChildFullName.Trim(),
             ChildGender = Input.ChildGender.Trim(),
             MotherName = Input.MotherName.Trim(),
+            ChildNationalId = Input.ChildNationalId.Trim(),
+            ChildNationality = Input.ChildNationality.Trim(),
+            ChildTribe = Input.ChildTribe.Trim(),
+            ChildNeighborhood = Input.ChildNeighborhood.Trim(),
+            CreateChildPerson = Input.Type == EventType.Birth && Input.CreateChildPersonRecord,
             Institution = Input.Institution.Trim(),
             Specialty = Input.Specialty.Trim(),
             Degree = Input.Degree.Trim(),
-            SourceNote = Input.SourceNote.Trim(),
-            CreatedAt = DateTime.UtcNow
-        });
-        await db.SaveChangesAsync();
-        return RedirectToPage("/People/Details", new { id = PersonId.Value });
+            SourceNote = Input.SourceNote.Trim()
+        };
+
+        var summary = $"إضافة مناسبة ({EventTypeLabels.ToArabic(Input.Type)}) لـ {person.FullName}";
+        if (draft.CreateChildPerson && !string.IsNullOrWhiteSpace(draft.ChildFullName))
+            summary += $" + مولود: {draft.ChildFullName}";
+
+        await ApprovalService.SubmitAsync(
+            db,
+            appUser,
+            ChangeEntity.LifeEvent,
+            ChangeAction.Create,
+            null,
+            draft,
+            summary);
+
+        TempData["Flash"] = "تم إرسال طلب إضافة المناسبة بانتظار موافقة أحد المخولين الثلاثة.";
+        return RedirectToPage("/Approvals/Index");
     }
 
     private async Task LoadPeopleAsync()

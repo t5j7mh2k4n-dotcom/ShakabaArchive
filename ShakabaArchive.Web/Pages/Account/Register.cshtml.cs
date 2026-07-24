@@ -33,26 +33,35 @@ public class RegisterModel : PageModel
 
     public async Task<IActionResult> OnPostAsync()
     {
-        var (ok, error, user) = LocalUserService.Register(Email, Phone, DisplayName, Password, InviteCode);
-        if (!ok || user is null)
+        try
         {
-            ErrorMessage = error;
+            var (ok, error, user) = LocalUserService.Register(Email, Phone, DisplayName, Password, InviteCode);
+            if (!ok || user is null)
+            {
+                ErrorMessage = error;
+                return Page();
+            }
+
+            var claims = new List<Claim>
+            {
+                new(ClaimTypes.Name, user.DisplayName),
+                new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new(ClaimTypes.Email, user.Email),
+                new("phone", user.Phone)
+            };
+            RoleClaims.AddRoleClaims(claims, user);
+
+            var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+            await HttpContext.SignInAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme,
+                new ClaimsPrincipal(identity));
+
+            return RedirectToPage("/People/Index");
+        }
+        catch (Exception)
+        {
+            ErrorMessage = "تعذر الاتصال بقاعدة البيانات مؤقتاً. انتظر نصف دقيقة ثم أعد المحاولة.";
             return Page();
         }
-
-        var claims = new List<Claim>
-        {
-            new(ClaimTypes.Name, user.DisplayName),
-            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new(ClaimTypes.Email, user.Email),
-            new("phone", user.Phone)
-        };
-
-        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-        await HttpContext.SignInAsync(
-            CookieAuthenticationDefaults.AuthenticationScheme,
-            new ClaimsPrincipal(identity));
-
-        return RedirectToPage("/People/Index");
     }
 }

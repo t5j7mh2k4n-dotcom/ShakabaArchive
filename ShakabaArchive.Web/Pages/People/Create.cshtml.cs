@@ -15,6 +15,8 @@ public class CreateModel(ArchiveDbContext db) : PageModel
     [BindProperty]
     public IFormFile? Document { get; set; }
 
+    public string? InfoMessage { get; private set; }
+
     public void OnGet()
     {
     }
@@ -24,16 +26,47 @@ public class CreateModel(ArchiveDbContext db) : PageModel
         if (!ModelState.IsValid)
             return Page();
 
-        var person = Input.ToPerson();
+        var appUser = User.CurrentAppUser();
+        if (appUser is null)
+            return Challenge();
+
+        var draft = new PersonDraft
+        {
+            NationalId = Input.NationalId,
+            FullName = Input.FullName,
+            FatherName = Input.FatherName,
+            MotherName = Input.MotherName,
+            Nationality = Input.Nationality,
+            Gender = Input.Gender,
+            BirthDate = Input.BirthDate.HasValue
+                ? DateTime.SpecifyKind(Input.BirthDate.Value.Date, DateTimeKind.Utc)
+                : null,
+            BirthPlace = Input.BirthPlace,
+            Residence = Input.Residence,
+            Tribe = Input.Tribe,
+            Neighborhood = Input.Neighborhood,
+            Phone = Input.Phone,
+            Notes = Input.Notes,
+            DocumentImagePath = Input.DocumentImagePath
+        };
+
         if (Document is { Length: > 0 })
         {
             await using var stream = Document.OpenReadStream();
-            person.DocumentImagePath = DatabaseService.SaveDocumentImage(stream, Document.FileName);
+            draft.DocumentImagePath = DatabaseService.SaveDocumentImage(stream, Document.FileName);
         }
 
-        db.People.Add(person);
-        await db.SaveChangesAsync();
-        return RedirectToPage("Details", new { id = person.Id });
+        await ApprovalService.SubmitAsync(
+            db,
+            appUser,
+            ChangeEntity.Person,
+            ChangeAction.Create,
+            null,
+            draft,
+            $"إضافة شخص: {draft.FullName} ({draft.NationalId})");
+
+        TempData["Flash"] = "تم إرسال طلب الإضافة بانتظار موافقة أحد المخولين الثلاثة.";
+        return RedirectToPage("/Approvals/Index");
     }
 }
 

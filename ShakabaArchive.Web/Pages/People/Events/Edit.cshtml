@@ -11,10 +11,10 @@
         <input type="hidden" asp-for="PersonId" />
         <partial name="_EventForm" for="Input" />
         <div class="d-flex gap-2 mt-3">
-            <button class="btn btn-accent" type="submit">حفظ</button>
+            <button class="btn btn-accent" type="submit">إرسال التعديل للموافقة</button>
             <a class="btn btn-soft" asp-page="/People/Details" asp-route-id="@Model.PersonId">إلغاء</a>
             <button class="btn btn-outline-danger ms-auto" type="submit" asp-page-handler="Delete"
-                    onclick="return confirm('حذف هذه المناسبة؟');">حذف</button>
+                    onclick="return confirm('إرسال طلب حذف هذه المناسبة؟ لن تُحذف إلا بعد موافقة أحد المخولين.');">طلب حذف</button>
         </div>
     </form>
 </div>

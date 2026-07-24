@@ -8,7 +8,7 @@
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
     <div>
         <h1 class="h4 mb-1">أرقام دعوة المستخدمين الجدد</h1>
-        <p class="muted mb-0">أنشئ رقماً ثم أرسله عبر واتساب مع رابط التسجيل.</p>
+        <p class="muted mb-0">أنشئ رقماً مع الصلاحية المطلوبة، ثم أرسله عبر واتساب مع رابط التسجيل.</p>
     </div>
 </div>
 
@@ -18,21 +18,38 @@
 }
 else
 {
+    <div class="alert alert-info">
+        المخولون بالحفظ حالياً: <strong>@Model.ApproverCount</strong> / 3
+        — باقي الدعوات يُفضَّل أن تكون «مدخل مؤقت».
+    </div>
+
     <div class="card-panel mb-3">
         <form method="post" class="row g-2 align-items-end">
-            <div class="col-md-8">
+            <div class="col-md-5">
                 <label class="form-label">ملاحظة (اختياري)</label>
                 <input class="form-control" asp-for="Note" placeholder="مثال: دعوة لفلان" />
             </div>
             <div class="col-md-4">
+                <label class="form-label">صلاحية المستخدم الجديد</label>
+                <select class="form-select" asp-for="AssignRole">
+                    <option value="@((int)UserRole.Editor)">مدخل مؤقت (حتى الموافقة)</option>
+                    <option value="@((int)UserRole.Approver)">مخوّل بالحفظ (أحد الثلاثة)</option>
+                </select>
+            </div>
+            <div class="col-md-3">
                 <button class="btn btn-accent w-100" type="submit">إنشاء رقم جديد</button>
             </div>
         </form>
+        @if (!string.IsNullOrEmpty(Model.Error))
+        {
+            <div class="alert alert-danger mt-3 mb-0">@Model.Error</div>
+        }
         @if (!string.IsNullOrEmpty(Model.LastCreatedCode))
         {
             <div class="alert alert-success mt-3 mb-0">
                 <div class="mb-2">
                     الرقم الجديد: <strong style="font-size:1.3rem;letter-spacing:2px">@Model.LastCreatedCode</strong>
+                    <span class="muted">(@RoleClaims.ToArabic(Model.AssignRole))</span>
                 </div>
                 <a class="btn btn-whatsapp"
                    href="@WhatsAppShare.InviteShareUrl(Model.LastCreatedCode, registerUrl)"
@@ -50,6 +67,7 @@ else
                 <thead>
                 <tr>
                     <th>الرقم</th>
+                    <th>الصلاحية</th>
                     <th>ملاحظة</th>
                     <th>الحالة</th>
                     <th>تاريخ الإنشاء</th>
@@ -61,6 +79,7 @@ else
                 {
                     <tr>
                         <td><code>@c.Code</code></td>
+                        <td>@RoleClaims.ToArabic(c.AssignRole)</td>
                         <td>@c.Note</td>
                         <td>@(c.IsUsed ? "مستخدم" : "متاح")</td>
                         <td>@c.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>

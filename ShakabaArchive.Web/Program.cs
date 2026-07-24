@@ -38,7 +38,9 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AllowAnonymousToPage("/People/Details");
     options.Conventions.AuthorizeFolder("/Occasions");
     options.Conventions.AllowAnonymousToPage("/Occasions/Index");
+    options.Conventions.AuthorizeFolder("/Approvals");
     options.Conventions.AuthorizePage("/Account/Invites");
+    options.Conventions.AuthorizePage("/Account/Users");
 });
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
@@ -51,8 +53,34 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
-LocalUserService.Initialize();
-DatabaseService.Initialize();
+try
+{
+    LocalUserService.Initialize();
+}
+catch (Exception ex)
+{
+    Console.Error.WriteLine("LocalUserService.Initialize failed: " + ex);
+}
+
+try
+{
+    DatabaseService.Initialize();
+}
+catch (Exception ex)
+{
+    Console.Error.WriteLine("DatabaseService.Initialize failed: " + ex);
+}
+
+try
+{
+    using var scope = app.Services.CreateScope();
+    var archiveDb = scope.ServiceProvider.GetRequiredService<ArchiveDbContext>();
+    await ApprovalService.EnsureSchemaAsync(archiveDb);
+}
+catch (Exception ex)
+{
+    Console.Error.WriteLine("ApprovalService.EnsureSchemaAsync failed: " + ex);
+}
 
 if (!app.Environment.IsDevelopment())
 {

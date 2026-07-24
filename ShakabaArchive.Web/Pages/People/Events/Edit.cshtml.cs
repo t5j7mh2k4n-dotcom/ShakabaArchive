@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 using ShakabaArchive.Data;
 using ShakabaArchive.Models;
+using ShakabaArchive.Services;
 
 namespace ShakabaArchive.Web.Pages.People.Events;
 
@@ -47,38 +49,66 @@ public class EditModel(ArchiveDbContext db) : PageModel
 
     public async Task<IActionResult> OnPostAsync()
     {
-        var ev = await db.LifeEvents.FindAsync(Id);
+        var appUser = User.CurrentAppUser();
+        if (appUser is null) return Challenge();
+
+        var ev = await db.LifeEvents.AsNoTracking().FirstOrDefaultAsync(e => e.Id == Id);
         if (ev is null) return NotFound();
 
-        ev.Type = Input.Type;
-        ev.Mood = EventTypeLabels.MoodOf(Input.Type);
-        ev.EventDate = Input.EventDate.HasValue
-            ? DateTime.SpecifyKind(Input.EventDate.Value.Date, DateTimeKind.Utc)
-            : null;
-        ev.Place = Input.Place.Trim();
-        ev.Title = string.IsNullOrWhiteSpace(Input.Title) ? EventTypeLabels.ToArabic(Input.Type) : Input.Title.Trim();
-        ev.Details = Input.Details.Trim();
-        ev.RelatedPersonName = Input.RelatedPersonName.Trim();
-        ev.RelatedFatherName = Input.RelatedFatherName.Trim();
-        ev.RelatedPhone = Input.RelatedPhone.Trim();
-        ev.ChildFullName = Input.ChildFullName.Trim();
-        ev.ChildGender = Input.ChildGender.Trim();
-        ev.MotherName = Input.MotherName.Trim();
-        ev.Institution = Input.Institution.Trim();
-        ev.Specialty = Input.Specialty.Trim();
-        ev.Degree = Input.Degree.Trim();
-        ev.SourceNote = Input.SourceNote.Trim();
-        await db.SaveChangesAsync();
-        return RedirectToPage("/People/Details", new { id = PersonId });
+        var draft = new LifeEventDraft
+        {
+            PersonId = PersonId,
+            Type = (int)Input.Type,
+            Mood = (int)EventTypeLabels.MoodOf(Input.Type),
+            EventDate = Input.EventDate.HasValue
+                ? DateTime.SpecifyKind(Input.EventDate.Value.Date, DateTimeKind.Utc)
+                : null,
+            Place = Input.Place.Trim(),
+            Title = string.IsNullOrWhiteSpace(Input.Title) ? EventTypeLabels.ToArabic(Input.Type) : Input.Title.Trim(),
+            Details = Input.Details.Trim(),
+            RelatedPersonName = Input.RelatedPersonName.Trim(),
+            RelatedFatherName = Input.RelatedFatherName.Trim(),
+            RelatedPhone = Input.RelatedPhone.Trim(),
+            ChildFullName = Input.ChildFullName.Trim(),
+            ChildGender = Input.ChildGender.Trim(),
+            MotherName = Input.MotherName.Trim(),
+            Institution = Input.Institution.Trim(),
+            Specialty = Input.Specialty.Trim(),
+            Degree = Input.Degree.Trim(),
+            SourceNote = Input.SourceNote.Trim()
+        };
+
+        await ApprovalService.SubmitAsync(
+            db,
+            appUser,
+            ChangeEntity.LifeEvent,
+            ChangeAction.Update,
+            Id,
+            draft,
+            $"تعديل مناسبة ({EventTypeLabels.ToArabic(Input.Type)}) — رقم {Id}");
+
+        TempData["Flash"] = "تم إرسال طلب تعديل المناسبة بانتظار موافقة أحد المخولين الثلاثة.";
+        return RedirectToPage("/Approvals/Index");
     }
 
     public async Task<IActionResult> OnPostDeleteAsync()
     {
-        var ev = await db.LifeEvents.FindAsync(Id);
+        var appUser = User.CurrentAppUser();
+        if (appUser is null) return Challenge();
+
+        var ev = await db.LifeEvents.AsNoTracking().FirstOrDefaultAsync(e => e.Id == Id);
         if (ev is null) return NotFound();
-        var personId = ev.PersonId;
-        db.LifeEvents.Remove(ev);
-        await db.SaveChangesAsync();
-        return RedirectToPage("/People/Details", new { id = personId });
+
+        await ApprovalService.SubmitAsync(
+            db,
+            appUser,
+            ChangeEntity.LifeEvent,
+            ChangeAction.Delete,
+            Id,
+            new { },
+            $"حذف مناسبة ({EventTypeLabels.ToArabic(ev.Type)}) — رقم {Id}");
+
+        TempData["Flash"] = "تم إرسال طلب حذف المناسبة بانتظار موافقة أحد المخولين الثلاثة.";
+        return RedirectToPage("/Approvals/Index");
     }
 }

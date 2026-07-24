@@ -25,6 +25,8 @@ public class UsersDbContext : DbContext
             e.Property(u => u.PasswordHash).HasMaxLength(200).IsRequired();
             e.Property(u => u.InviteCodeUsed).HasMaxLength(40);
             e.Ignore(u => u.UserName);
+            e.Ignore(u => u.CanApprove);
+            e.Ignore(u => u.IsEditorOnly);
         });
 
         modelBuilder.Entity<InviteCode>(e =>

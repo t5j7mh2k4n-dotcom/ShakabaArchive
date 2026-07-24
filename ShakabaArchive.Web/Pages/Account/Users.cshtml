@@ -1,0 +1,67 @@
+@page
+@model ShakabaArchive.Web.Pages.Account.UsersModel
+@{
+    ViewData["Title"] = "المستخدمون والصلاحيات";
+}
+
+<div class="mb-3">
+    <h1 class="h4 mb-1">المستخدمون والصلاحيات</h1>
+    <p class="muted mb-0">
+        ثلاثة مخولين بالحفظ كحد أقصى (يشمل الأمين). الباقون مدخلون مؤقتون — طلباتهم تنتظر الموافقة.
+    </p>
+</div>
+
+@if (!User.IsInRole("Admin"))
+{
+    <div class="alert alert-warning">هذه الصفحة للأمين فقط.</div>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(Model.Message))
+    {
+        <div class="alert alert-success">@Model.Message</div>
+    }
+    @if (!string.IsNullOrEmpty(Model.Error))
+    {
+        <div class="alert alert-danger">@Model.Error</div>
+    }
+
+    <div class="alert alert-info">
+        المخولون حالياً: <strong>@Model.ApproverCount</strong> / @Model.MaxApprovers
+    </div>
+
+    <div class="card-panel">
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead>
+                <tr>
+                    <th>الاسم</th>
+                    <th>البريد</th>
+                    <th>الهاتف</th>
+                    <th>الصلاحية الحالية</th>
+                    <th>تعيين</th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var u in Model.Users)
+                {
+                    <tr>
+                        <td>@u.DisplayName</td>
+                        <td>@u.Email</td>
+                        <td>@u.Phone</td>
+                        <td>@RoleClaims.ToArabic(u.IsAdmin ? UserRole.Admin : u.Role)</td>
+                        <td>
+                            <form method="post" asp-page-handler="SetRole" class="d-flex flex-wrap gap-1">
+                                <input type="hidden" name="userId" value="@u.Id" />
+                                <button class="btn btn-sm btn-soft" name="role" value="@((int)UserRole.Editor)" type="submit">مدخل مؤقت</button>
+                                <button class="btn btn-sm btn-accent" name="role" value="@((int)UserRole.Approver)" type="submit">مخوّل بالحفظ</button>
+                                <button class="btn btn-sm btn-outline-secondary" name="role" value="@((int)UserRole.Admin)" type="submit">أمين</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}

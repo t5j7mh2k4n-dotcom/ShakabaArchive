@@ -24,28 +24,35 @@ public class LoginModel : PageModel
 
     public async Task<IActionResult> OnPostAsync(string? returnUrl = null)
     {
-        var user = LocalUserService.FindByLogin(Login);
-        if (user is null || !PasswordHasher.Verify(Password, user.PasswordHash))
+        try
         {
-            ErrorMessage = "البريد/الهاتف أو كلمة المرور غير صحيحة.";
+            var user = LocalUserService.FindByLogin(Login);
+            if (user is null || !PasswordHasher.Verify(Password, user.PasswordHash))
+            {
+                ErrorMessage = "البريد/الهاتف أو كلمة المرور غير صحيحة.";
+                return Page();
+            }
+
+            var claims = new List<Claim>
+            {
+                new(ClaimTypes.Name, user.DisplayName),
+                new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new(ClaimTypes.Email, user.Email),
+                new("phone", user.Phone)
+            };
+            RoleClaims.AddRoleClaims(claims, user);
+
+            var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+            await HttpContext.SignInAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme,
+                new ClaimsPrincipal(identity));
+
+            return LocalRedirect(string.IsNullOrWhiteSpace(returnUrl) ? "/People" : returnUrl);
+        }
+        catch (Exception)
+        {
+            ErrorMessage = "تعذر الاتصال بقاعدة البيانات مؤقتاً. انتظر نصف دقيقة ثم أعد المحاولة.";
             return Page();
         }
-
-        var claims = new List<Claim>
-        {
-            new(ClaimTypes.Name, user.DisplayName),
-            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new(ClaimTypes.Email, user.Email),
-            new("phone", user.Phone)
-        };
-        if (user.IsAdmin)
-            claims.Add(new Claim(ClaimTypes.Role, "Admin"));
-
-        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-        await HttpContext.SignInAsync(
-            CookieAuthenticationDefaults.AuthenticationScheme,
-            new ClaimsPrincipal(identity));
-
-        return LocalRedirect(string.IsNullOrWhiteSpace(returnUrl) ? "/People" : returnUrl);
     }
 }

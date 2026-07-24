@@ -1,0 +1,115 @@
+@page
+@model ShakabaArchive.Web.Pages.Approvals.IndexModel
+@{
+    ViewData["Title"] = "طلبات الموافقة";
+    string ActionAr(ChangeAction a) => a switch
+    {
+        ChangeAction.Create => "إضافة",
+        ChangeAction.Update => "تعديل",
+        ChangeAction.Delete => "حذف",
+        _ => a.ToString()
+    };
+    string EntityAr(ChangeEntity e) => e == ChangeEntity.Person ? "شخص" : "مناسبة";
+    string StatusAr(ChangeStatus s) => s switch
+    {
+        ChangeStatus.Pending => "بانتظار الموافقة",
+        ChangeStatus.Approved => "معتمد",
+        ChangeStatus.Rejected => "مرفوض",
+        _ => s.ToString()
+    };
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div>
+        <h1 class="h4 mb-1">طلبات الحفظ والتعديل والحذف</h1>
+        <p class="muted mb-0">
+            الإدخال مؤقت حتى يعتمد أحد المخولين الثلاثة (أو الأمين). لا يُحفظ في الأرشيف النهائي إلا بعد الموافقة.
+        </p>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.Message))
+{
+    <div class="alert alert-success">@Model.Message</div>
+}
+@if (!string.IsNullOrEmpty(Model.Error))
+{
+    <div class="alert alert-danger">@Model.Error</div>
+}
+
+@if (!Model.CanReview)
+{
+    <div class="alert alert-info">
+        أنت مدخل مؤقت: يمكنك إرسال الطلبات ومتابعة حالتها. الاعتماد من أحد المخولين الثلاثة فقط.
+    </div>
+}
+
+<div class="card-panel">
+    @if (Model.Items.Count == 0)
+    {
+        <p class="muted mb-0">لا توجد طلبات بعد.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead>
+                <tr>
+                    <th>#</th>
+                    <th>النوع</th>
+                    <th>الإجراء</th>
+                    <th>الملخص</th>
+                    <th>مقدّم الطلب</th>
+                    <th>الحالة</th>
+                    <th>التاريخ</th>
+                    @if (Model.CanReview)
+                    {
+                        <th></th>
+                    }
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var item in Model.Items)
+                {
+                    <tr class="@(item.Status == ChangeStatus.Pending ? "" : "table-secondary")">
+                        <td>@item.Id</td>
+                        <td>@EntityAr(item.EntityType)</td>
+                        <td>@ActionAr(item.Action)</td>
+                        <td>@item.Summary</td>
+                        <td>@item.SubmittedByName</td>
+                        <td>
+                            @StatusAr(item.Status)
+                            @if (item.Status != ChangeStatus.Pending && !string.IsNullOrWhiteSpace(item.ReviewedByName))
+                            {
+                                <div class="small muted">بواسطة @item.ReviewedByName</div>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(item.ReviewNote))
+                            {
+                                <div class="small">@item.ReviewNote</div>
+                            }
+                        </td>
+                        <td>@item.SubmittedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                        @if (Model.CanReview)
+                        {
+                            <td class="text-nowrap">
+                                @if (item.Status == ChangeStatus.Pending)
+                                {
+                                    <form method="post" asp-page-handler="Approve" class="d-inline">
+                                        <input type="hidden" name="id" value="@item.Id" />
+                                        <button class="btn btn-sm btn-accent" type="submit">اعتماد</button>
+                                    </form>
+                                    <form method="post" asp-page-handler="Reject" class="d-inline">
+                                        <input type="hidden" name="id" value="@item.Id" />
+                                        <input type="hidden" name="note" value="مرفوض" />
+                                        <button class="btn btn-sm btn-outline-danger" type="submit">رفض</button>
+                                    </form>
+                                }
+                            </td>
+                        }
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
