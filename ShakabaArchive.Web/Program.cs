@@ -89,6 +89,13 @@ app.UseAuthorization();
 // صحة سريعة لـ Render قبل اكتمال تهيئة قاعدة البيانات
 app.MapGet("/health", () => Results.Ok("ok"));
 
+// تشخيص اتصال Neon بدون كشف كلمة المرور
+app.MapGet("/health/db", () =>
+{
+    var (ok, mode, detail) = DatabaseService.ProbeConnection();
+    return Results.Json(new { ok, mode, detail, usersCloud = LocalUserService.UsesCloud });
+});
+
 app.MapRazorPages();
 
 // ابدأ الاستماع فوراً — ثم هيّئ قواعد البيانات لاحقاً (يمنع exit 134/139 على Free)

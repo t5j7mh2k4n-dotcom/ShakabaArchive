@@ -569,7 +569,7 @@ public static class LocalUserService
 
         // Neon على الخطة المجانية ينام — نعيد المحاولة لإيقاظه
         Exception? last = null;
-        for (var attempt = 1; attempt <= 4; attempt++)
+        for (var attempt = 1; attempt <= 6; attempt++)
         {
             try
             {
@@ -581,9 +581,10 @@ public static class LocalUserService
             catch (Exception ex)
             {
                 last = ex;
-                Console.Error.WriteLine($"FindByLogin attempt {attempt}/4: {ex.Message}");
-                Thread.Sleep(1500 * attempt);
+                Console.Error.WriteLine($"FindByLogin attempt {attempt}/6: {ex.Message}");
+                Thread.Sleep(2000 * attempt);
                 lock (InitGate) { _initialized = false; }
+                DatabaseService.ResetInitialization();
             }
         }
 

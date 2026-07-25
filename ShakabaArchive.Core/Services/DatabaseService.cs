@@ -134,9 +134,13 @@ public static class DatabaseService
             EnsureSettingsFile();
             using var db = CreateContext();
 
-            // محاولات قصيرة فقط — الطبقة المجانية على Render محدودة الذاكرة والوقت
-            var ready = WaitForDatabase(db, attempts: 3, delayMs: 1000);
-            if (!ready || !CanQueryPeople(db))
+            // Neon المجاني ينام — انتظر حتى يستيقظ قبل إنشاء الجداول
+            var ready = WaitForDatabase(db, attempts: 10, delayMs: 2000);
+            if (!ready)
+                throw new InvalidOperationException(
+                    "Cannot reach PostgreSQL/Neon. Check DATABASE_URL (full postgresql:// URI) and that the Neon project is active.");
+
+            if (!CanQueryPeople(db))
                 EnsureTables(db);
             else
                 UpgradeSchema(db);
@@ -151,10 +155,40 @@ public static class DatabaseService
         }
     }
 
+    /// <summary>فحص اتصال للتشخيص على /health/db</summary>
+    public static (bool Ok, string Mode, string Detail) ProbeConnection()
+    {
+        try
+        {
+            AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+            using var db = CreateContext();
+            var mode = db.Database.ProviderName?.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) == true
+                ? "PostgreSQL/Neon"
+                : "SQLite";
+            if (!db.Database.CanConnect())
+                return (false, mode, "CanConnect returned false");
+            _ = db.People.Take(1).ToList();
+            return (true, mode, "connected");
+        }
+        catch (Exception ex)
+        {
+            var mode = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("DATABASE_URL"))
+                ? "PostgreSQL/Neon"
+                : "unknown";
+            return (false, mode, ex.GetBaseException().Message);
+        }
+    }
+
     public static void EnsureReady()
     {
         if (!_initialized)
             Initialize();
+    }
+
+    public static void ResetInitialization()
+    {
+        lock (InitGate)
+            _initialized = false;
     }
 
     private static bool WaitForDatabase(ArchiveDbContext db, int attempts, int delayMs)
@@ -295,7 +329,8 @@ public static class DatabaseService
             if (string.IsNullOrWhiteSpace(db))
                 db = "neondb";
 
-            return $"Host={uri.Host};Port={(uri.Port > 0 ? uri.Port : 5432)};Database={db};Username={user};Password={pass};SSL Mode=Require;Trust Server Certificate=true;Timeout=60;Command Timeout=60;Keepalive=30";
+            // يُفضَّل مضيف Neon الذي فيه -pooler للاتصالات من Render
+            return $"Host={uri.Host};Port={(uri.Port > 0 ? uri.Port : 5432)};Database={db};Username={user};Password={pass};SSL Mode=Require;Trust Server Certificate=true;Timeout=120;Command Timeout=120;Keepalive=30;Pooling=true;Maximum Pool Size=5;Connection Idle Lifetime=60";
         }
 
         // إن وُضع رابط ناقص بدون postgresql:// — حاول إصلاحه إن بدا كمضيف Neon
