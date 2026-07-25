@@ -7,4 +7,6 @@
 **/*.user
 **/*.db
 .env
-ShakabaArchive.Web/appsettings.json
+**/.git
+**/ShakabaArchive/
+README.md
