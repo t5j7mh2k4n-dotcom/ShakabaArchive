@@ -1,0 +1,99 @@
+@page
+@model ShakabaArchive.Web.Pages.Account.UsersReportModel
+@{
+    ViewData["Title"] = "تقرير المستخدمين";
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 no-print">
+    <div>
+        <h1 class="h4 mb-1">تقرير قائمة المستخدمين</h1>
+        <p class="muted mb-0">القائمة غير محدودة العدد. المحدود فقط: الموافقون على صحة البيانات (@Model.MaxApprovers كحد أقصى).</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-soft" asp-page="./Users">رجوع للمستخدمين</a>
+        <a class="btn btn-soft" asp-page-handler="Csv">تصدير CSV</a>
+        <button class="btn btn-accent" type="button" onclick="window.print()">طباعة التقرير</button>
+    </div>
+</div>
+
+@if (!User.IsInRole("Admin"))
+{
+    <div class="alert alert-warning">هذا التقرير للأدمن الرئيسي فقط.</div>
+}
+else
+{
+    <div class="report-sheet">
+        <div class="report-header mb-3">
+            <h2 class="h5 mb-1">أرشيف الشكابة شاع الدين — تقرير المستخدمين</h2>
+            <p class="muted mb-0">تاريخ التقرير: @Model.GeneratedAt — التخزين: @Model.StorageLabel</p>
+        </div>
+
+        <div class="row g-2 mb-3 report-summary">
+            <div class="col-6 col-md-3">
+                <div class="card-panel text-center py-3">
+                    <div class="muted small">إجمالي المستخدمين</div>
+                    <div class="h3 mb-0">@Model.TotalCount</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card-panel text-center py-3">
+                    <div class="muted small">أدمن رئيسي</div>
+                    <div class="h3 mb-0">@Model.AdminCount</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card-panel text-center py-3">
+                    <div class="muted small">موافقون</div>
+                    <div class="h3 mb-0">@Model.ApproverCount / @Model.MaxApprovers</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card-panel text-center py-3">
+                    <div class="muted small">مدخلو بيانات</div>
+                    <div class="h3 mb-0">@Model.EditorCount</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-panel">
+            <h3 class="h6 mb-3">القائمة الكاملة (@Model.TotalCount)</h3>
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered align-middle mb-0">
+                    <thead>
+                    <tr>
+                        <th style="width:3rem">م</th>
+                        <th>الاسم</th>
+                        <th>البريد</th>
+                        <th>الهاتف</th>
+                        <th>الدور</th>
+                        <th>تاريخ الإنشاء</th>
+                        <th>رمز الدعوة</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @{ var n = 1; }
+                    @foreach (var u in Model.Users)
+                    {
+                        var role = u.IsAdmin || u.Role == UserRole.Admin
+                            ? UserRole.Admin
+                            : u.Role;
+                        <tr>
+                            <td>@(n++)</td>
+                            <td>@u.DisplayName</td>
+                            <td>@u.Email</td>
+                            <td>@u.Phone</td>
+                            <td>@RoleClaims.ToArabic(role)</td>
+                            <td>@u.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@(string.IsNullOrWhiteSpace(u.InviteCodeUsed) ? "—" : u.InviteCodeUsed)</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+            @if (Model.TotalCount == 0)
+            {
+                <p class="muted mt-3 mb-0">لا يوجد مستخدمون مسجّلون حالياً.</p>
+            }
+        </div>
+    </div>
+}

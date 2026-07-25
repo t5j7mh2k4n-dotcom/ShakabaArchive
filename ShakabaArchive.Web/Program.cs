@@ -55,6 +55,7 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AuthorizeFolder("/Approvals");
     options.Conventions.AuthorizePage("/Account/Invites");
     options.Conventions.AuthorizePage("/Account/Users");
+    options.Conventions.AuthorizePage("/Account/UsersReport");
     options.Conventions.AuthorizePage("/Account/ChangePassword");
 });
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)

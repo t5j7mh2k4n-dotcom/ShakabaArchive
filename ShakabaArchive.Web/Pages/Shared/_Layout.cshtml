@@ -24,6 +24,7 @@
                 @if (User.IsInRole("Admin"))
                 {
                     <a asp-page="/Account/Users">المستخدمون</a>
+                    <a asp-page="/Account/UsersReport">تقرير المستخدمين</a>
                     <a asp-page="/Account/Invites">أرقام الدعوة</a>
                 }
                 <span class="muted">@User.Identity.Name</span>

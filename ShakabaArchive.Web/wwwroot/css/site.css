@@ -371,3 +371,25 @@ html, body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+@media print {
+  .site-header,
+  .site-footer,
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: #fff !important;
+  }
+
+  main.container {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+
+  .report-sheet .card-panel {
+    box-shadow: none;
+    border: 1px solid #ccc;
+  }
+}
