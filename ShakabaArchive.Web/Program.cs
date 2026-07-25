@@ -89,38 +89,39 @@ app.UseAuthorization();
 // صحة سريعة لـ Render قبل اكتمال تهيئة قاعدة البيانات
 app.MapGet("/health", () => Results.Ok("ok"));
 
-// تشخيص اتصال Neon بدون كشف كلمة المرور
-app.MapGet("/health/db", () =>
+// تشخيص خفيف — الإصلاح الثقيل للجداول عبر /health/db?repair=1 فقط
+app.MapGet("/health/db", (HttpRequest req) =>
 {
     var (ok, mode, detail) = DatabaseService.ProbeConnection();
-    var users = LocalUserService.ProbeAndRepairUsers();
+    object users = "skipped";
+    if (req.Query.ContainsKey("repair"))
+    {
+        var repair = LocalUserService.ProbeAndRepairUsers();
+        users = repair.Detail;
+        ok = ok && repair.Ok;
+    }
+
     return Results.Json(new
     {
-        ok = ok && users.Ok,
+        ok,
         mode,
         detail,
-        users = users.Detail,
+        users,
         usersCloud = LocalUserService.UsesCloud
     });
 });
 
 app.MapRazorPages();
 
-// ابدأ الاستماع فوراً — ثم هيّئ قواعد البيانات لاحقاً (يمنع exit 134/139 على Free)
+// استماع فوري — تهيئة خفيفة جداً بعد نجاح /health (تفادي exit 139 على Free)
 _ = Task.Run(async () =>
 {
     try
     {
-        // امنح Render وقتاً لاعتبار الحاوية سليمة عبر /health قبل ضغط الذاكرة
-        await Task.Delay(3000);
+        await Task.Delay(8000);
         Console.WriteLine("Background DB init starting...");
         DatabaseService.Initialize();
-        await Task.Delay(400);
-        LocalUserService.Initialize();
-        await Task.Delay(400);
-        using var scope = app.Services.CreateScope();
-        var archiveDb = scope.ServiceProvider.GetRequiredService<ArchiveDbContext>();
-        await ApprovalService.EnsureSchemaAsync(archiveDb);
+        // لا ننشئ جداول المستخدمين هنا — تُصلح عند أول دخول عبر ProbeAndRepairUsers
         Console.WriteLine("Background DB init completed. UsersCloud=" + LocalUserService.UsesCloud);
     }
     catch (Exception ex)

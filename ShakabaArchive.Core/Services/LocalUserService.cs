@@ -58,18 +58,28 @@ public static class LocalUserService
         lock (InitGate)
         {
             if (_initialized) return;
-            DatabaseService.EnsureReady();
-            using var db = CreateContext();
-            EnsureUserSchema(db);
-            UpgradeUserColumns(db);
-            if (!CanQueryNewUsers(db))
-                throw new InvalidOperationException(
-                    "Users tables are missing in Neon. Check DATABASE_URL permissions and redeploy.");
-            SeedAdminIfEmpty(db);
-            _initialized = true;
-            Console.WriteLine(UsesCloud
-                ? "LocalUserService: using PostgreSQL/Neon (persistent)."
-                : "LocalUserService: using SQLite (ephemeral on Render).");
+            try
+            {
+                DatabaseService.EnsureReady();
+                using var db = CreateContext();
+                // لا ننشئ الجداول هنا (DDL على pooler يفشل ويضغط الذاكرة على Free)
+                if (!CanQueryNewUsers(db))
+                {
+                    Console.WriteLine("LocalUserService: users tables not ready — repair deferred to login.");
+                    return;
+                }
+
+                UpgradeUserColumns(db);
+                SeedAdminIfEmpty(db);
+                _initialized = true;
+                Console.WriteLine(UsesCloud
+                    ? "LocalUserService: using PostgreSQL/Neon (persistent)."
+                    : "LocalUserService: using SQLite (ephemeral on Render).");
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine("LocalUserService.Initialize deferred: " + ex.Message);
+            }
         }
     }
 
@@ -79,65 +89,49 @@ public static class LocalUserService
             Initialize();
     }
 
-    /// <summary>إصلاح جداول المستخدمين إن فشل الدخول رغم اتصال Neon.</summary>
+    /// <summary>إصلاح جداول المستخدمين عبر اتصال Neon مباشر (بدون pooler).</summary>
     public static (bool Ok, string Detail) ProbeAndRepairUsers()
     {
-        try
+        lock (InitGate)
         {
-            DatabaseService.EnsureReady();
-            using var db = CreateContext();
-            EnsureUserSchema(db);
-            UpgradeUserColumns(db);
-            if (!CanQueryNewUsers(db))
-                return (false, "Users/InviteCodes tables still unavailable after repair");
-            SeedAdminIfEmpty(db);
-            lock (InitGate) { _initialized = true; }
-            var count = db.Users.Count();
-            return (true, $"users={count}");
-        }
-        catch (Exception ex)
-        {
-            return (false, ex.GetBaseException().Message);
-        }
-    }
+            try
+            {
+                DatabaseService.EnsureReady();
+                using (var check = CreateContext())
+                {
+                    if (CanQueryNewUsers(check))
+                    {
+                        UpgradeUserColumns(check);
+                        SeedAdminIfEmpty(check);
+                        _initialized = true;
+                        return (true, $"users={check.Users.Count()}");
+                    }
+                }
 
-    private static string? WriteBlockedReason()
-    {
-        if (CanPersistUsers) return null;
-        return PersistBlockedMessage;
-    }
+                // اتصال واحد مباشر لإنشاء الجداول ثم يُغلق قبل الاستعلام عبر pooler
+                EnsureUserSchemaViaDirectConnection();
 
-    private static void UpgradeUserColumns(ArchiveDbContext db)
-    {
-        // SQLite
-        try { db.Database.ExecuteSqlRaw("ALTER TABLE Users ADD COLUMN Role INTEGER NOT NULL DEFAULT 0"); } catch { }
-        try { db.Database.ExecuteSqlRaw("ALTER TABLE InviteCodes ADD COLUMN AssignRole INTEGER NOT NULL DEFAULT 0"); } catch { }
-        // PostgreSQL / Neon
-        try { db.Database.ExecuteSqlRaw("""ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "Role" integer NOT NULL DEFAULT 0"""); } catch { }
-        try { db.Database.ExecuteSqlRaw("""ALTER TABLE "InviteCodes" ADD COLUMN IF NOT EXISTS "AssignRole" integer NOT NULL DEFAULT 0"""); } catch { }
-    }
-
-    private static void EnsureUserSchema(ArchiveDbContext db)
-    {
-        if (CanQueryNewUsers(db))
-            return;
-
-        var isPostgres = db.Database.ProviderName?.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) == true;
-        if (!isPostgres)
-        {
-            var creator = db.GetService<IRelationalDatabaseCreator>();
-            if (!creator.Exists())
-                creator.Create();
-            try { creator.CreateTables(); }
+                using var db = CreateContext();
+                UpgradeUserColumns(db);
+                if (!CanQueryNewUsers(db))
+                    return (false, "Users/InviteCodes tables still unavailable after direct DDL");
+                SeedAdminIfEmpty(db);
+                _initialized = true;
+                return (true, $"users={db.Users.Count()}");
+            }
             catch (Exception ex)
             {
-                Console.Error.WriteLine("EnsureUserSchema CreateTables: " + ex.Message);
+                return (false, ex.GetBaseException().Message);
             }
-            return;
         }
+    }
 
-        // مهم: إنشاء الجداول عبر اتصال مباشر (بدون pooler) — وإلا يفشل على Neon
+    private static void EnsureUserSchemaViaDirectConnection()
+    {
         using var ddl = DatabaseService.CreateContextForSchemaChanges();
+        if (!ddl.Database.CanConnect())
+            throw new InvalidOperationException("Direct Neon connection failed (non-pooler host).");
+
         ddl.Database.ExecuteSqlRaw("""
             CREATE TABLE IF NOT EXISTS "Users" (
                 "Id" SERIAL PRIMARY KEY,
@@ -167,6 +161,44 @@ public static class LocalUserService
             """);
         ddl.Database.ExecuteSqlRaw("""CREATE UNIQUE INDEX IF NOT EXISTS "IX_InviteCodes_Code" ON "InviteCodes" ("Code");""");
         Console.WriteLine("EnsureUserSchema: Users/InviteCodes created via direct Neon connection.");
+    }
+
+    private static string? WriteBlockedReason()
+    {
+        if (CanPersistUsers) return null;
+        return PersistBlockedMessage;
+    }
+
+    private static void UpgradeUserColumns(ArchiveDbContext db)
+    {
+        // SQLite
+        try { db.Database.ExecuteSqlRaw("ALTER TABLE Users ADD COLUMN Role INTEGER NOT NULL DEFAULT 0"); } catch { }
+        try { db.Database.ExecuteSqlRaw("ALTER TABLE InviteCodes ADD COLUMN AssignRole INTEGER NOT NULL DEFAULT 0"); } catch { }
+        // PostgreSQL / Neon
+        try { db.Database.ExecuteSqlRaw("""ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "Role" integer NOT NULL DEFAULT 0"""); } catch { }
+        try { db.Database.ExecuteSqlRaw("""ALTER TABLE "InviteCodes" ADD COLUMN IF NOT EXISTS "AssignRole" integer NOT NULL DEFAULT 0"""); } catch { }
+    }
+
+    private static void EnsureUserSchema(ArchiveDbContext db)
+    {
+        if (CanQueryNewUsers(db))
+            return;
+
+        var isPostgres = db.Database.ProviderName?.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) == true;
+        if (isPostgres)
+        {
+            EnsureUserSchemaViaDirectConnection();
+            return;
+        }
+
+        var creator = db.GetService<IRelationalDatabaseCreator>();
+        if (!creator.Exists())
+            creator.Create();
+        try { creator.CreateTables(); }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("EnsureUserSchema CreateTables: " + ex.Message);
+        }
     }
 
     private static bool CanQueryNewUsers(ArchiveDbContext db)

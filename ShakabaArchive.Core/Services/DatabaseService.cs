@@ -160,11 +160,13 @@ public static class DatabaseService
             EnsureSettingsFile();
             using var db = CreateContext();
 
-            // Neon المجاني ينام — انتظر حتى يستيقظ قبل إنشاء الجداول
-            var ready = WaitForDatabase(db, attempts: 10, delayMs: 2000);
+            // محاولات قصيرة على Free حتى لا تُقتل العملية (exit 139)
+            var ready = WaitForDatabase(db, attempts: 4, delayMs: 1500);
             if (!ready)
-                throw new InvalidOperationException(
-                    "Cannot reach PostgreSQL/Neon. Check DATABASE_URL (full postgresql:// URI) and that the Neon project is active.");
+            {
+                Console.Error.WriteLine("Database not reachable yet — will retry on first request.");
+                return;
+            }
 
             if (!CanQueryPeople(db))
                 EnsureTables(db);
