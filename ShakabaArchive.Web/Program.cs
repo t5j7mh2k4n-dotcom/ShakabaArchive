@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using ShakabaArchive.Data;
 using ShakabaArchive.Services;
@@ -7,14 +8,12 @@ var builder = WebApplication.CreateBuilder(args);
 
 var dataRoot = Path.Combine(builder.Environment.ContentRootPath, "App_Data");
 var uploads = Path.Combine(builder.Environment.WebRootPath, "uploads");
+Directory.CreateDirectory(dataRoot);
+Directory.CreateDirectory(uploads);
 DatabaseService.ConfigurePaths(dataRoot, uploads);
 
-// المستخدمون دائماً على الجهاز (SQLite محلي)
 LocalUserService.ConfigurePath(
-    Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "ShakabaArchive",
-        "users-local.db"));
+    Path.Combine(dataRoot, "users-local.db"));
 
 var pg = builder.Configuration.GetConnectionString("PostgreSql")
          ?? Environment.GetEnvironmentVariable("DATABASE_URL")
@@ -29,6 +28,13 @@ if (!string.IsNullOrWhiteSpace(pg))
         SqliteFileName = "shakaba-archive.db"
     });
 }
+
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 builder.Services.AddDbContext<ArchiveDbContext>(options => DatabaseService.Configure(options));
 builder.Services.AddRazorPages(options =>
@@ -53,45 +59,42 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
-try
-{
-    LocalUserService.Initialize();
-}
-catch (Exception ex)
-{
-    Console.Error.WriteLine("LocalUserService.Initialize failed: " + ex);
-}
 
-try
-{
-    DatabaseService.Initialize();
-}
-catch (Exception ex)
-{
-    Console.Error.WriteLine("DatabaseService.Initialize failed: " + ex);
-}
-
-try
-{
-    using var scope = app.Services.CreateScope();
-    var archiveDb = scope.ServiceProvider.GetRequiredService<ArchiveDbContext>();
-    await ApprovalService.EnsureSchemaAsync(archiveDb);
-}
-catch (Exception ex)
-{
-    Console.Error.WriteLine("ApprovalService.EnsureSchemaAsync failed: " + ex);
-}
+app.UseForwardedHeaders();
 
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
-    app.UseHsts();
 }
 
-app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
+
+// صحة سريعة لـ Render قبل اكتمال تهيئة قاعدة البيانات
+app.MapGet("/health", () => Results.Ok("ok"));
+
 app.MapRazorPages();
+
+// ابدأ الاستماع فوراً — ثم هيّئ قواعد البيانات في الخلفية (يمنع قتل العملية على Free)
+_ = Task.Run(async () =>
+{
+    try
+    {
+        await Task.Delay(500);
+        Console.WriteLine("Background DB init starting...");
+        LocalUserService.Initialize();
+        DatabaseService.Initialize();
+        using var scope = app.Services.CreateScope();
+        var archiveDb = scope.ServiceProvider.GetRequiredService<ArchiveDbContext>();
+        await ApprovalService.EnsureSchemaAsync(archiveDb);
+        Console.WriteLine("Background DB init completed.");
+    }
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine("Background DB init failed: " + ex);
+    }
+});
+
 app.Run();

@@ -127,8 +127,8 @@ public static class DatabaseService
         EnsureSettingsFile();
         using var db = CreateContext();
 
-        // إعادة المحاولة عند إيقاظ Neon — لا نفسّر فشل الاتصال على أنه قاعدة فارغة
-        var ready = WaitForDatabase(db, attempts: 5, delayMs: 2000);
+        // محاولات قصيرة فقط — الطبقة المجانية على Render محدودة الذاكرة والوقت
+        var ready = WaitForDatabase(db, attempts: 3, delayMs: 1000);
         if (!ready || !CanQueryPeople(db))
             EnsureTables(db);
         else
