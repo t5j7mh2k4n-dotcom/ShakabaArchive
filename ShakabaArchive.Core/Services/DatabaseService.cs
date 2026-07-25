@@ -274,7 +274,16 @@ public static class DatabaseService
 
     private static string NormalizePostgresUrl(string value)
     {
-        // Render/Heroku style: postgres://user:pass@host/db
+        value = value.Trim().Trim('"').Trim('\'');
+
+        // Neon يضيف channel_binding=require وقد يفشل معه Npgsql على Render
+        value = value
+            .Replace("&channel_binding=require", "", StringComparison.OrdinalIgnoreCase)
+            .Replace("?channel_binding=require&", "?", StringComparison.OrdinalIgnoreCase)
+            .Replace("?channel_binding=require", "", StringComparison.OrdinalIgnoreCase)
+            .Replace("channel_binding=require", "", StringComparison.OrdinalIgnoreCase);
+
+        // Render/Heroku/Neon style: postgres://user:pass@host/db
         if (value.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase)
             || value.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))
         {
@@ -283,7 +292,19 @@ public static class DatabaseService
             var user = Uri.UnescapeDataString(userInfo[0]);
             var pass = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : "";
             var db = uri.AbsolutePath.Trim('/');
-            return $"Host={uri.Host};Port={(uri.Port > 0 ? uri.Port : 5432)};Database={db};Username={user};Password={pass};SSL Mode=Require;Trust Server Certificate=true";
+            if (string.IsNullOrWhiteSpace(db))
+                db = "neondb";
+
+            return $"Host={uri.Host};Port={(uri.Port > 0 ? uri.Port : 5432)};Database={db};Username={user};Password={pass};SSL Mode=Require;Trust Server Certificate=true;Timeout=60;Command Timeout=60;Keepalive=30";
+        }
+
+        // إن وُضع رابط ناقص بدون postgresql:// — حاول إصلاحه إن بدا كمضيف Neon
+        if (value.Contains("neon.tech", StringComparison.OrdinalIgnoreCase)
+            && !value.Contains("Host=", StringComparison.OrdinalIgnoreCase)
+            && !value.Contains("://", StringComparison.OrdinalIgnoreCase))
+        {
+            Console.Error.WriteLine(
+                "DATABASE_URL looks incomplete (missing postgresql://user:password@). Paste the full URI from Neon.");
         }
 
         return value;

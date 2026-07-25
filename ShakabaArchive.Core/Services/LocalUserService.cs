@@ -564,12 +564,30 @@ public static class LocalUserService
 
     public static AppUser? FindByLogin(string emailOrPhone)
     {
-        EnsureReady();
         var key = emailOrPhone.Trim().ToLowerInvariant();
         var phone = emailOrPhone.Trim();
-        using var db = CreateContext();
-        return db.Users.AsNoTracking()
-            .FirstOrDefault(u => u.Email == key || u.Phone == phone);
+
+        // Neon على الخطة المجانية ينام — نعيد المحاولة لإيقاظه
+        Exception? last = null;
+        for (var attempt = 1; attempt <= 4; attempt++)
+        {
+            try
+            {
+                EnsureReady();
+                using var db = CreateContext();
+                return db.Users.AsNoTracking()
+                    .FirstOrDefault(u => u.Email == key || u.Phone == phone);
+            }
+            catch (Exception ex)
+            {
+                last = ex;
+                Console.Error.WriteLine($"FindByLogin attempt {attempt}/4: {ex.Message}");
+                Thread.Sleep(1500 * attempt);
+                lock (InitGate) { _initialized = false; }
+            }
+        }
+
+        throw last ?? new InvalidOperationException("تعذر الاتصال بقاعدة المستخدمين.");
     }
 
     private static bool IsPostgresConfigured()

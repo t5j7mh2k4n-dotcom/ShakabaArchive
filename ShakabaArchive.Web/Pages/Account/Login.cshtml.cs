@@ -49,9 +49,12 @@ public class LoginModel : PageModel
 
             return LocalRedirect(string.IsNullOrWhiteSpace(returnUrl) ? "/People" : returnUrl);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            ErrorMessage = "تعذر الاتصال بقاعدة البيانات مؤقتاً. انتظر نصف دقيقة ثم أعد المحاولة.";
+            Console.Error.WriteLine("Login DB error: " + ex);
+            ErrorMessage = LocalUserService.UsesCloud
+                ? "تعذر الاتصال بـ Neon مؤقتاً (قد تكون القاعدة نائمة). انتظر دقيقة ثم أعد المحاولة. تأكد أن DATABASE_URL كامل ويبدأ بـ postgresql://"
+                : "قاعدة البيانات غير مربوطة. من Render → Environment ضع DATABASE_URL من Neon ثم Save and deploy.";
             return Page();
         }
     }
