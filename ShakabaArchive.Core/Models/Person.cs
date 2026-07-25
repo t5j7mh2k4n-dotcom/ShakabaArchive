@@ -39,6 +39,11 @@ public class Person
     public string Neighborhood { get; set; } = string.Empty;
     public string Phone { get; set; } = string.Empty;
     public string Notes { get; set; } = string.Empty;
+
+    /// <summary>مسار الصورة الشخصية المعروضة مع بيانات الشخص.</summary>
+    public string PhotoPath { get; set; } = string.Empty;
+
+    /// <summary>مسار صورة الوثيقة (هوية / شهادة).</summary>
     public string DocumentImagePath { get; set; } = string.Empty;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

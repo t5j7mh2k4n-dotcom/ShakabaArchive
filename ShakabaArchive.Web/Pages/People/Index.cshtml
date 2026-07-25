@@ -49,26 +49,33 @@
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
             <thead>
-            <tr>
-                <th>الكود</th>
-                <th>المستوى</th>
-                <th>الاسم</th>
-                <th>القبيلة</th>
-                <th>المهنة</th>
-                <th>مكان الميلاد</th>
-                @if (canManage)
-                {
-                    <th style="width:140px">إجراءات</th>
-                }
-            </tr>
-            </thead>
-            <tbody>
-            @foreach (var p in Model.People)
-            {
                 <tr>
-                    <td><code>@p.RegistryCode</code></td>
-                    <td>@PersonRegistryService.LevelLabel(p.HierarchyLevel)</td>
-                    <td><a asp-page="Details" asp-route-id="@p.Id">@p.FullName</a></td>
+                    <th></th>
+                    <th>الكود</th>
+                    <th>المستوى</th>
+                    <th>الاسم</th>
+                    <th>القبيلة</th>
+                    <th>المهنة</th>
+                    <th>مكان الميلاد</th>
+                    @if (canManage)
+                    {
+                        <th style="width:140px">إجراءات</th>
+                    }
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var p in Model.People)
+                {
+                    <tr>
+                        <td style="width:52px">
+                            @if (!string.IsNullOrWhiteSpace(p.PhotoPath))
+                            {
+                                <img class="person-photo-list" src="~/uploads/@p.PhotoPath" alt="" />
+                            }
+                        </td>
+                        <td><code>@p.RegistryCode</code></td>
+                        <td>@PersonRegistryService.LevelLabel(p.HierarchyLevel)</td>
+                        <td><a asp-page="Details" asp-route-id="@p.Id">@p.FullName</a></td>
                     <td>@(string.IsNullOrWhiteSpace(p.Tribe) ? "—" : p.Tribe)</td>
                     <td>@(string.IsNullOrWhiteSpace(p.Profession) ? "—" : p.Profession)</td>
                     <td>@p.BirthPlace</td>

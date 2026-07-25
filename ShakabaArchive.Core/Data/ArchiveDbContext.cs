@@ -40,6 +40,7 @@ public class ArchiveDbContext : DbContext
             e.Property(p => p.Profession).HasMaxLength(120);
             e.Property(p => p.Neighborhood).HasMaxLength(120);
             e.Property(p => p.Phone).HasMaxLength(40);
+            e.Property(p => p.PhotoPath).HasMaxLength(400);
             e.Property(p => p.DocumentImagePath).HasMaxLength(400);
 
             e.HasOne(p => p.ParentPerson)

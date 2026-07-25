@@ -30,6 +30,7 @@ public static class ArchiveExportService
             p.Neighborhood,
             p.Phone,
             p.Notes,
+            p.PhotoPath,
             p.DocumentImagePath,
             Events = p.Events.Select(e => new
             {

@@ -110,12 +110,22 @@
         <input class="form-control" asp-for="Phone" />
     </div>
 
-    <div class="col-md-6">
+    <div class="col-md-4">
         <label class="form-label">الرقم الوطني (اختياري)</label>
         <input class="form-control" asp-for="NationalId" />
     </div>
-    <div class="col-md-6">
-        <label class="form-label">صورة الوثيقة</label>
+    <div class="col-md-4">
+        <label class="form-label">الصورة الشخصية</label>
+        <input class="form-control" type="file" name="Photo" accept=".jpg,.jpeg,.png,.webp,.gif" />
+        @if (!string.IsNullOrWhiteSpace(Model?.PhotoPath))
+        {
+            <div class="mt-2">
+                <img class="person-photo-thumb" src="~/uploads/@Model.PhotoPath" alt="الصورة الحالية" />
+            </div>
+        }
+    </div>
+    <div class="col-md-4">
+        <label class="form-label">صورة الوثيقة (اختياري)</label>
         <input class="form-control" type="file" name="Document" accept=".jpg,.jpeg,.png,.webp,.gif,.pdf" />
         @if (!string.IsNullOrWhiteSpace(Model?.DocumentImagePath))
         {

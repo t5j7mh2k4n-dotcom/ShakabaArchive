@@ -18,6 +18,9 @@ public class EditModel(ArchiveDbContext db) : PageModel
     public PersonInput Input { get; set; } = new();
 
     [BindProperty]
+    public IFormFile? Photo { get; set; }
+
+    [BindProperty]
     public IFormFile? Document { get; set; }
 
     public async Task<IActionResult> OnGetAsync(int id)
@@ -45,6 +48,14 @@ public class EditModel(ArchiveDbContext db) : PageModel
         draft.RegistryCode = person.RegistryCode;
         draft.HierarchyLevel = person.HierarchyLevel;
         draft.ParentPersonId = person.ParentPersonId;
+        draft.PhotoPath = person.PhotoPath;
+        draft.DocumentImagePath = person.DocumentImagePath;
+
+        if (Photo is { Length: > 0 })
+        {
+            await using var stream = Photo.OpenReadStream();
+            draft.PhotoPath = DatabaseService.SaveDocumentImage(stream, Photo.FileName);
+        }
 
         if (Document is { Length: > 0 })
         {

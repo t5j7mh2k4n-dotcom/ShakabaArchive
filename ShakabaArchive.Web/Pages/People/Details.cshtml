@@ -12,15 +12,27 @@
 else
 {
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
-        <div>
-            <h1 class="h3 mb-1">@p.FullName</h1>
-            <div class="muted">
-                كود <code>@p.RegistryCode</code> —
-                @PersonRegistryService.LevelLabel(p.HierarchyLevel)
-                @if (!string.IsNullOrWhiteSpace(p.BirthPlace))
+        <div class="d-flex flex-wrap align-items-start gap-3">
+            <div class="person-photo-frame">
+                @if (!string.IsNullOrWhiteSpace(p.PhotoPath))
                 {
-                    <text> — @p.BirthPlace</text>
+                    <img class="person-photo" src="~/uploads/@p.PhotoPath" alt="الصورة الشخصية لـ @p.FullName" />
                 }
+                else
+                {
+                    <div class="person-photo-placeholder">لا توجد صورة</div>
+                }
+            </div>
+            <div>
+                <h1 class="h3 mb-1">@p.FullName</h1>
+                <div class="muted">
+                    كود <code>@p.RegistryCode</code> —
+                    @PersonRegistryService.LevelLabel(p.HierarchyLevel)
+                    @if (!string.IsNullOrWhiteSpace(p.BirthPlace))
+                    {
+                        <text> — @p.BirthPlace</text>
+                    }
+                </div>
             </div>
         </div>
         <div class="d-flex gap-2 flex-wrap">
@@ -150,6 +162,17 @@ else
             </div>
         </div>
         <div class="col-lg-4">
+            <div class="card-panel mb-3">
+                <h2 class="h6 mb-3">الصورة الشخصية</h2>
+                @if (!string.IsNullOrWhiteSpace(p.PhotoPath))
+                {
+                    <img class="person-photo person-photo-side" src="~/uploads/@p.PhotoPath" alt="الصورة الشخصية" />
+                }
+                else
+                {
+                    <p class="muted mb-0">لم تُرفع صورة شخصية بعد.</p>
+                }
+            </div>
             <div class="card-panel">
                 <h2 class="h6 mb-3">صورة الوثيقة</h2>
                 @if (!string.IsNullOrWhiteSpace(p.DocumentImagePath))
@@ -166,7 +189,7 @@ else
                 }
                 else
                 {
-                    <p class="muted mb-0">لا توجد صورة مرفقة.</p>
+                    <p class="muted mb-0">لا توجد وثيقة مرفقة.</p>
                 }
             </div>
         </div>

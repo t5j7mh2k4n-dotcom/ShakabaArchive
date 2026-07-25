@@ -338,6 +338,7 @@ public class PersonDraft
     public string Neighborhood { get; set; } = "";
     public string Phone { get; set; } = "";
     public string Notes { get; set; } = "";
+    public string PhotoPath { get; set; } = "";
     public string DocumentImagePath { get; set; } = "";
 
     public Person ToPerson()
@@ -363,6 +364,7 @@ public class PersonDraft
             Neighborhood = Neighborhood.Trim(),
             Phone = Phone.Trim(),
             Notes = Notes.Trim(),
+            PhotoPath = PhotoPath,
             DocumentImagePath = DocumentImagePath,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -392,6 +394,8 @@ public class PersonDraft
         p.Phone = Phone.Trim();
         p.Notes = Notes.Trim();
         p.RefreshFullName();
+        if (!string.IsNullOrWhiteSpace(PhotoPath))
+            p.PhotoPath = PhotoPath;
         if (!string.IsNullOrWhiteSpace(DocumentImagePath))
             p.DocumentImagePath = DocumentImagePath;
     }
@@ -418,6 +422,7 @@ public class PersonDraft
         Neighborhood = p.Neighborhood,
         Phone = p.Phone,
         Notes = p.Notes,
+        PhotoPath = p.PhotoPath,
         DocumentImagePath = p.DocumentImagePath
     };
 }

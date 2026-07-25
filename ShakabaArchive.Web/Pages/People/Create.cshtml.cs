@@ -15,6 +15,9 @@ public class CreateModel(ArchiveDbContext db) : PageModel
     public PersonInput Input { get; set; } = new();
 
     [BindProperty]
+    public IFormFile? Photo { get; set; }
+
+    [BindProperty]
     public IFormFile? Document { get; set; }
 
     public List<SelectListItem> ParentOptions { get; private set; } = [];
@@ -59,6 +62,12 @@ public class CreateModel(ArchiveDbContext db) : PageModel
 
         var draft = Input.ToDraft();
         draft.RegistryCode = code;
+
+        if (Photo is { Length: > 0 })
+        {
+            await using var stream = Photo.OpenReadStream();
+            draft.PhotoPath = DatabaseService.SaveDocumentImage(stream, Photo.FileName);
+        }
 
         if (Document is { Length: > 0 })
         {
@@ -130,6 +139,7 @@ public class PersonInput
     public string Neighborhood { get; set; } = "";
     public string Phone { get; set; } = "";
     public string Notes { get; set; } = "";
+    public string PhotoPath { get; set; } = "";
     public string DocumentImagePath { get; set; } = "";
 
     public string FullName =>
@@ -155,6 +165,7 @@ public class PersonInput
         Neighborhood = p.Neighborhood,
         Phone = p.Phone,
         Notes = p.Notes,
+        PhotoPath = p.PhotoPath,
         DocumentImagePath = p.DocumentImagePath
     };
 
@@ -181,6 +192,7 @@ public class PersonInput
         Neighborhood = Neighborhood,
         Phone = Phone,
         Notes = Notes,
+        PhotoPath = PhotoPath,
         DocumentImagePath = DocumentImagePath
     };
 }
