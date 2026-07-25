@@ -96,25 +96,28 @@ public static class LocalUserService
         {
             try
             {
-                DatabaseService.EnsureReady();
-                using (var check = CreateContext())
+                // 1) إيقاظ Neon عبر الـ pooler
+                using (var wake = CreateContext())
                 {
-                    if (CanQueryNewUsers(check))
+                    if (!wake.Database.CanConnect())
+                        return (false, "pooler CanConnect failed");
+                    if (CanQueryNewUsers(wake))
                     {
-                        UpgradeUserColumns(check);
-                        SeedAdminIfEmpty(check);
+                        UpgradeUserColumns(wake);
+                        SeedAdminIfEmpty(wake);
                         _initialized = true;
-                        return (true, $"users={check.Users.Count()}");
+                        return (true, $"users={wake.Users.Count()}");
                     }
                 }
 
-                // اتصال واحد مباشر لإنشاء الجداول ثم يُغلق قبل الاستعلام عبر pooler
-                EnsureUserSchemaViaDirectConnection();
+                // 2) إنشاء الجداول عبر المضيف المباشر ثم التحقق
+                var ddlError = EnsureUserSchemaViaDirectConnection();
+                Thread.Sleep(1000);
 
                 using var db = CreateContext();
                 UpgradeUserColumns(db);
                 if (!CanQueryNewUsers(db))
-                    return (false, "Users/InviteCodes tables still unavailable after direct DDL");
+                    return (false, "tables missing after DDL: " + (ddlError ?? "no ddl error"));
                 SeedAdminIfEmpty(db);
                 _initialized = true;
                 return (true, $"users={db.Users.Count()}");
@@ -126,41 +129,65 @@ public static class LocalUserService
         }
     }
 
-    private static void EnsureUserSchemaViaDirectConnection()
+    /// <returns>null إن نجح، أو نص الخطأ</returns>
+    private static string? EnsureUserSchemaViaDirectConnection()
     {
-        using var ddl = DatabaseService.CreateContextForSchemaChanges();
-        if (!ddl.Database.CanConnect())
-            throw new InvalidOperationException("Direct Neon connection failed (non-pooler host).");
+        try
+        {
+            using var ddl = DatabaseService.CreateContextForSchemaChanges();
+            if (!ddl.Database.CanConnect())
+                return "direct CanConnect failed (non-pooler)";
 
-        ddl.Database.ExecuteSqlRaw("""
-            CREATE TABLE IF NOT EXISTS "Users" (
-                "Id" SERIAL PRIMARY KEY,
-                "Email" character varying(160) NOT NULL,
-                "Phone" character varying(40) NOT NULL,
-                "DisplayName" character varying(120) NOT NULL,
-                "PasswordHash" character varying(200) NOT NULL,
-                "IsAdmin" boolean NOT NULL DEFAULT FALSE,
-                "Role" integer NOT NULL DEFAULT 0,
-                "InviteCodeUsed" character varying(40) NOT NULL DEFAULT '',
-                "CreatedAt" timestamp with time zone NOT NULL DEFAULT NOW()
-            );
-            """);
-        ddl.Database.ExecuteSqlRaw("""CREATE UNIQUE INDEX IF NOT EXISTS "IX_Users_Email" ON "Users" ("Email");""");
-        ddl.Database.ExecuteSqlRaw("""CREATE INDEX IF NOT EXISTS "IX_Users_Phone" ON "Users" ("Phone");""");
-        ddl.Database.ExecuteSqlRaw("""
-            CREATE TABLE IF NOT EXISTS "InviteCodes" (
-                "Id" SERIAL PRIMARY KEY,
-                "Code" character varying(40) NOT NULL,
-                "Note" character varying(200) NOT NULL DEFAULT '',
-                "AssignRole" integer NOT NULL DEFAULT 0,
-                "IsUsed" boolean NOT NULL DEFAULT FALSE,
-                "CreatedAt" timestamp with time zone NOT NULL DEFAULT NOW(),
-                "UsedAt" timestamp with time zone NULL,
-                "UsedByUserId" integer NULL
-            );
-            """);
-        ddl.Database.ExecuteSqlRaw("""CREATE UNIQUE INDEX IF NOT EXISTS "IX_InviteCodes_Code" ON "InviteCodes" ("Code");""");
-        Console.WriteLine("EnsureUserSchema: Users/InviteCodes created via direct Neon connection.");
+            ddl.Database.ExecuteSqlRaw("""
+                CREATE TABLE IF NOT EXISTS "Users" (
+                    "Id" SERIAL PRIMARY KEY,
+                    "Email" character varying(160) NOT NULL,
+                    "Phone" character varying(40) NOT NULL,
+                    "DisplayName" character varying(120) NOT NULL,
+                    "PasswordHash" character varying(200) NOT NULL,
+                    "IsAdmin" boolean NOT NULL DEFAULT FALSE,
+                    "Role" integer NOT NULL DEFAULT 0,
+                    "InviteCodeUsed" character varying(40) NOT NULL DEFAULT '',
+                    "CreatedAt" timestamp with time zone NOT NULL DEFAULT NOW()
+                );
+                """);
+            ddl.Database.ExecuteSqlRaw("""CREATE UNIQUE INDEX IF NOT EXISTS "IX_Users_Email" ON "Users" ("Email");""");
+            ddl.Database.ExecuteSqlRaw("""CREATE INDEX IF NOT EXISTS "IX_Users_Phone" ON "Users" ("Phone");""");
+            ddl.Database.ExecuteSqlRaw("""
+                CREATE TABLE IF NOT EXISTS "InviteCodes" (
+                    "Id" SERIAL PRIMARY KEY,
+                    "Code" character varying(40) NOT NULL,
+                    "Note" character varying(200) NOT NULL DEFAULT '',
+                    "AssignRole" integer NOT NULL DEFAULT 0,
+                    "IsUsed" boolean NOT NULL DEFAULT FALSE,
+                    "CreatedAt" timestamp with time zone NOT NULL DEFAULT NOW(),
+                    "UsedAt" timestamp with time zone NULL,
+                    "UsedByUserId" integer NULL
+                );
+                """);
+            ddl.Database.ExecuteSqlRaw("""CREATE UNIQUE INDEX IF NOT EXISTS "IX_InviteCodes_Code" ON "InviteCodes" ("Code");""");
+
+            // تحقق فوري على نفس الاتصال المباشر
+            var usersOk = false;
+            try
+            {
+                _ = ddl.Users.Select(u => u.Email).Take(1).ToList();
+                _ = ddl.InviteCodes.Take(1).ToList();
+                usersOk = true;
+            }
+            catch (Exception ex)
+            {
+                return "direct query after CREATE failed: " + ex.Message;
+            }
+
+            Console.WriteLine("EnsureUserSchema: Users/InviteCodes ready via direct Neon connection. ok=" + usersOk);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("EnsureUserSchemaViaDirectConnection: " + ex);
+            return ex.GetBaseException().Message;
+        }
     }
 
     private static string? WriteBlockedReason()
