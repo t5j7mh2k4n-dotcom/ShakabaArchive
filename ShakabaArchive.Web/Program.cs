@@ -87,15 +87,18 @@ app.MapGet("/health", () => Results.Ok("ok"));
 
 app.MapRazorPages();
 
-// ابدأ الاستماع فوراً — ثم هيّئ قواعد البيانات في الخلفية (يمنع قتل العملية على Free)
+// ابدأ الاستماع فوراً — ثم هيّئ قواعد البيانات لاحقاً (يمنع exit 134/139 على Free)
 _ = Task.Run(async () =>
 {
     try
     {
-        await Task.Delay(500);
+        // امنح Render وقتاً لاعتبار الحاوية سليمة عبر /health قبل ضغط الذاكرة
+        await Task.Delay(3000);
         Console.WriteLine("Background DB init starting...");
         LocalUserService.Initialize();
+        await Task.Delay(500);
         DatabaseService.Initialize();
+        await Task.Delay(500);
         using var scope = app.Services.CreateScope();
         var archiveDb = scope.ServiceProvider.GetRequiredService<ArchiveDbContext>();
         await ApprovalService.EnsureSchemaAsync(archiveDb);

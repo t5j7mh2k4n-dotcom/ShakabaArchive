@@ -1,5 +1,5 @@
-# بناء خفيف للطبقة المجانية على Render (ذاكرة محدودة)
-FROM mcr.microsoft.com/dotnet/sdk:9.0-alpine AS build
+# Debian أكثر استقراراً على Render Free من Alpine (تجنّب exit 139 مع SQLite/ICU)
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
 ENV DOTNET_CLI_TELEMETRY_OPTOUT=1 \
@@ -10,9 +10,7 @@ ENV DOTNET_CLI_TELEMETRY_OPTOUT=1 \
 
 COPY ShakabaArchive.Core/ShakabaArchive.Core.csproj ShakabaArchive.Core/
 COPY ShakabaArchive.Web/ShakabaArchive.Web.csproj ShakabaArchive.Web/
-RUN dotnet restore ShakabaArchive.Web/ShakabaArchive.Web.csproj \
-    --verbosity quiet \
-    -p:RestorePackagesPath=/tmp/nuget
+RUN dotnet restore ShakabaArchive.Web/ShakabaArchive.Web.csproj --verbosity quiet
 
 COPY ShakabaArchive.Core/ ShakabaArchive.Core/
 COPY ShakabaArchive.Web/ ShakabaArchive.Web/
@@ -27,24 +25,17 @@ RUN dotnet publish ShakabaArchive.Web/ShakabaArchive.Web.csproj \
     /p:PublishReadyToRun=false \
     /p:DebugType=None \
     /p:DebugSymbols=false \
-    -p:RestorePackagesPath=/tmp/nuget \
-    --verbosity quiet \
-    && rm -rf /tmp/nuget /root/.nuget /tmp/MSBuild*
+    --verbosity quiet
 
-FROM mcr.microsoft.com/dotnet/aspnet:9.0-alpine AS final
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
 WORKDIR /app
-
-RUN apk add --no-cache icu-libs icu-data-full \
-    && rm -rf /var/cache/apk/*
 
 ENV ASPNETCORE_ENVIRONMENT=Production \
     ASPNETCORE_URLS=http://0.0.0.0:8080 \
     DOTNET_EnableDiagnostics=0 \
     DOTNET_GCServer=0 \
     DOTNET_GCHeapCount=1 \
-    DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false \
-    LC_ALL=en_US.UTF-8 \
-    LANG=en_US.UTF-8
+    DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 
 EXPOSE 8080
 COPY --from=build /app/publish .
