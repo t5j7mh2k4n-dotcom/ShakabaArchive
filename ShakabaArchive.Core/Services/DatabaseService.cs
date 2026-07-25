@@ -127,17 +127,38 @@ public static class DatabaseService
         EnsureSettingsFile();
         using var db = CreateContext();
 
-        if (!CanQueryPeople(db))
-        {
+        // إعادة المحاولة عند إيقاظ Neon — لا نفسّر فشل الاتصال على أنه قاعدة فارغة
+        var ready = WaitForDatabase(db, attempts: 5, delayMs: 2000);
+        if (!ready || !CanQueryPeople(db))
             EnsureTables(db);
-        }
         else
-        {
             UpgradeSchema(db);
+
+        if (CanQueryPeople(db))
+        {
+            RemoveRetiredOccasionTypes(db);
+            SeedIfEmpty(db);
+        }
+    }
+
+    private static bool WaitForDatabase(ArchiveDbContext db, int attempts, int delayMs)
+    {
+        for (var i = 0; i < attempts; i++)
+        {
+            try
+            {
+                if (db.Database.CanConnect())
+                    return true;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Database wake attempt {i + 1}/{attempts}: {ex.Message}");
+            }
+
+            Thread.Sleep(delayMs);
         }
 
-        RemoveRetiredOccasionTypes(db);
-        SeedIfEmpty(db);
+        return false;
     }
 
     /// <summary>حذف الطلاق والعزاء — اكتفاءً بنوع الوفاة.</summary>
@@ -177,39 +198,19 @@ public static class DatabaseService
         if (!creator.Exists())
             creator.Create();
 
-        var isPostgres = db.Database.IsNpgsql();
+        // لا نحذف المخطط أبداً — حذف public CASCADE كان يمسح السجلات عند فشل اتصال Neon المؤقت
         try
         {
-            if (isPostgres)
-            {
-                // Empty Neon DB: wipe public schema then create EF tables cleanly.
-                db.Database.ExecuteSqlRaw(
-                    """
-                    DROP SCHEMA IF EXISTS public CASCADE;
-                    CREATE SCHEMA public;
-                    GRANT ALL ON SCHEMA public TO public;
-                    GRANT ALL ON SCHEMA public TO neondb_owner;
-                    """);
-            }
-
             creator.CreateTables();
         }
-        catch
+        catch (Exception ex)
         {
-            if (isPostgres)
+            Console.Error.WriteLine("EnsureTables CreateTables: " + ex.Message);
+            // إن وُجدت الجداول مسبقاً نكتفي بالترقية
+            try { UpgradeSchema(db); }
+            catch (Exception upEx)
             {
-                db.Database.ExecuteSqlRaw(
-                    """
-                    DROP SCHEMA IF EXISTS public CASCADE;
-                    CREATE SCHEMA public;
-                    GRANT ALL ON SCHEMA public TO public;
-                    GRANT ALL ON SCHEMA public TO neondb_owner;
-                    """);
-                creator.CreateTables();
-            }
-            else
-            {
-                throw;
+                Console.Error.WriteLine("EnsureTables UpgradeSchema: " + upEx.Message);
             }
         }
     }

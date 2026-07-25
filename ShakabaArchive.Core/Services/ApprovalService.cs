@@ -104,7 +104,18 @@ public static class ApprovalService
         // الأدمن والموافقون: حفظ فوري في الأرشيف
         if (user.CanApprove)
         {
-            await ApplyAsync(db, item);
+            try
+            {
+                await ApplyAsync(db, item);
+            }
+            catch (Exception ex)
+            {
+                item.ReviewNote = "فشل الحفظ المباشر: " + ex.Message;
+                await db.SaveChangesAsync();
+                throw new InvalidOperationException(
+                    "تعذر حفظ البيانات في الأرشيف: " + ex.Message, ex);
+            }
+
             item.Status = ChangeStatus.Approved;
             item.ReviewedByUserId = user.Id;
             item.ReviewedByName = user.DisplayName;

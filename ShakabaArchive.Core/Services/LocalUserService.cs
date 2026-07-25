@@ -87,35 +87,16 @@ public static class LocalUserService
         if (!creator.Exists())
             creator.Create();
 
+        // لا نحذف جداول المستخدمين أبداً عند فشل الاستعلام المؤقت
         if (!CanQueryNewUsers(db))
         {
-            // جدول Users القديم على Neon قد يكون بصيغة قديمة — نستبدله بجداول المستخدمين فقط
-            if (IsPostgresConfigured())
+            try
             {
-                try
-                {
-                    db.Database.ExecuteSqlRaw("""DROP TABLE IF EXISTS "InviteCodes" CASCADE;""");
-                    db.Database.ExecuteSqlRaw("""DROP TABLE IF EXISTS "Users" CASCADE;""");
-                }
-                catch { /* ignore */ }
+                creator.CreateTables();
             }
-
-            if (!creator.HasTables() || !CanQueryNewUsers(db))
+            catch (Exception ex)
             {
-                try
-                {
-                    creator.CreateTables();
-                }
-                catch
-                {
-                    if (IsPostgresConfigured())
-                    {
-                        db.Database.ExecuteSqlRaw("""DROP TABLE IF EXISTS "InviteCodes" CASCADE;""");
-                        db.Database.ExecuteSqlRaw("""DROP TABLE IF EXISTS "Users" CASCADE;""");
-                        creator.CreateTables();
-                    }
-                    else throw;
-                }
+                Console.Error.WriteLine("EnsureUserSchema CreateTables: " + ex.Message);
             }
         }
     }

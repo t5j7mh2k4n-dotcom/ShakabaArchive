@@ -13,10 +13,15 @@
     }
 </div>
 
-<form method="get" class="card-panel mb-3">
+@if (TempData["Flash"] is string flash && !string.IsNullOrEmpty(flash))
+{
+    <div class="alert alert-success">@flash</div>
+}
+
+<form method="get" action="/People" class="card-panel mb-3">
     <div class="row g-2 search-bar">
         <div class="col-md-6">
-            <input class="form-control" name="q" value="@Model.Q" placeholder="بحث..." />
+            <input class="form-control" name="q" value="@Model.Q" placeholder="بحث بالاسم أو الرقم الوطني أو الحي..." />
         </div>
         <div class="col-md-4">
             <select class="form-select" name="birthPlace" asp-items="Model.BirthPlaceOptions">
@@ -24,7 +29,7 @@
             </select>
         </div>
         <div class="col-md-2">
-            <button class="btn btn-soft w-100" type="submit">تصفية</button>
+            <button class="btn btn-accent w-100" type="submit">بحث</button>
         </div>
     </div>
 </form>
