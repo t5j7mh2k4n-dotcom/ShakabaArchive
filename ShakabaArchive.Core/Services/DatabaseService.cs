@@ -330,7 +330,7 @@ public static class DatabaseService
                 db = "neondb";
 
             // يُفضَّل مضيف Neon الذي فيه -pooler للاتصالات من Render
-            return $"Host={uri.Host};Port={(uri.Port > 0 ? uri.Port : 5432)};Database={db};Username={user};Password={pass};SSL Mode=Require;Trust Server Certificate=true;Timeout=120;Command Timeout=120;Keepalive=30;Pooling=true;Maximum Pool Size=5;Connection Idle Lifetime=60";
+            return $"Host={uri.Host};Port={(uri.Port > 0 ? uri.Port : 5432)};Database={db};Username={user};Password={pass};SSL Mode=Require;Trust Server Certificate=true;Timeout=30;Command Timeout=30;Keepalive=30;Pooling=true;Maximum Pool Size=5;Connection Idle Lifetime=60";
         }
 
         // إن وُضع رابط ناقص بدون postgresql:// — حاول إصلاحه إن بدا كمضيف Neon

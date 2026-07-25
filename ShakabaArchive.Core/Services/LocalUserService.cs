@@ -567,9 +567,9 @@ public static class LocalUserService
         var key = emailOrPhone.Trim().ToLowerInvariant();
         var phone = emailOrPhone.Trim();
 
-        // Neon على الخطة المجانية ينام — نعيد المحاولة لإيقاظه
+        // Neon ينام أحياناً — محاولتان فقط حتى لا يعلق زر الدخول طويلاً
         Exception? last = null;
-        for (var attempt = 1; attempt <= 6; attempt++)
+        for (var attempt = 1; attempt <= 2; attempt++)
         {
             try
             {
@@ -581,10 +581,13 @@ public static class LocalUserService
             catch (Exception ex)
             {
                 last = ex;
-                Console.Error.WriteLine($"FindByLogin attempt {attempt}/6: {ex.Message}");
-                Thread.Sleep(2000 * attempt);
-                lock (InitGate) { _initialized = false; }
-                DatabaseService.ResetInitialization();
+                Console.Error.WriteLine($"FindByLogin attempt {attempt}/2: {ex.Message}");
+                if (attempt < 2)
+                {
+                    Thread.Sleep(3000);
+                    lock (InitGate) { _initialized = false; }
+                    DatabaseService.ResetInitialization();
+                }
             }
         }
 
