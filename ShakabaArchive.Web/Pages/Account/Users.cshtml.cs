@@ -140,6 +140,7 @@ public class UsersModel : PageModel
 
     private void Load()
     {
+        LocalUserService.EnsureReady();
         Users = LocalUserService.ListUsers();
         ApproverCount = LocalUserService.CountApprovers();
     }
