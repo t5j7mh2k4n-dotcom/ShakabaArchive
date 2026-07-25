@@ -138,6 +138,16 @@ public static class LocalUserService
             if (!ddl.Database.CanConnect())
                 return "direct CanConnect failed (non-pooler)";
 
+            // جدول قديم بأعمدة صغيرة (email) يمنع CREATE IF NOT EXISTS — نعيد إنشاءه إن كان تالفاً
+            if (!UsersTableHasEmailColumn(ddl))
+            {
+                Console.WriteLine("EnsureUserSchema: recreating broken Users/InviteCodes tables...");
+                ddl.Database.ExecuteSqlRaw("""DROP TABLE IF EXISTS "InviteCodes" CASCADE;""");
+                ddl.Database.ExecuteSqlRaw("""DROP TABLE IF EXISTS "Users" CASCADE;""");
+                ddl.Database.ExecuteSqlRaw("""DROP TABLE IF EXISTS invitecodes CASCADE;""");
+                ddl.Database.ExecuteSqlRaw("""DROP TABLE IF EXISTS users CASCADE;""");
+            }
+
             ddl.Database.ExecuteSqlRaw("""
                 CREATE TABLE IF NOT EXISTS "Users" (
                     "Id" SERIAL PRIMARY KEY,
@@ -167,26 +177,36 @@ public static class LocalUserService
                 """);
             ddl.Database.ExecuteSqlRaw("""CREATE UNIQUE INDEX IF NOT EXISTS "IX_InviteCodes_Code" ON "InviteCodes" ("Code");""");
 
-            // تحقق فوري على نفس الاتصال المباشر
-            var usersOk = false;
             try
             {
                 _ = ddl.Users.Select(u => u.Email).Take(1).ToList();
                 _ = ddl.InviteCodes.Take(1).ToList();
-                usersOk = true;
             }
             catch (Exception ex)
             {
                 return "direct query after CREATE failed: " + ex.Message;
             }
 
-            Console.WriteLine("EnsureUserSchema: Users/InviteCodes ready via direct Neon connection. ok=" + usersOk);
+            Console.WriteLine("EnsureUserSchema: Users/InviteCodes ready via direct Neon connection.");
             return null;
         }
         catch (Exception ex)
         {
             Console.Error.WriteLine("EnsureUserSchemaViaDirectConnection: " + ex);
             return ex.GetBaseException().Message;
+        }
+    }
+
+    private static bool UsersTableHasEmailColumn(ArchiveDbContext db)
+    {
+        try
+        {
+            db.Database.ExecuteSqlRaw("""SELECT "Email" FROM "Users" LIMIT 0""");
+            return true;
+        }
+        catch
+        {
+            return false;
         }
     }
 
