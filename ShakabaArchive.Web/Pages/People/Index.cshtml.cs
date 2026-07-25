@@ -71,7 +71,6 @@ public class IndexModel(ArchiveDbContext db) : PageModel
                 p.GrandfatherName.Contains(q) ||
                 p.FamilyName.Contains(q) ||
                 p.MotherName.Contains(q) ||
-                p.Tribe.Contains(q) ||
                 p.Profession.Contains(q) ||
                 p.Phone.Contains(q) ||
                 p.BirthPlace.Contains(q) ||

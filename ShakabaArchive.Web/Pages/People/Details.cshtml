@@ -65,7 +65,6 @@ else
                     <dt class="col-sm-3">النوع</dt><dd class="col-sm-9">@p.Gender</dd>
                     <dt class="col-sm-3">تاريخ الميلاد</dt><dd class="col-sm-9">@(p.BirthDate?.ToString("yyyy-MM-dd") ?? "—")</dd>
                     <dt class="col-sm-3">مكان الميلاد</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.BirthPlace) ? "—" : p.BirthPlace)</dd>
-                    <dt class="col-sm-3">القبيلة</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.Tribe) ? "—" : p.Tribe)</dd>
                     <dt class="col-sm-3">المهنة</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.Profession) ? "—" : p.Profession)</dd>
                     <dt class="col-sm-3">الإقامة</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.Residence) ? "—" : p.Residence)</dd>
                     <dt class="col-sm-3">الحي</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.Neighborhood) ? "—" : p.Neighborhood)</dd>

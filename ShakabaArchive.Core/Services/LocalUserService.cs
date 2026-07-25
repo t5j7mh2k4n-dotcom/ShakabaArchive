@@ -60,6 +60,17 @@ public static class LocalUserService
             return;
         }
 
+        // على Render القرص مؤقت: SQLite يُمسح مع كل Deploy فيختفي المستخدمون
+        var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")
+                  ?? Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT")
+                  ?? "";
+        if (string.Equals(env, "Production", StringComparison.OrdinalIgnoreCase)
+            || !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("RENDER")))
+        {
+            throw new InvalidOperationException(
+                "DATABASE_URL غير مضبوط. على الخادم يجب حفظ المستخدمين في PostgreSQL/Neon وإلا يُحذفون مع كل نشر.");
+        }
+
         options.UseSqlite($"Data Source={DatabasePath}");
     }
 

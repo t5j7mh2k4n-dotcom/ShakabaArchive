@@ -63,7 +63,7 @@
 <form method="get" action="/People" class="card-panel mb-3">
     <div class="row g-2 search-bar">
         <div class="col-md-5">
-            <input class="form-control" name="q" value="@Model.Q" placeholder="بحث بالكود أو الاسم أو رقم الوثيقة أو القبيلة..." />
+            <input class="form-control" name="q" value="@Model.Q" placeholder="بحث بالكود أو الاسم أو رقم الوثيقة..." />
         </div>
         <div class="col-md-3">
             <select class="form-select" name="level">
@@ -100,7 +100,6 @@
                 <th>النوع</th>
                 <th>تاريخ الميلاد</th>
                 <th>مكان الميلاد</th>
-                <th>القبيلة</th>
                 <th>المهنة</th>
                 <th>الإقامة</th>
                 <th>الحي</th>
@@ -136,7 +135,6 @@
                     <td>@Dash(p.Gender)</td>
                     <td>@(p.BirthDate?.ToString("yyyy-MM-dd") ?? "—")</td>
                     <td>@Dash(p.BirthPlace)</td>
-                    <td>@Dash(p.Tribe)</td>
                     <td>@Dash(p.Profession)</td>
                     <td>@Dash(p.Residence)</td>
                     <td>@Dash(p.Neighborhood)</td>

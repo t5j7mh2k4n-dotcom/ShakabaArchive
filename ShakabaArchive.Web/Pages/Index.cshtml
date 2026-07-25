@@ -79,7 +79,6 @@
                 <tr>
                     <th>الكود</th>
                     <th>الاسم</th>
-                    <th>القبيلة</th>
                     <th>مكان الميلاد</th>
                 </tr>
                 </thead>
@@ -89,7 +88,6 @@
                     <tr>
                         <td><code>@p.RegistryCode</code></td>
                         <td><a asp-page="/People/Details" asp-route-id="@p.Id">@p.FullName</a></td>
-                        <td>@(string.IsNullOrWhiteSpace(p.Tribe) ? "—" : p.Tribe)</td>
                         <td>@p.BirthPlace</td>
                     </tr>
                 }

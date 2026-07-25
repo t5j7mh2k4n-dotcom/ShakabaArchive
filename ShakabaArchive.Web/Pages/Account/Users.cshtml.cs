@@ -12,6 +12,7 @@ public class UsersModel : PageModel
     public List<AppUser> Users { get; private set; } = [];
     public int ApproverCount { get; private set; }
     public int MaxApprovers { get; private set; } = ApprovalService.MaxApprovers;
+    public string StorageLabel { get; private set; } = "";
     public string? Message { get; private set; }
     public string? Error { get; private set; }
 
@@ -143,6 +144,9 @@ public class UsersModel : PageModel
         LocalUserService.EnsureReady();
         Users = LocalUserService.ListUsers();
         ApproverCount = LocalUserService.CountApprovers();
+        StorageLabel = LocalUserService.UsesCloud
+            ? "PostgreSQL / Neon (ثابت — لا يُمسح مع النشر)"
+            : "SQLite محلي (مؤقت على Render — يُمسح مع كل نشر)";
     }
 
     public class UserFormInput

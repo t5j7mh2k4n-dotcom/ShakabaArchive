@@ -27,6 +27,17 @@ if (!string.IsNullOrWhiteSpace(pg))
         PostgreSqlConnection = pg,
         SqliteFileName = "shakaba-archive.db"
     });
+    Console.WriteLine("Database: PostgreSQL/Neon (persistent) — users and archive will survive deploys.");
+}
+else if (builder.Environment.IsProduction()
+         || !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("RENDER")))
+{
+    throw new InvalidOperationException(
+        "DATABASE_URL is required in Production/Render. Without it, users are stored in temporary SQLite and deleted on every deploy.");
+}
+else
+{
+    Console.WriteLine("Database: local SQLite (dev only).");
 }
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
