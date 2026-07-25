@@ -119,26 +119,42 @@ public static class DatabaseService
         options.UseSqlite($"Data Source={_sqlitePath}");
     }
 
+    private static readonly object InitGate = new();
+    private static bool _initialized;
+
     public static void Initialize()
     {
-        // Allow Unspecified DateTime values (birth/event dates) with PostgreSQL.
-        AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
-
-        EnsureSettingsFile();
-        using var db = CreateContext();
-
-        // محاولات قصيرة فقط — الطبقة المجانية على Render محدودة الذاكرة والوقت
-        var ready = WaitForDatabase(db, attempts: 3, delayMs: 1000);
-        if (!ready || !CanQueryPeople(db))
-            EnsureTables(db);
-        else
-            UpgradeSchema(db);
-
-        if (CanQueryPeople(db))
+        lock (InitGate)
         {
-            RemoveRetiredOccasionTypes(db);
-            SeedIfEmpty(db);
+            if (_initialized) return;
+
+            // Allow Unspecified DateTime values (birth/event dates) with PostgreSQL.
+            AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
+            EnsureSettingsFile();
+            using var db = CreateContext();
+
+            // محاولات قصيرة فقط — الطبقة المجانية على Render محدودة الذاكرة والوقت
+            var ready = WaitForDatabase(db, attempts: 3, delayMs: 1000);
+            if (!ready || !CanQueryPeople(db))
+                EnsureTables(db);
+            else
+                UpgradeSchema(db);
+
+            if (CanQueryPeople(db))
+            {
+                RemoveRetiredOccasionTypes(db);
+                SeedIfEmpty(db);
+            }
+
+            _initialized = true;
         }
+    }
+
+    public static void EnsureReady()
+    {
+        if (!_initialized)
+            Initialize();
     }
 
     private static bool WaitForDatabase(ArchiveDbContext db, int attempts, int delayMs)

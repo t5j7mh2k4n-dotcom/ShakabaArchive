@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -12,6 +13,7 @@ namespace ShakabaArchive.Web.Pages.People;
 public class IndexModel(ArchiveDbContext db) : PageModel
 {
     public List<Person> People { get; private set; } = [];
+    public List<PendingPersonRow> PendingPeople { get; private set; } = [];
     public List<SelectListItem> BirthPlaceOptions { get; private set; } = [];
 
     [BindProperty(SupportsGet = true)]
@@ -25,6 +27,17 @@ public class IndexModel(ArchiveDbContext db) : PageModel
 
     public async Task OnGetAsync()
     {
+        try
+        {
+            DatabaseService.EnsureReady();
+            await ApprovalService.EnsureSchemaAsync(db);
+        }
+        catch (Exception ex)
+        {
+            TempData["Flash"] = "قاعدة البيانات تُجهَّز الآن، أعد التحديث بعد ثوانٍ. " + ex.Message;
+            return;
+        }
+
         var places = await db.People.AsNoTracking()
             .Select(p => p.BirthPlace)
             .Where(n => n != "")
@@ -71,6 +84,38 @@ public class IndexModel(ArchiveDbContext db) : PageModel
             .OrderBy(p => p.RegistryCode)
             .ThenBy(p => p.FullName)
             .ToListAsync();
+
+        // طلبات الإضافة التي لم تُعتمد بعد — تظهر هنا حتى لا يظن المستخدم أنها ضاعت
+        if (User.Identity?.IsAuthenticated == true)
+        {
+            var pending = await db.PendingChanges.AsNoTracking()
+                .Where(x => x.Status == ChangeStatus.Pending
+                            && x.EntityType == ChangeEntity.Person
+                            && x.Action == ChangeAction.Create)
+                .OrderByDescending(x => x.SubmittedAt)
+                .Take(50)
+                .ToListAsync();
+
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            foreach (var item in pending)
+            {
+                PersonDraft? draft = null;
+                try { draft = JsonSerializer.Deserialize<PersonDraft>(item.PayloadJson, options); }
+                catch { /* ignore */ }
+
+                PendingPeople.Add(new PendingPersonRow
+                {
+                    PendingId = item.Id,
+                    Summary = item.Summary,
+                    SubmittedByName = item.SubmittedByName,
+                    SubmittedAt = item.SubmittedAt,
+                    RegistryCode = draft?.RegistryCode ?? "—",
+                    FullName = draft?.FullName ?? item.Summary,
+                    DocumentType = draft?.DocumentType ?? "—",
+                    DocumentNumber = draft?.DocumentNumber ?? draft?.NationalId ?? "—"
+                });
+            }
+        }
     }
 
     public async Task<IActionResult> OnPostDeleteAsync(int id)
@@ -106,5 +151,17 @@ public class IndexModel(ArchiveDbContext db) : PageModel
 
         TempData["Flash"] = "تم إرسال طلب الحذف بانتظار موافقة أحد الثلاثة على صحة البيانات.";
         return RedirectToPage("/Approvals/Index");
+    }
+
+    public class PendingPersonRow
+    {
+        public int PendingId { get; set; }
+        public string Summary { get; set; } = "";
+        public string SubmittedByName { get; set; } = "";
+        public DateTime SubmittedAt { get; set; }
+        public string RegistryCode { get; set; } = "";
+        public string FullName { get; set; } = "";
+        public string DocumentType { get; set; } = "";
+        public string DocumentNumber { get; set; } = "";
     }
 }

@@ -54,17 +54,25 @@ public class UsersModel : PageModel
         if (!User.IsInRole("Admin"))
             return Forbid();
 
-        var (ok, error, _) = LocalUserService.CreateUser(
-            Form.Email,
-            Form.Phone,
-            Form.DisplayName,
-            Form.Password ?? "",
-            Form.Role);
+        try
+        {
+            LocalUserService.EnsureReady();
+            var (ok, error, created) = LocalUserService.CreateUser(
+                Form.Email,
+                Form.Phone,
+                Form.DisplayName,
+                Form.Password ?? "",
+                Form.Role);
 
-        if (!ok)
-            TempData["FlashError"] = error;
-        else
-            TempData["Flash"] = "تمت إضافة المستخدم بنجاح.";
+            if (!ok)
+                TempData["FlashError"] = error;
+            else
+                TempData["Flash"] = $"تمت إضافة المستخدم «{created?.DisplayName}» بنجاح ويظهر في القائمة أدناه.";
+        }
+        catch (Exception ex)
+        {
+            TempData["FlashError"] = "تعذر إضافة المستخدم: " + ex.Message;
+        }
 
         return RedirectToPage();
     }

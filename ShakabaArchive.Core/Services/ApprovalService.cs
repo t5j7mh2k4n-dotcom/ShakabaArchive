@@ -86,6 +86,9 @@ public static class ApprovalService
         object payload,
         string summary)
     {
+        DatabaseService.EnsureReady();
+        await EnsureSchemaAsync(db);
+
         var item = new PendingChange
         {
             EntityType = entityType,

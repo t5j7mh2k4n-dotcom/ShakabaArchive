@@ -63,12 +63,26 @@ public static class LocalUserService
         options.UseSqlite($"Data Source={DatabasePath}");
     }
 
+    private static readonly object InitGate = new();
+    private static bool _initialized;
+
     public static void Initialize()
     {
-        using var db = CreateContext();
-        EnsureUserSchema(db);
-        UpgradeUserColumns(db);
-        SeedAdminIfEmpty(db);
+        lock (InitGate)
+        {
+            if (_initialized) return;
+            using var db = CreateContext();
+            EnsureUserSchema(db);
+            UpgradeUserColumns(db);
+            SeedAdminIfEmpty(db);
+            _initialized = true;
+        }
+    }
+
+    public static void EnsureReady()
+    {
+        if (!_initialized)
+            Initialize();
     }
 
     private static void UpgradeUserColumns(UsersDbContext db)
@@ -194,6 +208,7 @@ public static class LocalUserService
 
     public static int CountApprovers()
     {
+        EnsureReady();
         using var db = CreateContext();
         // الثلاثة الموافقون فقط — الأدمن الرئيسي لا يُحسب ضمنهم
         return db.Users.Count(u => u.Role == UserRole.Approver && !u.IsAdmin);
@@ -229,6 +244,7 @@ public static class LocalUserService
 
     public static (bool Ok, string Error) SetUserRole(int userId, UserRole role)
     {
+        EnsureReady();
         using var db = CreateContext();
         var user = db.Users.FirstOrDefault(u => u.Id == userId);
         if (user is null) return (false, "المستخدم غير موجود.");
@@ -242,6 +258,7 @@ public static class LocalUserService
 
     public static List<AppUser> ListUsers()
     {
+        EnsureReady();
         using var db = CreateContext();
         // الأدمن الرئيسي أولاً، ثم الثلاثة الموافقون، ثم مدخلو البيانات
         return db.Users.AsNoTracking()
@@ -253,6 +270,7 @@ public static class LocalUserService
 
     public static AppUser? FindById(int id)
     {
+        EnsureReady();
         using var db = CreateContext();
         return db.Users.AsNoTracking().FirstOrDefault(u => u.Id == id);
     }
@@ -276,6 +294,8 @@ public static class LocalUserService
             return (false, "أدخل الاسم الظاهر.", null);
         if (string.IsNullOrWhiteSpace(password) || password.Length < 6)
             return (false, "كلمة المرور يجب أن تكون 6 أحرف على الأقل.", null);
+
+        EnsureReady();
 
         if (role == UserRole.Approver && CountApprovers() >= ApprovalService.MaxApprovers)
             return (false, $"لا يمكن إضافة أكثر من {ApprovalService.MaxApprovers} موافقين على صحة البيانات.", null);
@@ -323,6 +343,7 @@ public static class LocalUserService
         if (!string.IsNullOrWhiteSpace(newPassword) && newPassword.Length < 6)
             return (false, "كلمة المرور يجب أن تكون 6 أحرف على الأقل.");
 
+        EnsureReady();
         using var db = CreateContext();
         var user = db.Users.FirstOrDefault(u => u.Id == userId);
         if (user is null) return (false, "المستخدم غير موجود.");
@@ -347,6 +368,7 @@ public static class LocalUserService
 
     public static (bool Ok, string Error) DeleteUser(int userId, int? currentAdminId = null)
     {
+        EnsureReady();
         using var db = CreateContext();
         var user = db.Users.FirstOrDefault(u => u.Id == userId);
         if (user is null) return (false, "المستخدم غير موجود.");
@@ -457,6 +479,7 @@ public static class LocalUserService
 
     public static AppUser? FindByLogin(string emailOrPhone)
     {
+        EnsureReady();
         var key = emailOrPhone.Trim().ToLowerInvariant();
         var phone = emailOrPhone.Trim();
         using var db = CreateContext();
