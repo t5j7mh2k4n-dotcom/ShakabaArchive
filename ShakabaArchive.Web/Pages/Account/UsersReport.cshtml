@@ -7,7 +7,7 @@
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 no-print">
     <div>
         <h1 class="h4 mb-1">تقرير قائمة المستخدمين</h1>
-        <p class="muted mb-0">القائمة غير محدودة العدد. المحدود فقط: الموافقون على صحة البيانات (@Model.MaxApprovers كحد أقصى).</p>
+        <p class="muted mb-0">الحد الأقصى للمستخدمين: @Model.MaxUsers — الموافقون على صحة البيانات: @Model.MaxApprovers كحد أقصى.</p>
     </div>
     <div class="d-flex flex-wrap gap-2">
         <a class="btn btn-soft" asp-page="./Users">رجوع للمستخدمين</a>
@@ -32,7 +32,7 @@ else
             <div class="col-6 col-md-3">
                 <div class="card-panel text-center py-3">
                     <div class="muted small">إجمالي المستخدمين</div>
-                    <div class="h3 mb-0">@Model.TotalCount</div>
+                    <div class="h3 mb-0">@Model.TotalCount / @Model.MaxUsers</div>
                 </div>
             </div>
             <div class="col-6 col-md-3">

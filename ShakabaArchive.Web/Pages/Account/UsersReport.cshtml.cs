@@ -15,6 +15,7 @@ public class UsersReportModel : PageModel
     public int ApproverCount { get; private set; }
     public int EditorCount { get; private set; }
     public int MaxApprovers { get; private set; } = ApprovalService.MaxApprovers;
+    public int MaxUsers { get; private set; } = ApprovalService.MaxUsers;
     public string GeneratedAt { get; private set; } = "";
     public string StorageLabel { get; private set; } = "";
 

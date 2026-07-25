@@ -222,6 +222,13 @@ public static class LocalUserService
         return db.Users.Count(u => u.Role == UserRole.Approver && !u.IsAdmin);
     }
 
+    public static int CountUsers()
+    {
+        EnsureReady();
+        using var db = CreateContext();
+        return db.Users.Count();
+    }
+
     public static InviteCode CreateInvite(string? note = null, UserRole assignRole = UserRole.Editor)
     {
         if (assignRole == UserRole.Approver)
@@ -304,6 +311,9 @@ public static class LocalUserService
             return (false, "كلمة المرور يجب أن تكون 6 أحرف على الأقل.", null);
 
         EnsureReady();
+
+        if (CountUsers() >= ApprovalService.MaxUsers)
+            return (false, $"تم بلوغ الحد الأقصى للمستخدمين ({ApprovalService.MaxUsers}).", null);
 
         if (role == UserRole.Approver && CountApprovers() >= ApprovalService.MaxApprovers)
             return (false, $"لا يمكن إضافة أكثر من {ApprovalService.MaxApprovers} موافقين على صحة البيانات.", null);
@@ -469,6 +479,10 @@ public static class LocalUserService
             return (false, "كلمة المرور يجب أن تكون 6 أحرف على الأقل.", null);
         if (string.IsNullOrWhiteSpace(inviteCode))
             return (false, "أدخل رقم الدعوة للمستخدم الجديد.", null);
+
+        EnsureReady();
+        if (CountUsers() >= ApprovalService.MaxUsers)
+            return (false, $"تم بلوغ الحد الأقصى للمستخدمين ({ApprovalService.MaxUsers}).", null);
 
         using var db = CreateContext();
         var invite = db.InviteCodes.FirstOrDefault(c => c.Code == inviteCode);

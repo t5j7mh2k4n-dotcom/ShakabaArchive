@@ -12,6 +12,7 @@ public class UsersModel : PageModel
     public List<AppUser> Users { get; private set; } = [];
     public int ApproverCount { get; private set; }
     public int MaxApprovers { get; private set; } = ApprovalService.MaxApprovers;
+    public int MaxUsers { get; private set; } = ApprovalService.MaxUsers;
     public string StorageLabel { get; private set; } = "";
     public string? Message { get; private set; }
     public string? Error { get; private set; }
