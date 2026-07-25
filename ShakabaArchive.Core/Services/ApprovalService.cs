@@ -22,20 +22,33 @@ public static class ApprovalService
     {
         try
         {
-            _ = await db.PendingChanges.Take(1).ToListAsync();
+            _ = await db.PendingChanges.Select(x => x.Summary).Take(1).ToListAsync();
             return;
         }
         catch
         {
-            // create table
+            // recreate below
         }
 
-        if (db.Database.IsNpgsql())
+        var isPostgres = db.Database.ProviderName?.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) == true;
+        if (isPostgres)
         {
-            await db.Database.ExecuteSqlRawAsync(
+            // إنشاء عبر اتصال مباشر (بدون pooler) وإعادة إنشاء الجدول التالف إن لزم
+            await using var ddl = DatabaseService.CreateContextForSchemaChanges();
+            try
+            {
+                await ddl.Database.ExecuteSqlRawAsync("""SELECT "Summary" FROM "PendingChanges" LIMIT 0""");
+            }
+            catch
+            {
+                await ddl.Database.ExecuteSqlRawAsync("""DROP TABLE IF EXISTS "PendingChanges" CASCADE;""");
+                await ddl.Database.ExecuteSqlRawAsync("""DROP TABLE IF EXISTS pendingchanges CASCADE;""");
+            }
+
+            await ddl.Database.ExecuteSqlRawAsync(
                 """
                 CREATE TABLE IF NOT EXISTS "PendingChanges" (
-                  "Id" serial PRIMARY KEY,
+                  "Id" SERIAL PRIMARY KEY,
                   "EntityType" integer NOT NULL,
                   "Action" integer NOT NULL,
                   "EntityId" integer NULL,
@@ -47,33 +60,32 @@ public static class ApprovalService
                   "ReviewedByUserId" integer NULL,
                   "ReviewedByName" varchar(120) NULL,
                   "ReviewNote" varchar(400) NOT NULL DEFAULT '',
-                  "SubmittedAt" timestamp with time zone NOT NULL,
+                  "SubmittedAt" timestamp with time zone NOT NULL DEFAULT NOW(),
                   "ReviewedAt" timestamp with time zone NULL
                 );
                 """);
+            return;
         }
-        else
-        {
-            await db.Database.ExecuteSqlRawAsync(
-                """
-                CREATE TABLE IF NOT EXISTS PendingChanges (
-                  Id INTEGER PRIMARY KEY AUTOINCREMENT,
-                  EntityType INTEGER NOT NULL,
-                  Action INTEGER NOT NULL,
-                  EntityId INTEGER NULL,
-                  PayloadJson TEXT NOT NULL DEFAULT '{}',
-                  Summary TEXT NOT NULL DEFAULT '',
-                  Status INTEGER NOT NULL DEFAULT 0,
-                  SubmittedByUserId INTEGER NOT NULL,
-                  SubmittedByName TEXT NOT NULL DEFAULT '',
-                  ReviewedByUserId INTEGER NULL,
-                  ReviewedByName TEXT NULL,
-                  ReviewNote TEXT NOT NULL DEFAULT '',
-                  SubmittedAt TEXT NOT NULL,
-                  ReviewedAt TEXT NULL
-                );
-                """);
-        }
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS PendingChanges (
+              Id INTEGER PRIMARY KEY AUTOINCREMENT,
+              EntityType INTEGER NOT NULL,
+              Action INTEGER NOT NULL,
+              EntityId INTEGER NULL,
+              PayloadJson TEXT NOT NULL DEFAULT '{}',
+              Summary TEXT NOT NULL DEFAULT '',
+              Status INTEGER NOT NULL DEFAULT 0,
+              SubmittedByUserId INTEGER NOT NULL,
+              SubmittedByName TEXT NOT NULL DEFAULT '',
+              ReviewedByUserId INTEGER NULL,
+              ReviewedByName TEXT NULL,
+              ReviewNote TEXT NOT NULL DEFAULT '',
+              SubmittedAt TEXT NOT NULL,
+              ReviewedAt TEXT NULL
+            );
+            """);
     }
 
     /// <summary>

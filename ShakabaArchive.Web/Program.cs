@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using ShakabaArchive.Data;
@@ -49,6 +50,12 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 });
 
 builder.Services.AddDbContext<ArchiveDbContext>(options => DatabaseService.Configure(options));
+
+// حفظ مفاتيح الجلسة في Neon حتى لا يُطرد المستخدم عند إعادة تشغيل Render
+builder.Services.AddDataProtection()
+    .PersistKeysToDbContext<ArchiveDbContext>()
+    .SetApplicationName("ShakabaArchive");
+
 builder.Services.AddRazorPages(options =>
 {
     options.Conventions.AuthorizeFolder("/People");
@@ -69,6 +76,11 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.LogoutPath = "/Account/Logout";
         options.AccessDeniedPath = "/Account/Login";
         options.ExpireTimeSpan = TimeSpan.FromDays(14);
+        options.SlidingExpiration = true;
+        options.Cookie.Name = "ShakabaAuth";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+        options.Cookie.SameSite = SameSiteMode.Lax;
     });
 builder.Services.AddAuthorization();
 
@@ -121,7 +133,17 @@ _ = Task.Run(async () =>
         await Task.Delay(8000);
         Console.WriteLine("Background DB init starting...");
         DatabaseService.Initialize();
-        // لا ننشئ جداول المستخدمين هنا — تُصلح عند أول دخول عبر ProbeAndRepairUsers
+        try
+        {
+            using var scope = app.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<ArchiveDbContext>();
+            await ApprovalService.EnsureSchemaAsync(db);
+            DatabaseService.EnsureDataProtectionKeysTable(db);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("Schema warm-up: " + ex.Message);
+        }
         Console.WriteLine("Background DB init completed. UsersCloud=" + LocalUserService.UsesCloud);
     }
     catch (Exception ex)

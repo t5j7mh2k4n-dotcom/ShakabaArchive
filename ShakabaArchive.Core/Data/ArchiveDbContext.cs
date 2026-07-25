@@ -1,9 +1,10 @@
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using ShakabaArchive.Models;
 
 namespace ShakabaArchive.Data;
 
-public class ArchiveDbContext : DbContext
+public class ArchiveDbContext : DbContext, IDataProtectionKeyContext
 {
     public ArchiveDbContext(DbContextOptions<ArchiveDbContext> options) : base(options)
     {
@@ -14,6 +15,7 @@ public class ArchiveDbContext : DbContext
     public DbSet<PendingChange> PendingChanges => Set<PendingChange>();
     public DbSet<AppUser> Users => Set<AppUser>();
     public DbSet<InviteCode> InviteCodes => Set<InviteCode>();
+    public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

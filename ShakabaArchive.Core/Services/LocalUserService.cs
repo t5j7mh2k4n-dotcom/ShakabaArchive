@@ -424,9 +424,17 @@ public static class LocalUserService
 
     public static AppUser? FindById(int id)
     {
-        EnsureReady();
-        using var db = CreateContext();
-        return db.Users.AsNoTracking().FirstOrDefault(u => u.Id == id);
+        try
+        {
+            EnsureReady();
+            using var db = CreateContext();
+            return db.Users.AsNoTracking().FirstOrDefault(u => u.Id == id);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("FindById: " + ex.Message);
+            return null;
+        }
     }
 
     public static (bool Ok, string Error, AppUser? User) CreateUser(

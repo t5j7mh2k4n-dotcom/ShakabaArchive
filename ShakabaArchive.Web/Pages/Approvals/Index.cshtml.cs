@@ -63,16 +63,15 @@ public class IndexModel(ArchiveDbContext db) : PageModel
 
     private async Task LoadAsync()
     {
+        CanReview = User.IsInRole("Admin") || User.IsInRole("Approver");
+        CurrentUserId = int.TryParse(
+            User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var id)
+            ? id
+            : 0;
+        Error ??= TempData["FlashError"] as string;
+
         DatabaseService.EnsureReady();
         await ApprovalService.EnsureSchemaAsync(db);
-
-        var appUser = User.CurrentAppUser();
-        CanReview = appUser?.CanApprove == true
-                    || User.IsInRole("Admin")
-                    || User.IsInRole("Approver");
-        CurrentUserId = appUser?.Id
-                        ?? (int.TryParse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var id) ? id : 0);
-        Error ??= TempData["FlashError"] as string;
 
         Exception? last = null;
         for (var attempt = 1; attempt <= 3; attempt++)
@@ -90,9 +89,7 @@ public class IndexModel(ArchiveDbContext db) : PageModel
             {
                 last = ex;
                 Console.Error.WriteLine($"Approvals Load attempt {attempt}/3: {ex.Message}");
-                DatabaseService.ResetInitialization();
-                await Task.Delay(1500 * attempt);
-                DatabaseService.EnsureReady();
+                await Task.Delay(1200 * attempt);
                 await ApprovalService.EnsureSchemaAsync(db);
             }
         }

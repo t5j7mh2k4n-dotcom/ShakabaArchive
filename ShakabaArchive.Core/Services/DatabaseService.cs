@@ -219,6 +219,39 @@ public static class DatabaseService
             _initialized = false;
     }
 
+    public static void EnsureDataProtectionKeysTable(ArchiveDbContext db)
+    {
+        try
+        {
+            var isPostgres = db.Database.ProviderName?.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) == true;
+            if (isPostgres)
+            {
+                using var ddl = CreateContextForSchemaChanges();
+                ddl.Database.ExecuteSqlRaw("""
+                    CREATE TABLE IF NOT EXISTS "DataProtectionKeys" (
+                        "Id" SERIAL PRIMARY KEY,
+                        "FriendlyName" text NULL,
+                        "Xml" text NULL
+                    );
+                    """);
+            }
+            else
+            {
+                db.Database.ExecuteSqlRaw("""
+                    CREATE TABLE IF NOT EXISTS DataProtectionKeys (
+                        Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        FriendlyName TEXT NULL,
+                        Xml TEXT NULL
+                    );
+                    """);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("EnsureDataProtectionKeysTable: " + ex.Message);
+        }
+    }
+
     private static bool WaitForDatabase(ArchiveDbContext db, int attempts, int delayMs)
     {
         for (var i = 0; i < attempts; i++)

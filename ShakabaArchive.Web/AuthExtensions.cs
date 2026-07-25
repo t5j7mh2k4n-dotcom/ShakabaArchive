@@ -8,10 +8,18 @@ public static class AuthExtensions
 {
     public static AppUser? CurrentAppUser(this ClaimsPrincipal user)
     {
-        var idValue = user.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (!int.TryParse(idValue, out var id))
+        try
+        {
+            var idValue = user.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!int.TryParse(idValue, out var id))
+                return null;
+            return LocalUserService.FindById(id);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("CurrentAppUser: " + ex.Message);
             return null;
-        return LocalUserService.FindById(id);
+        }
     }
 
     public static bool IsApprover(this ClaimsPrincipal user) =>
