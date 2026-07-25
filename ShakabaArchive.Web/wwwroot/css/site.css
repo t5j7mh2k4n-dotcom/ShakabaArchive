@@ -6,6 +6,12 @@
   --accent: #2e5a4a;
   --accent-soft: #d6e4dc;
   --line: #d7d0c3;
+  --brand-green: #1f6b4a;
+  --brand-green-soft: #e4f3eb;
+  --brand-green-frame: #7cb89a;
+  --marquee-blue: #1a5fad;
+  --marquee-blue-soft: #e8f1fb;
+  --marquee-blue-frame: #7aa8d9;
 }
 
 html, body {
@@ -53,29 +59,52 @@ html, body {
 }
 
 .hero {
-  background: var(--panel);
-  border: 1px solid var(--line);
+  background:
+    linear-gradient(160deg, #f7fcf9 0%, var(--panel) 45%, #f4f8f6 100%);
+  border: 2px solid var(--brand-green-frame);
   border-radius: 18px;
   padding: 2rem;
   margin-bottom: 1.5rem;
   overflow: hidden;
+  box-shadow:
+    0 0 0 6px var(--brand-green-soft),
+    0 12px 28px rgba(31, 107, 74, 0.08);
 }
 
 .hero h1 {
-  color: var(--accent);
-  font-weight: 700;
+  color: var(--brand-green);
+  font-weight: 800;
   margin-bottom: 0.85rem;
+  letter-spacing: 0.01em;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+.hero-title-frame {
+  display: inline-block;
+  padding: 0.55rem 1.15rem;
+  margin-bottom: 1rem;
+  background: linear-gradient(180deg, #f3faf6, var(--brand-green-soft));
+  border: 2px solid var(--brand-green-frame);
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 1px rgba(31, 107, 74, 0.08);
+}
+
+.hero-title-frame h1 {
+  margin-bottom: 0;
 }
 
 .dedication-marquee {
   position: relative;
-  height: 3.4rem;
+  height: 3.6rem;
   margin: 0 0 1.25rem;
   overflow: hidden;
   border-radius: 12px;
   background:
-    linear-gradient(90deg, rgba(46, 90, 74, 0.08), rgba(46, 90, 74, 0.02) 40%, rgba(46, 90, 74, 0.08));
-  border: 1px solid var(--line);
+    linear-gradient(90deg, #dceaf8 0%, var(--marquee-blue-soft) 40%, #dceaf8 100%);
+  border: 2px solid var(--marquee-blue-frame);
+  box-shadow:
+    0 0 0 4px rgba(26, 95, 173, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
   mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
   -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
 }
@@ -96,18 +125,18 @@ html, body {
 }
 
 .dedication-track-a {
-  top: 0.35rem;
-  color: var(--accent);
-  font-weight: 650;
-  opacity: 0.95;
+  top: 0.4rem;
+  color: var(--marquee-blue);
+  font-weight: 700;
+  opacity: 0.98;
   animation: marquee-rtl 28s linear infinite;
 }
 
 .dedication-track-b {
-  bottom: 0.25rem;
-  color: var(--muted);
+  bottom: 0.28rem;
+  color: #3d7ec4;
   font-size: 0.86rem;
-  opacity: 0.55;
+  opacity: 0.62;
   animation: marquee-ltr 36s linear infinite;
 }
 
