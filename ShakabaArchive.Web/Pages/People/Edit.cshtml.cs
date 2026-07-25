@@ -60,7 +60,7 @@ public class EditModel(ArchiveDbContext db) : PageModel
             draft.DocumentImagePath = DatabaseService.SaveDocumentImage(stream, Document.FileName);
         }
 
-        await ApprovalService.SubmitAsync(
+        var (_, applied) = await ApprovalService.SubmitAsync(
             db,
             appUser,
             ChangeEntity.Person,
@@ -69,7 +69,13 @@ public class EditModel(ArchiveDbContext db) : PageModel
             draft,
             $"تعديل شخص: {draft.FullName} ({draft.NationalId})");
 
-        TempData["Flash"] = "تم إرسال طلب التعديل بانتظار موافقة أحد المخولين الثلاثة.";
+        if (applied)
+        {
+            TempData["Flash"] = "تم حفظ التعديل في الأرشيف بنجاح.";
+            return RedirectToPage("/People/Details", new { id = Id });
+        }
+
+        TempData["Flash"] = "تم إرسال طلب التعديل بانتظار موافقة أحد الثلاثة على صحة البيانات.";
         return RedirectToPage("/Approvals/Index");
     }
 
@@ -81,7 +87,7 @@ public class EditModel(ArchiveDbContext db) : PageModel
         var person = await db.People.AsNoTracking().FirstOrDefaultAsync(p => p.Id == Id);
         if (person is null) return NotFound();
 
-        await ApprovalService.SubmitAsync(
+        var (_, applied) = await ApprovalService.SubmitAsync(
             db,
             appUser,
             ChangeEntity.Person,
@@ -90,7 +96,13 @@ public class EditModel(ArchiveDbContext db) : PageModel
             new { },
             $"حذف شخص: {person.FullName} ({person.NationalId})");
 
-        TempData["Flash"] = "تم إرسال طلب الحذف بانتظار موافقة أحد المخولين الثلاثة.";
+        if (applied)
+        {
+            TempData["Flash"] = "تم حذف السجل من الأرشيف.";
+            return RedirectToPage("/People/Index");
+        }
+
+        TempData["Flash"] = "تم إرسال طلب الحذف بانتظار موافقة أحد الثلاثة على صحة البيانات.";
         return RedirectToPage("/Approvals/Index");
     }
 }

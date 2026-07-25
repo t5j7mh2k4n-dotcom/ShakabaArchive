@@ -63,7 +63,7 @@ public class IndexModel(ArchiveDbContext db) : PageModel
         if (person is null)
             return RedirectToPage(new { q = Q, birthPlace = BirthPlace });
 
-        await ApprovalService.SubmitAsync(
+        var (_, applied) = await ApprovalService.SubmitAsync(
             db,
             appUser,
             ChangeEntity.Person,
@@ -71,6 +71,12 @@ public class IndexModel(ArchiveDbContext db) : PageModel
             person.Id,
             PersonDraft.From(person),
             $"حذف: {person.FullName}");
+
+        if (applied)
+        {
+            TempData["Flash"] = "تم حذف السجل من الأرشيف.";
+            return RedirectToPage(new { q = Q, birthPlace = BirthPlace });
+        }
 
         TempData["Flash"] = "تم إرسال طلب الحذف بانتظار موافقة أحد الثلاثة على صحة البيانات.";
         return RedirectToPage("/Approvals/Index");

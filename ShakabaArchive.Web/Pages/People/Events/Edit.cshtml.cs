@@ -78,7 +78,7 @@ public class EditModel(ArchiveDbContext db) : PageModel
             SourceNote = Input.SourceNote.Trim()
         };
 
-        await ApprovalService.SubmitAsync(
+        var (_, applied) = await ApprovalService.SubmitAsync(
             db,
             appUser,
             ChangeEntity.LifeEvent,
@@ -87,7 +87,13 @@ public class EditModel(ArchiveDbContext db) : PageModel
             draft,
             $"تعديل مناسبة ({EventTypeLabels.ToArabic(Input.Type)}) — رقم {Id}");
 
-        TempData["Flash"] = "تم إرسال طلب تعديل المناسبة بانتظار موافقة أحد المخولين الثلاثة.";
+        if (applied)
+        {
+            TempData["Flash"] = "تم حفظ تعديل المناسبة في الأرشيف.";
+            return RedirectToPage("/People/Details", new { id = PersonId });
+        }
+
+        TempData["Flash"] = "تم إرسال طلب تعديل المناسبة بانتظار موافقة أحد الثلاثة على صحة البيانات.";
         return RedirectToPage("/Approvals/Index");
     }
 
@@ -99,7 +105,8 @@ public class EditModel(ArchiveDbContext db) : PageModel
         var ev = await db.LifeEvents.AsNoTracking().FirstOrDefaultAsync(e => e.Id == Id);
         if (ev is null) return NotFound();
 
-        await ApprovalService.SubmitAsync(
+        var personId = ev.PersonId;
+        var (_, applied) = await ApprovalService.SubmitAsync(
             db,
             appUser,
             ChangeEntity.LifeEvent,
@@ -108,7 +115,13 @@ public class EditModel(ArchiveDbContext db) : PageModel
             new { },
             $"حذف مناسبة ({EventTypeLabels.ToArabic(ev.Type)}) — رقم {Id}");
 
-        TempData["Flash"] = "تم إرسال طلب حذف المناسبة بانتظار موافقة أحد المخولين الثلاثة.";
+        if (applied)
+        {
+            TempData["Flash"] = "تم حذف المناسبة من الأرشيف.";
+            return RedirectToPage("/People/Details", new { id = personId });
+        }
+
+        TempData["Flash"] = "تم إرسال طلب حذف المناسبة بانتظار موافقة أحد الثلاثة على صحة البيانات.";
         return RedirectToPage("/Approvals/Index");
     }
 }

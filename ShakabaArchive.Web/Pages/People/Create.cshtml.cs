@@ -56,7 +56,7 @@ public class CreateModel(ArchiveDbContext db) : PageModel
             draft.DocumentImagePath = DatabaseService.SaveDocumentImage(stream, Document.FileName);
         }
 
-        await ApprovalService.SubmitAsync(
+        var (_, applied) = await ApprovalService.SubmitAsync(
             db,
             appUser,
             ChangeEntity.Person,
@@ -65,7 +65,13 @@ public class CreateModel(ArchiveDbContext db) : PageModel
             draft,
             $"إضافة شخص: {draft.FullName} ({draft.NationalId})");
 
-        TempData["Flash"] = "تم إرسال طلب الإضافة بانتظار موافقة أحد المخولين الثلاثة.";
+        if (applied)
+        {
+            TempData["Flash"] = "تم حفظ الشخص في الأرشيف بنجاح.";
+            return RedirectToPage("/People/Index");
+        }
+
+        TempData["Flash"] = "تم إرسال طلب الإضافة بانتظار موافقة أحد الثلاثة على صحة البيانات.";
         return RedirectToPage("/Approvals/Index");
     }
 }

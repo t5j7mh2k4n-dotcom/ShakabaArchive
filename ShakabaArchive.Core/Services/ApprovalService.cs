@@ -73,7 +73,11 @@ public static class ApprovalService
         }
     }
 
-    public static async Task<PendingChange> SubmitAsync(
+    /// <summary>
+    /// يرسل تغييراً للموافقة. الأدمن الرئيسي والثلاثة الموافقون يُحفظ لهم مباشرة؛
+    /// مدخلو البيانات ينتظرون موافقة أحد الثلاثة.
+    /// </summary>
+    public static async Task<(PendingChange Item, bool AppliedImmediately)> SubmitAsync(
         ArchiveDbContext db,
         AppUser user,
         ChangeEntity entityType,
@@ -96,7 +100,21 @@ public static class ApprovalService
         };
         db.PendingChanges.Add(item);
         await db.SaveChangesAsync();
-        return item;
+
+        // الأدمن والموافقون: حفظ فوري في الأرشيف
+        if (user.CanApprove)
+        {
+            await ApplyAsync(db, item);
+            item.Status = ChangeStatus.Approved;
+            item.ReviewedByUserId = user.Id;
+            item.ReviewedByName = user.DisplayName;
+            item.ReviewNote = "حفظ مباشر بصلاحية الموافقة";
+            item.ReviewedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+            return (item, true);
+        }
+
+        return (item, false);
     }
 
     public static async Task<(bool Ok, string Error)> ApproveAsync(

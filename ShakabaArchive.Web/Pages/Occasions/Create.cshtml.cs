@@ -90,7 +90,7 @@ public class CreateModel(ArchiveDbContext db) : PageModel
         if (draft.CreateChildPerson && !string.IsNullOrWhiteSpace(draft.ChildFullName))
             summary += $" + مولود: {draft.ChildFullName}";
 
-        await ApprovalService.SubmitAsync(
+        var (_, applied) = await ApprovalService.SubmitAsync(
             db,
             appUser,
             ChangeEntity.LifeEvent,
@@ -99,7 +99,13 @@ public class CreateModel(ArchiveDbContext db) : PageModel
             draft,
             summary);
 
-        TempData["Flash"] = "تم إرسال طلب إضافة المناسبة بانتظار موافقة أحد المخولين الثلاثة.";
+        if (applied)
+        {
+            TempData["Flash"] = "تم حفظ المناسبة في الأرشيف بنجاح.";
+            return RedirectToPage("/People/Details", new { id = PersonId });
+        }
+
+        TempData["Flash"] = "تم إرسال طلب إضافة المناسبة بانتظار موافقة أحد الثلاثة على صحة البيانات.";
         return RedirectToPage("/Approvals/Index");
     }
 
