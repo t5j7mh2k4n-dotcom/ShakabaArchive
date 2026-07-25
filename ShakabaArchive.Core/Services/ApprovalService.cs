@@ -128,6 +128,78 @@ public static class ApprovalService
         return (item, false);
     }
 
+    /// <summary>تعديل طلب إضافة/تعديل شخص ما دام بانتظار الاعتماد.</summary>
+    public static async Task<(bool Ok, string Error)> UpdatePendingPersonAsync(
+        ArchiveDbContext db,
+        AppUser user,
+        int pendingId,
+        PersonDraft draft)
+    {
+        var item = await db.PendingChanges.FirstOrDefaultAsync(x => x.Id == pendingId);
+        if (item is null)
+            return (false, "الطلب غير موجود.");
+        if (item.Status != ChangeStatus.Pending)
+            return (false, "لا يمكن التعديل بعد الاعتماد أو الرفض.");
+        if (item.EntityType != ChangeEntity.Person)
+            return (false, "هذا الطلب ليس لسجل أشخاص.");
+        if (item.Action is not (ChangeAction.Create or ChangeAction.Update))
+            return (false, "لا يمكن تعديل طلب الحذف.");
+        if (item.SubmittedByUserId != user.Id && !user.CanApprove)
+            return (false, "يمكنك تعديل طلبك فقط قبل الاعتماد.");
+
+        draft.NormalizeDocument();
+        // الحفاظ على الترميز والمستوى من المسودة السابقة إن وُجدت
+        try
+        {
+            var previous = JsonSerializer.Deserialize<PersonDraft>(item.PayloadJson, JsonOptions);
+            if (previous is not null)
+            {
+                if (string.IsNullOrWhiteSpace(draft.RegistryCode))
+                    draft.RegistryCode = previous.RegistryCode;
+                if (draft.HierarchyLevel is < 1 or > 3)
+                    draft.HierarchyLevel = previous.HierarchyLevel;
+                draft.ParentPersonId ??= previous.ParentPersonId;
+                if (string.IsNullOrWhiteSpace(draft.PhotoPath))
+                    draft.PhotoPath = previous.PhotoPath;
+                if (string.IsNullOrWhiteSpace(draft.DocumentImagePath))
+                    draft.DocumentImagePath = previous.DocumentImagePath;
+            }
+        }
+        catch { /* ignore */ }
+
+        item.PayloadJson = JsonSerializer.Serialize(draft, JsonOptions);
+        item.Summary = item.Action == ChangeAction.Create
+            ? $"إضافة سجل أشخاص {draft.RegistryCode}: {draft.FullName}"
+            : $"تعديل سجل أشخاص {draft.RegistryCode}: {draft.FullName}";
+        if (item.Summary.Length > 400)
+            item.Summary = item.Summary[..400];
+        item.SubmittedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+        return (true, "");
+    }
+
+    public static async Task<(bool Ok, string Error, PersonDraft? Draft)> GetPendingPersonDraftAsync(
+        ArchiveDbContext db,
+        AppUser user,
+        int pendingId)
+    {
+        var item = await db.PendingChanges.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == pendingId);
+        if (item is null)
+            return (false, "الطلب غير موجود.", null);
+        if (item.Status != ChangeStatus.Pending)
+            return (false, "الطلب لم يعد بانتظار الاعتماد.", null);
+        if (item.EntityType != ChangeEntity.Person || item.Action is ChangeAction.Delete)
+            return (false, "لا يمكن تعديل هذا النوع من الطلبات.", null);
+        if (item.SubmittedByUserId != user.Id && !user.CanApprove)
+            return (false, "يمكنك تعديل طلبك فقط.", null);
+
+        var draft = JsonSerializer.Deserialize<PersonDraft>(item.PayloadJson, JsonOptions);
+        return draft is null
+            ? (false, "بيانات الطلب غير صالحة.", null)
+            : (true, "", draft);
+    }
+
     public static async Task<(bool Ok, string Error)> ApproveAsync(
         ArchiveDbContext db,
         AppUser reviewer,
@@ -339,16 +411,31 @@ public class PersonDraft
     public string Phone { get; set; } = "";
     public string Notes { get; set; } = "";
     public string PhotoPath { get; set; } = "";
+    public string DocumentType { get; set; } = DocumentTypes.NationalId;
+    public string DocumentNumber { get; set; } = "";
     public string DocumentImagePath { get; set; } = "";
+
+    public void NormalizeDocument()
+    {
+        DocumentType = string.IsNullOrWhiteSpace(DocumentType)
+            ? DocumentTypes.NationalId
+            : DocumentType.Trim();
+        DocumentNumber = DocumentNumber.Trim();
+        // توافق البحث القديم
+        NationalId = DocumentNumber;
+    }
 
     public Person ToPerson()
     {
+        NormalizeDocument();
         var p = new Person
         {
             RegistryCode = RegistryCode.Trim(),
             HierarchyLevel = HierarchyLevel is >= 1 and <= 3 ? HierarchyLevel : 1,
             ParentPersonId = ParentPersonId,
-            NationalId = NationalId.Trim(),
+            DocumentType = DocumentType,
+            DocumentNumber = DocumentNumber,
+            NationalId = NationalId,
             FirstName = FirstName.Trim(),
             FatherName = FatherName.Trim(),
             GrandfatherName = GrandfatherName.Trim(),
@@ -377,7 +464,10 @@ public class PersonDraft
 
     public void ApplyTo(Person p)
     {
-        p.NationalId = NationalId.Trim();
+        NormalizeDocument();
+        p.DocumentType = DocumentType;
+        p.DocumentNumber = DocumentNumber;
+        p.NationalId = NationalId;
         p.FirstName = FirstName.Trim();
         p.FatherName = FatherName.Trim();
         p.GrandfatherName = GrandfatherName.Trim();
@@ -405,6 +495,8 @@ public class PersonDraft
         RegistryCode = p.RegistryCode,
         HierarchyLevel = p.HierarchyLevel,
         ParentPersonId = p.ParentPersonId,
+        DocumentType = string.IsNullOrWhiteSpace(p.DocumentType) ? DocumentTypes.NationalId : p.DocumentType,
+        DocumentNumber = string.IsNullOrWhiteSpace(p.DocumentNumber) ? p.NationalId : p.DocumentNumber,
         NationalId = p.NationalId,
         FirstName = p.FirstName,
         FatherName = p.FatherName,

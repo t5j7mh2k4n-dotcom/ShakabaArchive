@@ -3,12 +3,13 @@
 @{
     ViewData["Title"] = "سجل الأشخاص";
     var canManage = User.Identity?.IsAuthenticated == true;
+    string Dash(string? v) => string.IsNullOrWhiteSpace(v) ? "—" : v;
 }
 
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
     <div>
         <h1 class="h3 mb-1">سجل الأشخاص</h1>
-        <p class="muted mb-0">ترميز هرمي: 01 ← 01001 ← 01001001</p>
+        <p class="muted mb-0">يعرض كل بيانات الإضافة — ترميز: 01 ← 01001 ← 01001001</p>
     </div>
     @if (canManage)
     {
@@ -24,7 +25,7 @@
 <form method="get" action="/People" class="card-panel mb-3">
     <div class="row g-2 search-bar">
         <div class="col-md-5">
-            <input class="form-control" name="q" value="@Model.Q" placeholder="بحث بالكود أو الاسم أو القبيلة أو المهنة..." />
+            <input class="form-control" name="q" value="@Model.Q" placeholder="بحث بالكود أو الاسم أو رقم الوثيقة أو القبيلة..." />
         </div>
         <div class="col-md-3">
             <select class="form-select" name="level">
@@ -47,50 +48,74 @@
 
 <div class="card-panel">
     <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
+        <table class="table table-hover align-middle mb-0 table-people-full">
             <thead>
-                <tr>
-                    <th></th>
-                    <th>الكود</th>
-                    <th>المستوى</th>
-                    <th>الاسم</th>
-                    <th>القبيلة</th>
-                    <th>المهنة</th>
-                    <th>مكان الميلاد</th>
-                    @if (canManage)
-                    {
-                        <th style="width:140px">إجراءات</th>
-                    }
-                </tr>
-                </thead>
-                <tbody>
-                @foreach (var p in Model.People)
+            <tr>
+                <th></th>
+                <th>الكود</th>
+                <th>المستوى</th>
+                <th>الاسم الأول</th>
+                <th>اسم الأب</th>
+                <th>اسم الجد</th>
+                <th>اسم العائلة</th>
+                <th>اسم الأم</th>
+                <th>النوع</th>
+                <th>تاريخ الميلاد</th>
+                <th>مكان الميلاد</th>
+                <th>القبيلة</th>
+                <th>المهنة</th>
+                <th>الإقامة</th>
+                <th>الحي</th>
+                <th>الهاتف</th>
+                <th>نوع الوثيقة</th>
+                <th>رقم الوثيقة</th>
+                <th>ملاحظات</th>
+                @if (canManage)
                 {
-                    <tr>
-                        <td style="width:52px">
-                            @if (!string.IsNullOrWhiteSpace(p.PhotoPath))
-                            {
+                    <th>إجراءات</th>
+                }
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var p in Model.People)
+            {
+                <tr>
+                    <td style="width:52px">
+                        @if (!string.IsNullOrWhiteSpace(p.PhotoPath))
+                        {
+                            <a asp-page="Details" asp-route-id="@p.Id">
                                 <img class="person-photo-list" src="~/uploads/@p.PhotoPath" alt="" />
-                            }
-                        </td>
-                        <td><code>@p.RegistryCode</code></td>
-                        <td>@PersonRegistryService.LevelLabel(p.HierarchyLevel)</td>
-                        <td><a asp-page="Details" asp-route-id="@p.Id">@p.FullName</a></td>
-                    <td>@(string.IsNullOrWhiteSpace(p.Tribe) ? "—" : p.Tribe)</td>
-                    <td>@(string.IsNullOrWhiteSpace(p.Profession) ? "—" : p.Profession)</td>
-                    <td>@p.BirthPlace</td>
+                            </a>
+                        }
+                    </td>
+                    <td><code>@p.RegistryCode</code></td>
+                    <td>@PersonRegistryService.LevelLabel(p.HierarchyLevel)</td>
+                    <td><a asp-page="Details" asp-route-id="@p.Id">@Dash(p.FirstName)</a></td>
+                    <td>@Dash(p.FatherName)</td>
+                    <td>@Dash(p.GrandfatherName)</td>
+                    <td>@Dash(p.FamilyName)</td>
+                    <td>@Dash(p.MotherName)</td>
+                    <td>@Dash(p.Gender)</td>
+                    <td>@(p.BirthDate?.ToString("yyyy-MM-dd") ?? "—")</td>
+                    <td>@Dash(p.BirthPlace)</td>
+                    <td>@Dash(p.Tribe)</td>
+                    <td>@Dash(p.Profession)</td>
+                    <td>@Dash(p.Residence)</td>
+                    <td>@Dash(p.Neighborhood)</td>
+                    <td>@Dash(p.Phone)</td>
+                    <td>@Dash(string.IsNullOrWhiteSpace(p.DocumentType) ? DocumentTypes.NationalId : p.DocumentType)</td>
+                    <td>@Dash(string.IsNullOrWhiteSpace(p.DocumentNumber) ? p.NationalId : p.DocumentNumber)</td>
+                    <td class="notes-cell">@Dash(p.Notes)</td>
                     @if (canManage)
                     {
-                        <td>
-                            <div class="d-flex gap-1 flex-wrap">
-                                <a class="btn btn-sm btn-soft" asp-page="/Occasions/Create" asp-route-personId="@p.Id">مناسبة</a>
-                                <a class="btn btn-sm btn-soft" asp-page="Edit" asp-route-id="@p.Id">تعديل</a>
-                                <form method="post" asp-page-handler="Delete" class="d-inline"
-                                      onsubmit="return confirm('إرسال طلب حذف هذا السجل؟');">
-                                    <input type="hidden" name="id" value="@p.Id" />
-                                    <button type="submit" class="btn btn-sm btn-danger-soft">طلب حذف</button>
-                                </form>
-                            </div>
+                        <td class="text-nowrap">
+                            <a class="btn btn-sm btn-soft" asp-page="/Occasions/Create" asp-route-personId="@p.Id">مناسبة</a>
+                            <a class="btn btn-sm btn-soft" asp-page="Edit" asp-route-id="@p.Id">تعديل</a>
+                            <form method="post" asp-page-handler="Delete" class="d-inline"
+                                  onsubmit="return confirm('إرسال طلب حذف هذا السجل؟');">
+                                <input type="hidden" name="id" value="@p.Id" />
+                                <button type="submit" class="btn btn-sm btn-danger-soft">طلب حذف</button>
+                            </form>
                         </td>
                     }
                 </tr>

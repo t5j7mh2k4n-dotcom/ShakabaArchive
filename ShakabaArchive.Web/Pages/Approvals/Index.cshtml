@@ -62,15 +62,16 @@
                     <th>مقدّم الطلب</th>
                     <th>الحالة</th>
                     <th>التاريخ</th>
-                    @if (Model.CanReview)
-                    {
-                        <th></th>
-                    }
+                    <th></th>
                 </tr>
                 </thead>
                 <tbody>
                 @foreach (var item in Model.Items)
                 {
+                    var canEditPending = item.Status == ChangeStatus.Pending
+                        && item.EntityType == ChangeEntity.Person
+                        && item.Action != ChangeAction.Delete
+                        && (Model.CanReview || item.SubmittedByUserId == Model.CurrentUserId);
                     <tr class="@(item.Status == ChangeStatus.Pending ? "" : "table-secondary")">
                         <td>@item.Id</td>
                         <td>@EntityAr(item.EntityType)</td>
@@ -89,23 +90,24 @@
                             }
                         </td>
                         <td>@item.SubmittedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
-                        @if (Model.CanReview)
-                        {
-                            <td class="text-nowrap">
-                                @if (item.Status == ChangeStatus.Pending)
-                                {
-                                    <form method="post" asp-page-handler="Approve" class="d-inline">
-                                        <input type="hidden" name="id" value="@item.Id" />
-                                        <button class="btn btn-sm btn-accent" type="submit">موافقة على صحة البيانات</button>
-                                    </form>
-                                    <form method="post" asp-page-handler="Reject" class="d-inline">
-                                        <input type="hidden" name="id" value="@item.Id" />
-                                        <input type="hidden" name="note" value="مرفوض" />
-                                        <button class="btn btn-sm btn-outline-danger" type="submit">رفض</button>
-                                    </form>
-                                }
-                            </td>
-                        }
+                        <td class="text-nowrap">
+                            @if (canEditPending)
+                            {
+                                <a class="btn btn-sm btn-soft" asp-page="/People/EditPending" asp-route-id="@item.Id">تعديل قبل الاعتماد</a>
+                            }
+                            @if (Model.CanReview && item.Status == ChangeStatus.Pending)
+                            {
+                                <form method="post" asp-page-handler="Approve" class="d-inline">
+                                    <input type="hidden" name="id" value="@item.Id" />
+                                    <button class="btn btn-sm btn-accent" type="submit">موافقة على صحة البيانات</button>
+                                </form>
+                                <form method="post" asp-page-handler="Reject" class="d-inline">
+                                    <input type="hidden" name="id" value="@item.Id" />
+                                    <input type="hidden" name="note" value="مرفوض" />
+                                    <button class="btn btn-sm btn-outline-danger" type="submit">رفض</button>
+                                </form>
+                            }
+                        </td>
                     </tr>
                 }
                 </tbody>

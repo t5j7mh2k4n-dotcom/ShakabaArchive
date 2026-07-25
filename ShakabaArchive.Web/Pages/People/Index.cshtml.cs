@@ -50,16 +50,21 @@ public class IndexModel(ArchiveDbContext db) : PageModel
             query = query.Where(p =>
                 p.RegistryCode.Contains(q) ||
                 p.NationalId.Contains(q) ||
+                p.DocumentNumber.Contains(q) ||
+                p.DocumentType.Contains(q) ||
                 p.FullName.Contains(q) ||
                 p.FirstName.Contains(q) ||
                 p.FatherName.Contains(q) ||
                 p.GrandfatherName.Contains(q) ||
                 p.FamilyName.Contains(q) ||
+                p.MotherName.Contains(q) ||
                 p.Tribe.Contains(q) ||
                 p.Profession.Contains(q) ||
+                p.Phone.Contains(q) ||
                 p.BirthPlace.Contains(q) ||
                 p.Neighborhood.Contains(q) ||
-                p.Residence.Contains(q));
+                p.Residence.Contains(q) ||
+                p.Notes.Contains(q));
         }
 
         People = await query

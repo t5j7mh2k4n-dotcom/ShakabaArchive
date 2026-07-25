@@ -17,7 +17,13 @@ public class Person
     public Person? ParentPerson { get; set; }
     public List<Person> Children { get; set; } = [];
 
-    /// <summary>الرقم الوطني / الهوية (اختياري).</summary>
+    /// <summary>نوع الوثيقة: رقم وطني، جواز سفر، جنسية، شهادة ميلاد، شهادة تسنين.</summary>
+    public string DocumentType { get; set; } = DocumentTypes.NationalId;
+
+    /// <summary>رقم الوثيقة.</summary>
+    public string DocumentNumber { get; set; } = string.Empty;
+
+    /// <summary>للتوافق مع البحث القديم — يُزامن مع رقم الوثيقة.</summary>
     public string NationalId { get; set; } = string.Empty;
 
     public string FirstName { get; set; } = string.Empty;

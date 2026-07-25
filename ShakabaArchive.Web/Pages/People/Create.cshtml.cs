@@ -75,7 +75,7 @@ public class CreateModel(ArchiveDbContext db) : PageModel
             draft.DocumentImagePath = DatabaseService.SaveDocumentImage(stream, Document.FileName);
         }
 
-        var (_, applied) = await ApprovalService.SubmitAsync(
+        var (item, applied) = await ApprovalService.SubmitAsync(
             db,
             appUser,
             ChangeEntity.Person,
@@ -90,8 +90,8 @@ public class CreateModel(ArchiveDbContext db) : PageModel
             return RedirectToPage("/People/Index");
         }
 
-        TempData["Flash"] = "تم إرسال طلب الإضافة بانتظار موافقة أحد الثلاثة على صحة البيانات.";
-        return RedirectToPage("/Approvals/Index");
+        TempData["Flash"] = "تم حفظ الطلب مؤقتاً بانتظار الاعتماد. يمكنك تعديله قبل موافقة أحد الثلاثة.";
+        return RedirectToPage("/People/EditPending", new { id = item.Id });
     }
 
     private async Task LoadParentsAsync()
@@ -115,7 +115,8 @@ public class PersonInput
 
     public int? ParentPersonId { get; set; }
 
-    public string NationalId { get; set; } = "";
+    public string DocumentType { get; set; } = DocumentTypes.NationalId;
+    public string DocumentNumber { get; set; } = "";
 
     [Required(ErrorMessage = "أدخل الاسم الأول"), Display(Name = "الاسم الأول")]
     public string FirstName { get; set; } = "";
@@ -129,7 +130,6 @@ public class PersonInput
     public string FamilyName { get; set; } = "";
 
     public string MotherName { get; set; } = "";
-    public string Nationality { get; set; } = "";
     public string Gender { get; set; } = "ذكر";
     public DateTime? BirthDate { get; set; }
     public string BirthPlace { get; set; } = "الشكابة شاع الدين";
@@ -149,13 +149,13 @@ public class PersonInput
     {
         HierarchyLevel = p.HierarchyLevel,
         ParentPersonId = p.ParentPersonId,
-        NationalId = p.NationalId,
+        DocumentType = string.IsNullOrWhiteSpace(p.DocumentType) ? DocumentTypes.NationalId : p.DocumentType,
+        DocumentNumber = string.IsNullOrWhiteSpace(p.DocumentNumber) ? p.NationalId : p.DocumentNumber,
         FirstName = string.IsNullOrWhiteSpace(p.FirstName) ? p.FullName : p.FirstName,
         FatherName = p.FatherName,
         GrandfatherName = p.GrandfatherName,
         FamilyName = p.FamilyName,
         MotherName = p.MotherName,
-        Nationality = p.Nationality,
         Gender = p.Gender,
         BirthDate = p.BirthDate,
         BirthPlace = p.BirthPlace,
@@ -169,11 +169,37 @@ public class PersonInput
         DocumentImagePath = p.DocumentImagePath
     };
 
+    public static PersonInput FromDraft(PersonDraft d) => new()
+    {
+        HierarchyLevel = d.HierarchyLevel,
+        ParentPersonId = d.ParentPersonId,
+        DocumentType = string.IsNullOrWhiteSpace(d.DocumentType) ? DocumentTypes.NationalId : d.DocumentType,
+        DocumentNumber = string.IsNullOrWhiteSpace(d.DocumentNumber) ? d.NationalId : d.DocumentNumber,
+        FirstName = d.FirstName,
+        FatherName = d.FatherName,
+        GrandfatherName = d.GrandfatherName,
+        FamilyName = d.FamilyName,
+        MotherName = d.MotherName,
+        Gender = d.Gender,
+        BirthDate = d.BirthDate,
+        BirthPlace = d.BirthPlace,
+        Residence = d.Residence,
+        Tribe = d.Tribe,
+        Profession = d.Profession,
+        Neighborhood = d.Neighborhood,
+        Phone = d.Phone,
+        Notes = d.Notes,
+        PhotoPath = d.PhotoPath,
+        DocumentImagePath = d.DocumentImagePath
+    };
+
     public PersonDraft ToDraft() => new()
     {
         HierarchyLevel = HierarchyLevel,
         ParentPersonId = ParentPersonId,
-        NationalId = NationalId,
+        DocumentType = DocumentType,
+        DocumentNumber = DocumentNumber,
+        NationalId = DocumentNumber,
         FirstName = FirstName,
         FatherName = FatherName,
         GrandfatherName = GrandfatherName,

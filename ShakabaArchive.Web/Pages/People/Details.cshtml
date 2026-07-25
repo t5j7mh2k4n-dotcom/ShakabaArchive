@@ -70,7 +70,8 @@ else
                     <dt class="col-sm-3">الإقامة</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.Residence) ? "—" : p.Residence)</dd>
                     <dt class="col-sm-3">الحي</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.Neighborhood) ? "—" : p.Neighborhood)</dd>
                     <dt class="col-sm-3">الهاتف</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.Phone) ? "—" : p.Phone)</dd>
-                    <dt class="col-sm-3">الرقم الوطني</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.NationalId) ? "—" : p.NationalId)</dd>
+                    <dt class="col-sm-3">نوع الوثيقة</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.DocumentType) ? DocumentTypes.NationalId : p.DocumentType)</dd>
+                    <dt class="col-sm-3">رقم الوثيقة</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.DocumentNumber) ? (string.IsNullOrWhiteSpace(p.NationalId) ? "—" : p.NationalId) : p.DocumentNumber)</dd>
                     <dt class="col-sm-3">ملاحظات</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.Notes) ? "—" : p.Notes)</dd>
                 </dl>
             </div>

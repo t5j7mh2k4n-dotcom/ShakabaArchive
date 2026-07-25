@@ -1,0 +1,31 @@
+@page "{id:int}"
+@model ShakabaArchive.Web.Pages.People.EditPendingModel
+@{
+    ViewData["Title"] = "تعديل طلب قبل الاعتماد";
+    ViewData["IsEdit"] = true;
+    ViewData["LockHierarchy"] = true;
+    ViewData["RegistryCode"] = Model.RegistryCode;
+}
+
+<div class="card-panel">
+    <h1 class="h4 mb-2">تعديل طلب إضافة / تعديل سجل أشخاص</h1>
+    <p class="muted mb-3">يمكنك تعديل البيانات بعد الحفظ وقبل اعتماد أحد الثلاثة الموافقين.</p>
+
+    @if (!string.IsNullOrEmpty(Model.Message))
+    {
+        <div class="alert alert-success">@Model.Message</div>
+    }
+    @if (!string.IsNullOrEmpty(Model.Error))
+    {
+        <div class="alert alert-danger">@Model.Error</div>
+    }
+
+    <form method="post" enctype="multipart/form-data">
+        <input type="hidden" asp-for="Id" />
+        <partial name="_PersonForm" for="Input" />
+        <div class="d-flex flex-wrap gap-2 mt-3">
+            <button class="btn btn-accent" type="submit">حفظ التعديل على الطلب</button>
+            <a class="btn btn-soft" asp-page="/Approvals/Index">رجوع لطلبات الموافقة</a>
+        </div>
+    </form>
+</div>

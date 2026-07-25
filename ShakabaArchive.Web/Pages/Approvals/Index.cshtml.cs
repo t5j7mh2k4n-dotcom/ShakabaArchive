@@ -11,6 +11,7 @@ public class IndexModel(ArchiveDbContext db) : PageModel
 {
     public List<PendingChange> Items { get; private set; } = [];
     public bool CanReview { get; private set; }
+    public int CurrentUserId { get; private set; }
     public string? Message { get; private set; }
     public string? Error { get; private set; }
 
@@ -52,6 +53,7 @@ public class IndexModel(ArchiveDbContext db) : PageModel
     {
         var appUser = User.CurrentAppUser();
         CanReview = appUser?.CanApprove == true;
+        CurrentUserId = appUser?.Id ?? 0;
         Error = TempData["FlashError"] as string;
 
         Items = await db.PendingChanges.AsNoTracking()

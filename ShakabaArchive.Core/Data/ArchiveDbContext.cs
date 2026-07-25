@@ -19,12 +19,16 @@ public class ArchiveDbContext : DbContext
         {
             e.HasIndex(p => p.RegistryCode).IsUnique();
             e.HasIndex(p => p.NationalId);
+            e.HasIndex(p => p.DocumentNumber);
+            e.HasIndex(p => p.DocumentType);
             e.HasIndex(p => p.FullName);
             e.HasIndex(p => p.FamilyName);
             e.HasIndex(p => p.Tribe);
             e.HasIndex(p => p.HierarchyLevel);
             e.HasIndex(p => p.Neighborhood);
             e.Property(p => p.RegistryCode).HasMaxLength(32).IsRequired();
+            e.Property(p => p.DocumentType).HasMaxLength(40);
+            e.Property(p => p.DocumentNumber).HasMaxLength(80);
             e.Property(p => p.NationalId).HasMaxLength(64);
             e.Property(p => p.FirstName).HasMaxLength(80).IsRequired();
             e.Property(p => p.FatherName).HasMaxLength(80);

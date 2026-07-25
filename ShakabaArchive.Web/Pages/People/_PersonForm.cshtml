@@ -3,6 +3,7 @@
     var showParent = Model.HierarchyLevel is 2 or 3;
     var isEdit = ViewData["IsEdit"] as bool? == true;
     var registryCode = ViewData["RegistryCode"] as string;
+    var lockHierarchy = ViewData["LockHierarchy"] as bool? == true || isEdit;
 }
 
 <div class="alert alert-info small">
@@ -22,7 +23,7 @@
 }
 
 <div class="row g-3">
-    @if (!isEdit)
+    @if (!lockHierarchy)
     {
         <div class="col-md-4">
             <label class="form-label">المستوى</label>
@@ -111,18 +112,24 @@
     </div>
 
     <div class="col-md-4">
-        <label class="form-label">الرقم الوطني (اختياري)</label>
-        <input class="form-control" asp-for="NationalId" />
+        <label class="form-label">نوع الوثيقة</label>
+        <select class="form-select" asp-for="DocumentType">
+            @foreach (var t in DocumentTypes.All)
+            {
+                if (Model.DocumentType == t)
+                {
+                    <option value="@t" selected>@t</option>
+                }
+                else
+                {
+                    <option value="@t">@t</option>
+                }
+            }
+        </select>
     </div>
     <div class="col-md-4">
-        <label class="form-label">الصورة الشخصية</label>
-        <input class="form-control" type="file" name="Photo" accept=".jpg,.jpeg,.png,.webp,.gif" />
-        @if (!string.IsNullOrWhiteSpace(Model?.PhotoPath))
-        {
-            <div class="mt-2">
-                <img class="person-photo-thumb" src="~/uploads/@Model.PhotoPath" alt="الصورة الحالية" />
-            </div>
-        }
+        <label class="form-label">رقم الوثيقة</label>
+        <input class="form-control" asp-for="DocumentNumber" placeholder="رقم الوثيقة" />
     </div>
     <div class="col-md-4">
         <label class="form-label">صورة الوثيقة (اختياري)</label>
@@ -132,9 +139,19 @@
             <div class="form-text">الحالية: @Model.DocumentImagePath</div>
         }
     </div>
-    <div class="col-12">
+
+    <div class="col-md-6">
+        <label class="form-label">الصورة الشخصية</label>
+        <input class="form-control" type="file" name="Photo" accept=".jpg,.jpeg,.png,.webp,.gif" />
+        @if (!string.IsNullOrWhiteSpace(Model?.PhotoPath))
+        {
+            <div class="mt-2">
+                <img class="person-photo-thumb" src="~/uploads/@Model.PhotoPath" alt="الصورة الحالية" />
+            </div>
+        }
+    </div>
+    <div class="col-md-6">
         <label class="form-label">ملاحظات / بيانات خاصة</label>
         <textarea class="form-control" asp-for="Notes" rows="3"></textarea>
     </div>
 </div>
-
