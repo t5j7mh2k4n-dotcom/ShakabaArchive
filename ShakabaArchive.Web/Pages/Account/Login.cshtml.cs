@@ -52,8 +52,11 @@ public class LoginModel : PageModel
         catch (Exception ex)
         {
             Console.Error.WriteLine("Login DB error: " + ex);
+            var hint = ex.GetBaseException().Message;
+            if (hint.Length > 160)
+                hint = hint[..160] + "…";
             ErrorMessage = LocalUserService.UsesCloud
-                ? "تعذر الاتصال بـ Neon مؤقتاً (قد تكون القاعدة نائمة). انتظر دقيقة ثم أعد المحاولة. تأكد أن DATABASE_URL كامل ويبدأ بـ postgresql://"
+                ? $"تعذر تجهيز حسابات Neon. انتظر 20 ثانية ثم أعد المحاولة. التفاصيل: {hint}"
                 : "قاعدة البيانات غير مربوطة. من Render → Environment ضع DATABASE_URL من Neon ثم Save and deploy.";
             return Page();
         }

@@ -93,7 +93,15 @@ app.MapGet("/health", () => Results.Ok("ok"));
 app.MapGet("/health/db", () =>
 {
     var (ok, mode, detail) = DatabaseService.ProbeConnection();
-    return Results.Json(new { ok, mode, detail, usersCloud = LocalUserService.UsesCloud });
+    var users = LocalUserService.ProbeAndRepairUsers();
+    return Results.Json(new
+    {
+        ok = ok && users.Ok,
+        mode,
+        detail,
+        users = users.Detail,
+        usersCloud = LocalUserService.UsesCloud
+    });
 });
 
 app.MapRazorPages();
