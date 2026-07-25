@@ -7,67 +7,47 @@ using ShakabaArchive.Models;
 namespace ShakabaArchive.Services;
 
 /// <summary>
-/// مستخدمون محلياً (SQLite) عند العمل على الجهاز،
-/// أو على Neon/PostgreSQL عند النشر أونلاين.
+/// مستخدمون على نفس قاعدة الأرشيف (Neon/PostgreSQL أونلاين، أو SQLite محلياً فقط).
 /// </summary>
 public static class LocalUserService
 {
     private static readonly object Gate = new();
-    private static string? _dbPath;
+    private static string? _forcedPostgres;
 
-    public static string DatabasePath
-    {
-        get
-        {
-            if (!string.IsNullOrWhiteSpace(_dbPath))
-                return _dbPath;
-
-            var folder = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "ShakabaArchive");
-            Directory.CreateDirectory(folder);
-            return Path.Combine(folder, "users-local.db");
-        }
-    }
-
+    /// <summary>true عند استخدام Neon/PostgreSQL الثابت.</summary>
     public static bool UsesCloud => IsPostgresConfigured();
 
-    public static void ConfigurePath(string sqliteFilePath)
+    /// <summary>على Render يجب Neon وإلا تُمسح الحسابات مع كل نشر.</summary>
+    public static bool CanPersistUsers =>
+        IsPostgresConfigured()
+        || string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("RENDER"));
+
+    public static string PersistBlockedMessage =>
+        "لا يمكن حفظ المستخدمين: أضف المتغير DATABASE_URL من Neon في Render → Environment. بدونها تُمسح الحسابات فوراً مع كل نشر أو إعادة تشغيل.";
+
+    /// <summary>يُستدعى من Program بنفس اتصال الأرشيف تماماً.</summary>
+    public static void ConfigureCloud(string? postgresConnection)
     {
         lock (Gate)
         {
-            var dir = Path.GetDirectoryName(sqliteFilePath);
-            if (!string.IsNullOrWhiteSpace(dir))
-                Directory.CreateDirectory(dir);
-            _dbPath = sqliteFilePath;
+            _forcedPostgres = string.IsNullOrWhiteSpace(postgresConnection)
+                ? null
+                : postgresConnection.Trim();
         }
     }
 
-    public static UsersDbContext CreateContext()
+    public static void ConfigurePath(string sqliteFilePath)
+    {
+        // مسار SQLite للأجهزة المحلية يمر عبر DatabaseService
+        var dir = Path.GetDirectoryName(sqliteFilePath);
+        if (!string.IsNullOrWhiteSpace(dir))
+            Directory.CreateDirectory(dir);
+    }
+
+    public static ArchiveDbContext CreateContext()
     {
         AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
-        var options = new DbContextOptionsBuilder<UsersDbContext>();
-        Configure(options);
-        return new UsersDbContext(options.Options);
-    }
-
-    public static void Configure(DbContextOptionsBuilder options)
-    {
-        if (IsPostgresConfigured())
-        {
-            var conn = GetPostgresConnection()!;
-            options.UseNpgsql(DatabaseService.NormalizeConnectionString(conn));
-            return;
-        }
-
-        // على Render القرص مؤقت: بدون DATABASE_URL يُمسح المستخدمون مع كل Deploy
-        if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("RENDER")))
-        {
-            Console.Error.WriteLine(
-                "WARNING: LocalUserService falling back to SQLite on Render — set DATABASE_URL to Neon to keep users.");
-        }
-
-        options.UseSqlite($"Data Source={DatabasePath}");
+        return DatabaseService.CreateContext();
     }
 
     private static readonly object InitGate = new();
@@ -78,11 +58,15 @@ public static class LocalUserService
         lock (InitGate)
         {
             if (_initialized) return;
+            DatabaseService.EnsureReady();
             using var db = CreateContext();
             EnsureUserSchema(db);
             UpgradeUserColumns(db);
             SeedAdminIfEmpty(db);
             _initialized = true;
+            Console.WriteLine(UsesCloud
+                ? "LocalUserService: using PostgreSQL/Neon (persistent)."
+                : "LocalUserService: using SQLite (ephemeral on Render).");
         }
     }
 
@@ -92,7 +76,13 @@ public static class LocalUserService
             Initialize();
     }
 
-    private static void UpgradeUserColumns(UsersDbContext db)
+    private static string? WriteBlockedReason()
+    {
+        if (CanPersistUsers) return null;
+        return PersistBlockedMessage;
+    }
+
+    private static void UpgradeUserColumns(ArchiveDbContext db)
     {
         // SQLite
         try { db.Database.ExecuteSqlRaw("ALTER TABLE Users ADD COLUMN Role INTEGER NOT NULL DEFAULT 0"); } catch { }
@@ -102,27 +92,65 @@ public static class LocalUserService
         try { db.Database.ExecuteSqlRaw("""ALTER TABLE "InviteCodes" ADD COLUMN IF NOT EXISTS "AssignRole" integer NOT NULL DEFAULT 0"""); } catch { }
     }
 
-    private static void EnsureUserSchema(UsersDbContext db)
+    private static void EnsureUserSchema(ArchiveDbContext db)
     {
-        var creator = db.GetService<IRelationalDatabaseCreator>();
-        if (!creator.Exists())
-            creator.Create();
+        if (CanQueryNewUsers(db))
+            return;
 
-        // لا نحذف جداول المستخدمين أبداً عند فشل الاستعلام المؤقت
-        if (!CanQueryNewUsers(db))
+        // عند وجود جداول الأرشيف مسبقاً CreateTables قد يفشل — ننشئ جداول المستخدمين صراحة
+        try
         {
-            try
+            var isPostgres = db.Database.ProviderName?.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) == true;
+            if (isPostgres)
             {
-                creator.CreateTables();
+                db.Database.ExecuteSqlRaw("""
+                    CREATE TABLE IF NOT EXISTS "Users" (
+                        "Id" integer GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                        "Email" character varying(160) NOT NULL,
+                        "Phone" character varying(40) NOT NULL,
+                        "DisplayName" character varying(120) NOT NULL,
+                        "PasswordHash" character varying(200) NOT NULL,
+                        "IsAdmin" boolean NOT NULL DEFAULT FALSE,
+                        "Role" integer NOT NULL DEFAULT 0,
+                        "InviteCodeUsed" character varying(40) NOT NULL DEFAULT '',
+                        "CreatedAt" timestamp with time zone NOT NULL
+                    );
+                    """);
+                db.Database.ExecuteSqlRaw("""CREATE UNIQUE INDEX IF NOT EXISTS "IX_Users_Email" ON "Users" ("Email");""");
+                db.Database.ExecuteSqlRaw("""CREATE INDEX IF NOT EXISTS "IX_Users_Phone" ON "Users" ("Phone");""");
+                db.Database.ExecuteSqlRaw("""
+                    CREATE TABLE IF NOT EXISTS "InviteCodes" (
+                        "Id" integer GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                        "Code" character varying(40) NOT NULL,
+                        "Note" character varying(200) NOT NULL DEFAULT '',
+                        "AssignRole" integer NOT NULL DEFAULT 0,
+                        "IsUsed" boolean NOT NULL DEFAULT FALSE,
+                        "CreatedAt" timestamp with time zone NOT NULL,
+                        "UsedAt" timestamp with time zone NULL,
+                        "UsedByUserId" integer NULL
+                    );
+                    """);
+                db.Database.ExecuteSqlRaw("""CREATE UNIQUE INDEX IF NOT EXISTS "IX_InviteCodes_Code" ON "InviteCodes" ("Code");""");
             }
-            catch (Exception ex)
+            else
             {
-                Console.Error.WriteLine("EnsureUserSchema CreateTables: " + ex.Message);
+                var creator = db.GetService<IRelationalDatabaseCreator>();
+                if (!creator.Exists())
+                    creator.Create();
+                try { creator.CreateTables(); }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine("EnsureUserSchema CreateTables: " + ex.Message);
+                }
             }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("EnsureUserSchema: " + ex.Message);
         }
     }
 
-    private static bool CanQueryNewUsers(UsersDbContext db)
+    private static bool CanQueryNewUsers(ArchiveDbContext db)
     {
         try
         {
@@ -136,7 +164,7 @@ public static class LocalUserService
         }
     }
 
-    private static void SeedAdminIfEmpty(UsersDbContext db)
+    private static void SeedAdminIfEmpty(ArchiveDbContext db)
     {
         try
         {
@@ -148,7 +176,7 @@ public static class LocalUserService
         }
     }
 
-    private static void SeedAdminIfEmptyCore(UsersDbContext db)
+    private static void SeedAdminIfEmptyCore(ArchiveDbContext db)
     {
         const string adminEmail = "abohosam@shakaba.local";
         const string adminPassword = "Om123456@";
@@ -231,6 +259,9 @@ public static class LocalUserService
 
     public static InviteCode CreateInvite(string? note = null, UserRole assignRole = UserRole.Editor)
     {
+        if (WriteBlockedReason() is { } blocked)
+            throw new InvalidOperationException(blocked);
+
         if (assignRole == UserRole.Approver)
         {
             if (CountApprovers() >= ApprovalService.MaxApprovers)
@@ -309,6 +340,9 @@ public static class LocalUserService
             return (false, "أدخل الاسم الظاهر.", null);
         if (string.IsNullOrWhiteSpace(password) || password.Length < 6)
             return (false, "كلمة المرور يجب أن تكون 6 أحرف على الأقل.", null);
+
+        if (WriteBlockedReason() is { } blocked)
+            return (false, blocked, null);
 
         EnsureReady();
 
@@ -433,7 +467,7 @@ public static class LocalUserService
         return (true, "");
     }
 
-    private static (bool Ok, string Error) SetUserRoleInDb(UsersDbContext db, AppUser user, UserRole role)
+    private static (bool Ok, string Error) SetUserRoleInDb(ArchiveDbContext db, AppUser user, UserRole role)
     {
         var wasAdmin = user.IsAdmin || user.Role == UserRole.Admin;
         if (wasAdmin && role != UserRole.Admin)
@@ -479,6 +513,9 @@ public static class LocalUserService
             return (false, "كلمة المرور يجب أن تكون 6 أحرف على الأقل.", null);
         if (string.IsNullOrWhiteSpace(inviteCode))
             return (false, "أدخل رقم الدعوة للمستخدم الجديد.", null);
+
+        if (WriteBlockedReason() is { } blocked)
+            return (false, blocked, null);
 
         EnsureReady();
         if (CountUsers() >= ApprovalService.MaxUsers)
@@ -542,8 +579,13 @@ public static class LocalUserService
 
     private static string? GetPostgresConnection()
     {
+        if (!string.IsNullOrWhiteSpace(_forcedPostgres))
+            return _forcedPostgres;
+
         var envPg = Environment.GetEnvironmentVariable("DATABASE_URL")
                     ?? Environment.GetEnvironmentVariable("POSTGRES_CONNECTION")
+                    ?? Environment.GetEnvironmentVariable("POSTGRES_URL")
+                    ?? Environment.GetEnvironmentVariable("NEON_DATABASE_URL")
                     ?? Environment.GetEnvironmentVariable("ConnectionStrings__PostgreSql");
         if (!string.IsNullOrWhiteSpace(envPg))
             return envPg;

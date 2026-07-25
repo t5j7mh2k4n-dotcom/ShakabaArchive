@@ -18,7 +18,13 @@ LocalUserService.ConfigurePath(
 var pg = builder.Configuration.GetConnectionString("PostgreSql")
          ?? Environment.GetEnvironmentVariable("DATABASE_URL")
          ?? Environment.GetEnvironmentVariable("POSTGRES_CONNECTION")
+         ?? Environment.GetEnvironmentVariable("POSTGRES_URL")
+         ?? Environment.GetEnvironmentVariable("NEON_DATABASE_URL")
          ?? Environment.GetEnvironmentVariable("ConnectionStrings__PostgreSql");
+
+// نفس الاتصال للأرشيف والمستخدمين — لا ملف SQLite منفصل على Render
+LocalUserService.ConfigureCloud(pg);
+
 if (!string.IsNullOrWhiteSpace(pg))
 {
     DatabaseService.SaveSettings(new AppSettings
@@ -31,10 +37,8 @@ if (!string.IsNullOrWhiteSpace(pg))
 }
 else
 {
-    // لا نوقف التشغيل هنا — إيقافه كان يفشل Deploy على Render.
-    // بدون DATABASE_URL تُحفظ البيانات في SQLite مؤقت ويُمسح مع كل نشر.
     Console.Error.WriteLine(
-        "WARNING: DATABASE_URL is not set. Using ephemeral SQLite — users/people will be wiped on every Render deploy. Add DATABASE_URL (Neon) in Render Environment.");
+        "WARNING: DATABASE_URL is not set. Using ephemeral SQLite — users will be wiped on every Render deploy. Add DATABASE_URL (Neon) in Render Environment.");
 }
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
@@ -95,14 +99,14 @@ _ = Task.Run(async () =>
         // امنح Render وقتاً لاعتبار الحاوية سليمة عبر /health قبل ضغط الذاكرة
         await Task.Delay(3000);
         Console.WriteLine("Background DB init starting...");
-        LocalUserService.Initialize();
-        await Task.Delay(500);
         DatabaseService.Initialize();
-        await Task.Delay(500);
+        await Task.Delay(400);
+        LocalUserService.Initialize();
+        await Task.Delay(400);
         using var scope = app.Services.CreateScope();
         var archiveDb = scope.ServiceProvider.GetRequiredService<ArchiveDbContext>();
         await ApprovalService.EnsureSchemaAsync(archiveDb);
-        Console.WriteLine("Background DB init completed.");
+        Console.WriteLine("Background DB init completed. UsersCloud=" + LocalUserService.UsesCloud);
     }
     catch (Exception ex)
     {

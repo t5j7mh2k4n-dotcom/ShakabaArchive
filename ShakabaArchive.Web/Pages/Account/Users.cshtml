@@ -44,8 +44,25 @@ else
         تخزين الحسابات: <strong>@Model.StorageLabel</strong>
     </div>
 
+    @if (!Model.CanPersistUsers)
+    {
+        <div class="alert alert-danger">
+            <strong>تحذير مهم:</strong> @LocalUserService.PersistBlockedMessage
+            <br />
+            من Render → Environment أضف:
+            <code>DATABASE_URL</code> = رابط Neon (postgresql://...) ثم Save و Manual Deploy.
+            بعدها أعد إضافة المستخدمين مرة واحدة ولن يُمسحوا.
+        </div>
+    }
+
     <div class="card-panel mb-3" id="add-user">
         <h2 class="h6 mb-3">@(isEditing ? $"تعديل مستخدم: {Model.EditingUser!.DisplayName}" : "إضافة مستخدم جديد")</h2>
+        @if (!Model.CanPersistUsers && !isEditing)
+        {
+            <p class="text-danger mb-0">أضف <code>DATABASE_URL</code> في Render قبل إضافة مستخدمين جدد.</p>
+        }
+        else
+        {
         <form method="post"
               asp-page-handler="@(isEditing ? "Update" : "Create")"
               class="row g-2 align-items-end">
@@ -95,6 +112,7 @@ else
                 }
             </div>
         </form>
+        }
     </div>
 
     <div class="card-panel">

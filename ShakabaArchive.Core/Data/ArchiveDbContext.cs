@@ -12,6 +12,8 @@ public class ArchiveDbContext : DbContext
     public DbSet<Person> People => Set<Person>();
     public DbSet<LifeEvent> LifeEvents => Set<LifeEvent>();
     public DbSet<PendingChange> PendingChanges => Set<PendingChange>();
+    public DbSet<AppUser> Users => Set<AppUser>();
+    public DbSet<InviteCode> InviteCodes => Set<InviteCode>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -83,6 +85,30 @@ public class ArchiveDbContext : DbContext
             e.Property(x => x.SubmittedByName).HasMaxLength(120);
             e.Property(x => x.ReviewedByName).HasMaxLength(120);
             e.Property(x => x.ReviewNote).HasMaxLength(400);
+        });
+
+        // نفس قاعدة الأرشيف (Neon) — حتى لا تُمسح الحسابات مع Deploy على Render
+        modelBuilder.Entity<AppUser>(e =>
+        {
+            e.ToTable("Users");
+            e.HasIndex(u => u.Email).IsUnique();
+            e.HasIndex(u => u.Phone);
+            e.Property(u => u.Email).HasMaxLength(160).IsRequired();
+            e.Property(u => u.Phone).HasMaxLength(40).IsRequired();
+            e.Property(u => u.DisplayName).HasMaxLength(120).IsRequired();
+            e.Property(u => u.PasswordHash).HasMaxLength(200).IsRequired();
+            e.Property(u => u.InviteCodeUsed).HasMaxLength(40);
+            e.Ignore(u => u.UserName);
+            e.Ignore(u => u.CanApprove);
+            e.Ignore(u => u.IsEditorOnly);
+        });
+
+        modelBuilder.Entity<InviteCode>(e =>
+        {
+            e.ToTable("InviteCodes");
+            e.HasIndex(c => c.Code).IsUnique();
+            e.Property(c => c.Code).HasMaxLength(40).IsRequired();
+            e.Property(c => c.Note).HasMaxLength(200);
         });
     }
 }

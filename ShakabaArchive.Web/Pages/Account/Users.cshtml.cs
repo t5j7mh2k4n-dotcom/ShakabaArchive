@@ -14,6 +14,7 @@ public class UsersModel : PageModel
     public int MaxApprovers { get; private set; } = ApprovalService.MaxApprovers;
     public int MaxUsers { get; private set; } = ApprovalService.MaxUsers;
     public string StorageLabel { get; private set; } = "";
+    public bool CanPersistUsers { get; private set; }
     public string? Message { get; private set; }
     public string? Error { get; private set; }
 
@@ -145,9 +146,10 @@ public class UsersModel : PageModel
         LocalUserService.EnsureReady();
         Users = LocalUserService.ListUsers();
         ApproverCount = LocalUserService.CountApprovers();
+        CanPersistUsers = LocalUserService.CanPersistUsers;
         StorageLabel = LocalUserService.UsesCloud
             ? "PostgreSQL / Neon (ثابت — لا يُمسح مع النشر)"
-            : "SQLite محلي (مؤقت على Render — يُمسح مع كل نشر)";
+            : "SQLite مؤقت — الحسابات تُمسح مع كل نشر (أضف DATABASE_URL)";
     }
 
     public class UserFormInput
