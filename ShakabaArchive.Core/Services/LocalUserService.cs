@@ -122,58 +122,51 @@ public static class LocalUserService
         if (CanQueryNewUsers(db))
             return;
 
-        // عند وجود جداول الأرشيف مسبقاً CreateTables قد يفشل — ننشئ جداول المستخدمين صراحة
-        try
+        var isPostgres = db.Database.ProviderName?.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) == true;
+        if (!isPostgres)
         {
-            var isPostgres = db.Database.ProviderName?.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) == true;
-            if (isPostgres)
+            var creator = db.GetService<IRelationalDatabaseCreator>();
+            if (!creator.Exists())
+                creator.Create();
+            try { creator.CreateTables(); }
+            catch (Exception ex)
             {
-                // SERIAL متوافق أكثر مع Neon من IDENTITY
-                db.Database.ExecuteSqlRaw("""
-                    CREATE TABLE IF NOT EXISTS "Users" (
-                        "Id" SERIAL PRIMARY KEY,
-                        "Email" character varying(160) NOT NULL,
-                        "Phone" character varying(40) NOT NULL,
-                        "DisplayName" character varying(120) NOT NULL,
-                        "PasswordHash" character varying(200) NOT NULL,
-                        "IsAdmin" boolean NOT NULL DEFAULT FALSE,
-                        "Role" integer NOT NULL DEFAULT 0,
-                        "InviteCodeUsed" character varying(40) NOT NULL DEFAULT '',
-                        "CreatedAt" timestamp with time zone NOT NULL DEFAULT NOW()
-                    );
-                    """);
-                db.Database.ExecuteSqlRaw("""CREATE UNIQUE INDEX IF NOT EXISTS "IX_Users_Email" ON "Users" ("Email");""");
-                db.Database.ExecuteSqlRaw("""CREATE INDEX IF NOT EXISTS "IX_Users_Phone" ON "Users" ("Phone");""");
-                db.Database.ExecuteSqlRaw("""
-                    CREATE TABLE IF NOT EXISTS "InviteCodes" (
-                        "Id" SERIAL PRIMARY KEY,
-                        "Code" character varying(40) NOT NULL,
-                        "Note" character varying(200) NOT NULL DEFAULT '',
-                        "AssignRole" integer NOT NULL DEFAULT 0,
-                        "IsUsed" boolean NOT NULL DEFAULT FALSE,
-                        "CreatedAt" timestamp with time zone NOT NULL DEFAULT NOW(),
-                        "UsedAt" timestamp with time zone NULL,
-                        "UsedByUserId" integer NULL
-                    );
-                    """);
-                db.Database.ExecuteSqlRaw("""CREATE UNIQUE INDEX IF NOT EXISTS "IX_InviteCodes_Code" ON "InviteCodes" ("Code");""");
+                Console.Error.WriteLine("EnsureUserSchema CreateTables: " + ex.Message);
             }
-            else
-            {
-                var creator = db.GetService<IRelationalDatabaseCreator>();
-                if (!creator.Exists())
-                    creator.Create();
-                try { creator.CreateTables(); }
-                catch (Exception ex)
-                {
-                    Console.Error.WriteLine("EnsureUserSchema CreateTables: " + ex.Message);
-                }
-            }
+            return;
         }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine("EnsureUserSchema: " + ex.Message);
-        }
+
+        // مهم: إنشاء الجداول عبر اتصال مباشر (بدون pooler) — وإلا يفشل على Neon
+        using var ddl = DatabaseService.CreateContextForSchemaChanges();
+        ddl.Database.ExecuteSqlRaw("""
+            CREATE TABLE IF NOT EXISTS "Users" (
+                "Id" SERIAL PRIMARY KEY,
+                "Email" character varying(160) NOT NULL,
+                "Phone" character varying(40) NOT NULL,
+                "DisplayName" character varying(120) NOT NULL,
+                "PasswordHash" character varying(200) NOT NULL,
+                "IsAdmin" boolean NOT NULL DEFAULT FALSE,
+                "Role" integer NOT NULL DEFAULT 0,
+                "InviteCodeUsed" character varying(40) NOT NULL DEFAULT '',
+                "CreatedAt" timestamp with time zone NOT NULL DEFAULT NOW()
+            );
+            """);
+        ddl.Database.ExecuteSqlRaw("""CREATE UNIQUE INDEX IF NOT EXISTS "IX_Users_Email" ON "Users" ("Email");""");
+        ddl.Database.ExecuteSqlRaw("""CREATE INDEX IF NOT EXISTS "IX_Users_Phone" ON "Users" ("Phone");""");
+        ddl.Database.ExecuteSqlRaw("""
+            CREATE TABLE IF NOT EXISTS "InviteCodes" (
+                "Id" SERIAL PRIMARY KEY,
+                "Code" character varying(40) NOT NULL,
+                "Note" character varying(200) NOT NULL DEFAULT '',
+                "AssignRole" integer NOT NULL DEFAULT 0,
+                "IsUsed" boolean NOT NULL DEFAULT FALSE,
+                "CreatedAt" timestamp with time zone NOT NULL DEFAULT NOW(),
+                "UsedAt" timestamp with time zone NULL,
+                "UsedByUserId" integer NULL
+            );
+            """);
+        ddl.Database.ExecuteSqlRaw("""CREATE UNIQUE INDEX IF NOT EXISTS "IX_InviteCodes_Code" ON "InviteCodes" ("Code");""");
+        Console.WriteLine("EnsureUserSchema: Users/InviteCodes created via direct Neon connection.");
     }
 
     private static bool CanQueryNewUsers(ArchiveDbContext db)
@@ -181,11 +174,21 @@ public static class LocalUserService
         try
         {
             _ = db.Users.Select(u => u.Email).Take(1).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("CanQuery Users failed: " + ex.Message);
+            return false;
+        }
+
+        try
+        {
             _ = db.InviteCodes.Take(1).ToList();
             return true;
         }
-        catch
+        catch (Exception ex)
         {
+            Console.Error.WriteLine("CanQuery InviteCodes failed: " + ex.Message);
             return false;
         }
     }

@@ -96,6 +96,32 @@ public static class DatabaseService
         return new ArchiveDbContext(options.Options);
     }
 
+    /// <summary>
+    /// اتصال مباشر بدون -pooler لإنشاء الجداول (PgBouncer/pooler لا يدعم DDL جيداً).
+    /// </summary>
+    public static ArchiveDbContext CreateContextForSchemaChanges()
+    {
+        var options = new DbContextOptionsBuilder<ArchiveDbContext>();
+        var raw = Environment.GetEnvironmentVariable("DATABASE_URL")
+                  ?? Environment.GetEnvironmentVariable("POSTGRES_CONNECTION")
+                  ?? Environment.GetEnvironmentVariable("POSTGRES_URL")
+                  ?? Environment.GetEnvironmentVariable("NEON_DATABASE_URL");
+        if (string.IsNullOrWhiteSpace(raw)
+            && string.Equals(Settings.Provider, "PostgreSql", StringComparison.OrdinalIgnoreCase))
+            raw = Settings.PostgreSqlConnection;
+
+        if (!string.IsNullOrWhiteSpace(raw))
+        {
+            var cs = NormalizePostgresUrl(raw)
+                .Replace("-pooler.", ".", StringComparison.OrdinalIgnoreCase);
+            options.UseNpgsql(cs);
+            return new ArchiveDbContext(options.Options);
+        }
+
+        Configure(options);
+        return new ArchiveDbContext(options.Options);
+    }
+
     public static void Configure(DbContextOptionsBuilder options)
     {
         var s = Settings;
