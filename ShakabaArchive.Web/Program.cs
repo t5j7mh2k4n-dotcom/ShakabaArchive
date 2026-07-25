@@ -121,15 +121,28 @@ app.UseAuthorization();
 app.MapGet("/health", () => Results.Ok("ok"));
 
 // تشخيص خفيف — الإصلاح الثقيل للجداول عبر /health/db?repair=1 فقط
-app.MapGet("/health/db", (HttpRequest req) =>
+app.MapGet("/health/db", async (HttpRequest req) =>
 {
     var (ok, mode, detail) = DatabaseService.ProbeConnection();
     object users = "skipped";
+    object approvals = "skipped";
     if (req.Query.ContainsKey("repair"))
     {
         var repair = LocalUserService.ProbeAndRepairUsers();
         users = repair.Detail;
         ok = ok && repair.Ok;
+        try
+        {
+            await using var db = DatabaseService.CreateContext();
+            await ApprovalService.EnsureSchemaAsync(db);
+            var count = await db.PendingChanges.CountAsync();
+            approvals = $"pendingChanges={count}";
+        }
+        catch (Exception ex)
+        {
+            approvals = ex.GetBaseException().Message;
+            ok = false;
+        }
     }
 
     return Results.Json(new
@@ -138,6 +151,7 @@ app.MapGet("/health/db", (HttpRequest req) =>
         mode,
         detail,
         users,
+        approvals,
         usersCloud = LocalUserService.UsesCloud
     });
 });

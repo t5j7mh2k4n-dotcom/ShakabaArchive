@@ -22,32 +22,24 @@ public static class ApprovalService
     {
         try
         {
-            _ = await db.PendingChanges.Select(x => x.Summary).Take(1).ToListAsync();
+            _ = await db.PendingChanges.AsNoTracking().Select(x => new { x.Id, x.Summary, x.Status }).Take(1).ToListAsync();
             return;
         }
-        catch
+        catch (Exception ex)
         {
-            // recreate below
+            Console.Error.WriteLine("PendingChanges query failed, repairing: " + ex.Message);
         }
 
         var isPostgres = db.Database.ProviderName?.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) == true;
         if (isPostgres)
         {
-            // إنشاء عبر اتصال مباشر (بدون pooler) وإعادة إنشاء الجدول التالف إن لزم
             await using var ddl = DatabaseService.CreateContextForSchemaChanges();
-            try
-            {
-                await ddl.Database.ExecuteSqlRawAsync("""SELECT "Summary" FROM "PendingChanges" LIMIT 0""");
-            }
-            catch
-            {
-                await ddl.Database.ExecuteSqlRawAsync("""DROP TABLE IF EXISTS "PendingChanges" CASCADE;""");
-                await ddl.Database.ExecuteSqlRawAsync("""DROP TABLE IF EXISTS pendingchanges CASCADE;""");
-            }
-
+            // دائماً أعد الإنشاء إن فشل الاستعلام — الجداول التالفة كانت السبب الأشيع
+            await ddl.Database.ExecuteSqlRawAsync("""DROP TABLE IF EXISTS "PendingChanges" CASCADE;""");
+            await ddl.Database.ExecuteSqlRawAsync("""DROP TABLE IF EXISTS pendingchanges CASCADE;""");
             await ddl.Database.ExecuteSqlRawAsync(
                 """
-                CREATE TABLE IF NOT EXISTS "PendingChanges" (
+                CREATE TABLE "PendingChanges" (
                   "Id" SERIAL PRIMARY KEY,
                   "EntityType" integer NOT NULL,
                   "Action" integer NOT NULL,
@@ -64,12 +56,14 @@ public static class ApprovalService
                   "ReviewedAt" timestamp with time zone NULL
                 );
                 """);
+            Console.WriteLine("PendingChanges table recreated via direct Neon connection.");
             return;
         }
 
+        await db.Database.ExecuteSqlRawAsync("""DROP TABLE IF EXISTS PendingChanges;""");
         await db.Database.ExecuteSqlRawAsync(
             """
-            CREATE TABLE IF NOT EXISTS PendingChanges (
+            CREATE TABLE PendingChanges (
               Id INTEGER PRIMARY KEY AUTOINCREMENT,
               EntityType INTEGER NOT NULL,
               Action INTEGER NOT NULL,

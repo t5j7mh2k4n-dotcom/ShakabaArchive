@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
@@ -7,7 +8,7 @@ using ShakabaArchive.Services;
 
 namespace ShakabaArchive.Web.Pages.Approvals;
 
-public class IndexModel(ArchiveDbContext db) : PageModel
+public class IndexModel : PageModel
 {
     public List<PendingChange> Items { get; private set; } = [];
     public bool CanReview { get; private set; }
@@ -18,82 +19,142 @@ public class IndexModel(ArchiveDbContext db) : PageModel
     public async Task OnGetAsync()
     {
         Message = TempData["Flash"] as string;
-        // من بيانات تسجيل الدخول — حتى لو تأخرت قاعدة Neon
+        Error = TempData["FlashError"] as string;
         CanReview = User.IsInRole("Admin") || User.IsInRole("Approver");
+        CurrentUserId = ReadUserId();
+
         try
         {
-            await LoadAsync();
+            await LoadItemsAsync();
         }
         catch (Exception ex)
         {
             Console.Error.WriteLine("Approvals OnGet: " + ex);
-            Error = "قاعدة البيانات تُجهَّز الآن. انتظر 20 ثانية ثم حدّث الصفحة.";
+            // لا نرمي المستخدم للخروج — نعرض الصفحة فارغة مع تنبيه
+            Error = "تعذر تحميل الطلبات الآن. افتح /health/db?repair=1 ثم حدّث هذه الصفحة بعد 10 ثوانٍ.";
             Items = [];
-            CanReview = User.IsInRole("Admin") || User.IsInRole("Approver");
         }
     }
 
     public async Task<IActionResult> OnPostApproveAsync(int id, string? note)
     {
-        var appUser = User.CurrentAppUser();
-        if (appUser is null) return Challenge();
+        var appUser = ResolveAppUser();
+        if (appUser is null)
+        {
+            TempData["FlashError"] = "انتهت الجلسة أو تعذر قراءة الحساب. أعد الدخول ثم حاول مرة أخرى.";
+            return RedirectToPage("/Account/Login");
+        }
 
-        var (ok, error) = await ApprovalService.ApproveAsync(db, appUser, id, note);
-        if (!ok)
-            TempData["FlashError"] = error;
-        else
-            TempData["Flash"] = "تمت الموافقة على صحة البيانات وحفظها في الأرشيف.";
+        try
+        {
+            await using var db = DatabaseService.CreateContext();
+            await ApprovalService.EnsureSchemaAsync(db);
+            var (ok, error) = await ApprovalService.ApproveAsync(db, appUser, id, note);
+            if (!ok)
+                TempData["FlashError"] = error;
+            else
+                TempData["Flash"] = "تمت الموافقة على صحة البيانات وحفظها في الأرشيف.";
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("Approve: " + ex);
+            TempData["FlashError"] = "تعذر الاعتماد الآن لأن القاعدة تُجهَّز. انتظر قليلاً ثم أعد المحاولة.";
+        }
 
         return RedirectToPage();
     }
 
     public async Task<IActionResult> OnPostRejectAsync(int id, string? note)
     {
-        var appUser = User.CurrentAppUser();
-        if (appUser is null) return Challenge();
+        var appUser = ResolveAppUser();
+        if (appUser is null)
+        {
+            TempData["FlashError"] = "انتهت الجلسة أو تعذر قراءة الحساب. أعد الدخول ثم حاول مرة أخرى.";
+            return RedirectToPage("/Account/Login");
+        }
 
-        var (ok, error) = await ApprovalService.RejectAsync(db, appUser, id, note);
-        if (!ok)
-            TempData["FlashError"] = error;
-        else
-            TempData["Flash"] = "تم رفض الطلب — لم يُطبَّق أي تغيير.";
+        try
+        {
+            await using var db = DatabaseService.CreateContext();
+            await ApprovalService.EnsureSchemaAsync(db);
+            var (ok, error) = await ApprovalService.RejectAsync(db, appUser, id, note);
+            if (!ok)
+                TempData["FlashError"] = error;
+            else
+                TempData["Flash"] = "تم رفض الطلب — لم يُطبَّق أي تغيير.";
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("Reject: " + ex);
+            TempData["FlashError"] = "تعذر الرفض الآن لأن القاعدة تُجهَّز. انتظر قليلاً ثم أعد المحاولة.";
+        }
 
         return RedirectToPage();
     }
 
-    private async Task LoadAsync()
+    private async Task LoadItemsAsync()
     {
-        CanReview = User.IsInRole("Admin") || User.IsInRole("Approver");
-        CurrentUserId = int.TryParse(
-            User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var id)
-            ? id
-            : 0;
-        Error ??= TempData["FlashError"] as string;
-
-        DatabaseService.EnsureReady();
-        await ApprovalService.EnsureSchemaAsync(db);
-
         Exception? last = null;
         for (var attempt = 1; attempt <= 3; attempt++)
         {
             try
             {
-                Items = await db.PendingChanges.AsNoTracking()
-                    .OrderByDescending(x => x.Status == ChangeStatus.Pending)
-                    .ThenByDescending(x => x.SubmittedAt)
+                await using var db = DatabaseService.CreateContext();
+                await ApprovalService.EnsureSchemaAsync(db);
+
+                var rows = await db.PendingChanges.AsNoTracking()
+                    .OrderByDescending(x => x.SubmittedAt)
                     .Take(100)
                     .ToListAsync();
+
+                Items = rows
+                    .OrderByDescending(x => x.Status == ChangeStatus.Pending)
+                    .ThenByDescending(x => x.SubmittedAt)
+                    .ToList();
                 return;
             }
             catch (Exception ex)
             {
                 last = ex;
                 Console.Error.WriteLine($"Approvals Load attempt {attempt}/3: {ex.Message}");
-                await Task.Delay(1200 * attempt);
-                await ApprovalService.EnsureSchemaAsync(db);
+                await Task.Delay(800 * attempt);
             }
         }
 
         throw last ?? new InvalidOperationException("تعذر تحميل طلبات الموافقة.");
+    }
+
+    private int ReadUserId() =>
+        int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : 0;
+
+    /// <summary>يبني المستخدم من الجلسة إن تعذر قراءة Neon مؤقتاً — حتى لا يُطرد للخروج.</summary>
+    private AppUser? ResolveAppUser()
+    {
+        var fromDb = User.CurrentAppUser();
+        if (fromDb is not null)
+            return fromDb;
+
+        if (User.Identity?.IsAuthenticated != true)
+            return null;
+
+        var id = ReadUserId();
+        if (id <= 0)
+            return null;
+
+        var role = User.IsInRole("Admin")
+            ? UserRole.Admin
+            : User.IsInRole("Approver")
+                ? UserRole.Approver
+                : UserRole.Editor;
+
+        return new AppUser
+        {
+            Id = id,
+            DisplayName = User.Identity.Name ?? "",
+            Email = User.FindFirstValue(ClaimTypes.Email) ?? "",
+            Phone = User.FindFirstValue("phone") ?? "",
+            IsAdmin = role == UserRole.Admin,
+            Role = role
+        };
     }
 }
