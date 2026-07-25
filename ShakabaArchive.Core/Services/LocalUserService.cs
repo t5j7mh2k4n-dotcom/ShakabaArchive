@@ -153,15 +153,17 @@ public static class LocalUserService
         const string adminEmail = "abohosam@shakaba.local";
         const string adminPassword = "Om123456@";
 
-        // ترقية الحساب الافتراضي القديم إن وُجد
+        // ترقية الحساب الافتراضي القديم إن وُجد — دون إعادة تعيين كلمة المرور إن كانت موجودة
         var legacy = db.Users.FirstOrDefault(u =>
             u.Email == "admin@shakaba.local" || u.Email == "abohosam@shukaba.local");
         if (legacy is not null)
         {
             legacy.Email = adminEmail;
             legacy.Phone = legacy.Phone is "0000000000" or "" ? "0000000000" : legacy.Phone;
-            legacy.DisplayName = "أبو حسام";
-            legacy.PasswordHash = PasswordHasher.Hash(adminPassword);
+            if (string.IsNullOrWhiteSpace(legacy.DisplayName))
+                legacy.DisplayName = "أبو حسام";
+            if (string.IsNullOrWhiteSpace(legacy.PasswordHash))
+                legacy.PasswordHash = PasswordHasher.Hash(adminPassword);
             legacy.IsAdmin = true;
             legacy.Role = UserRole.Admin;
             db.SaveChanges();
@@ -171,12 +173,11 @@ public static class LocalUserService
         var existingAdmin = db.Users.FirstOrDefault(u => u.Email == adminEmail);
         if (existingAdmin is not null)
         {
-            existingAdmin.PasswordHash = PasswordHasher.Hash(adminPassword);
+            // لا نلمس كلمة المرور أبداً بعد الإنشاء — تبقى خاصة بالمستخدم
             existingAdmin.IsAdmin = true;
             existingAdmin.Role = UserRole.Admin;
-            existingAdmin.DisplayName = string.IsNullOrWhiteSpace(existingAdmin.DisplayName)
-                ? "أبو حسام"
-                : existingAdmin.DisplayName;
+            if (string.IsNullOrWhiteSpace(existingAdmin.DisplayName))
+                existingAdmin.DisplayName = "أبو حسام";
             db.SaveChanges();
             return;
         }
@@ -327,6 +328,32 @@ public static class LocalUserService
         db.Users.Add(user);
         db.SaveChanges();
         return (true, "", user);
+    }
+
+    /// <summary>يغيّر المستخدم كلمة مروره الخاصة بعد التحقق من الحالية.</summary>
+    public static (bool Ok, string Error) ChangeOwnPassword(
+        int userId,
+        string currentPassword,
+        string newPassword)
+    {
+        if (string.IsNullOrWhiteSpace(currentPassword))
+            return (false, "أدخل كلمة المرور الحالية.");
+        if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 6)
+            return (false, "كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل.");
+        if (currentPassword == newPassword)
+            return (false, "اختر كلمة مرور جديدة مختلفة عن الحالية.");
+
+        EnsureReady();
+        using var db = CreateContext();
+        var user = db.Users.FirstOrDefault(u => u.Id == userId);
+        if (user is null)
+            return (false, "المستخدم غير موجود.");
+        if (!PasswordHasher.Verify(currentPassword, user.PasswordHash))
+            return (false, "كلمة المرور الحالية غير صحيحة.");
+
+        user.PasswordHash = PasswordHasher.Hash(newPassword);
+        db.SaveChanges();
+        return (true, "");
     }
 
     public static (bool Ok, string Error) UpdateUser(

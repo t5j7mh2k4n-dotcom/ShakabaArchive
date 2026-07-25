@@ -9,7 +9,7 @@
     <div>
         <h1 class="h4 mb-1">المستخدمون والصلاحيات</h1>
         <p class="muted mb-0">
-            الأدمن الرئيسي يضيف ويعدّل ويحذف المستخدمين، ويعيّن الثلاثة الموافقين على صحة البيانات.
+            الأدمن الرئيسي يضيف ويعدّل ويحذف المستخدمين، ويعيّن الثلاثة الموافقين، ويضع كلمة المرور الأولية أو يعيد تعيينها فقط من هنا — ولا تظهر كلمات المرور المحفوظة لأحد.
         </p>
     </div>
     @if (User.IsInRole("Admin") && !isEditing)
@@ -62,15 +62,16 @@ else
                 <input class="form-control" asp-for="Form.Phone" required />
             </div>
             <div class="col-md-2">
-                <label class="form-label">@(isEditing ? "كلمة مرور جديدة (اختياري)" : "كلمة المرور")</label>
+                <label class="form-label">@(isEditing ? "إعادة تعيين كلمة المرور (اختياري)" : "كلمة المرور الأولية")</label>
                 @if (isEditing)
                 {
-                    <input class="form-control" asp-for="Form.Password" type="password" />
+                    <input class="form-control" asp-for="Form.Password" type="password" autocomplete="new-password" placeholder="اتركه فارغاً للإبقاء" />
                 }
                 else
                 {
-                    <input class="form-control" asp-for="Form.Password" type="password" required />
+                    <input class="form-control" asp-for="Form.Password" type="password" autocomplete="new-password" required />
                 }
+                <div class="form-text">لا تُعرض كلمة المرور لأحد بعد الحفظ. للمستخدم تغييرها من حسابه.</div>
             </div>
             <div class="col-md-2">
                 <label class="form-label">الصلاحية</label>
