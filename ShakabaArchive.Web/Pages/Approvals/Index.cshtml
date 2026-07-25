@@ -37,7 +37,13 @@
     <div class="alert alert-danger">@Model.Error</div>
 }
 
-@if (!Model.CanReview)
+@if (Model.CanReview)
+{
+    <div class="alert alert-success">
+        يمكنك اعتماد أو رفض الطلبات (أدمن / موافق على صحة البيانات).
+    </div>
+}
+else
 {
     <div class="alert alert-info">
         أنت مدخل بيانات: يمكنك الإدخال ومتابعة الطلبات. الحفظ النهائي بعد موافقة أحد الثلاثة فقط.

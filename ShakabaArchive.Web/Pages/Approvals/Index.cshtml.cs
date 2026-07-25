@@ -18,6 +18,8 @@ public class IndexModel(ArchiveDbContext db) : PageModel
     public async Task OnGetAsync()
     {
         Message = TempData["Flash"] as string;
+        // من بيانات تسجيل الدخول — حتى لو تأخرت قاعدة Neon
+        CanReview = User.IsInRole("Admin") || User.IsInRole("Approver");
         try
         {
             await LoadAsync();
@@ -27,6 +29,7 @@ public class IndexModel(ArchiveDbContext db) : PageModel
             Console.Error.WriteLine("Approvals OnGet: " + ex);
             Error = "قاعدة البيانات تُجهَّز الآن. انتظر 20 ثانية ثم حدّث الصفحة.";
             Items = [];
+            CanReview = User.IsInRole("Admin") || User.IsInRole("Approver");
         }
     }
 
@@ -64,8 +67,11 @@ public class IndexModel(ArchiveDbContext db) : PageModel
         await ApprovalService.EnsureSchemaAsync(db);
 
         var appUser = User.CurrentAppUser();
-        CanReview = appUser?.CanApprove == true;
-        CurrentUserId = appUser?.Id ?? 0;
+        CanReview = appUser?.CanApprove == true
+                    || User.IsInRole("Admin")
+                    || User.IsInRole("Approver");
+        CurrentUserId = appUser?.Id
+                        ?? (int.TryParse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var id) ? id : 0);
         Error ??= TempData["FlashError"] as string;
 
         Exception? last = null;
