@@ -29,15 +29,12 @@ if (!string.IsNullOrWhiteSpace(pg))
     });
     Console.WriteLine("Database: PostgreSQL/Neon (persistent) — users and archive will survive deploys.");
 }
-else if (builder.Environment.IsProduction()
-         || !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("RENDER")))
-{
-    throw new InvalidOperationException(
-        "DATABASE_URL is required in Production/Render. Without it, users are stored in temporary SQLite and deleted on every deploy.");
-}
 else
 {
-    Console.WriteLine("Database: local SQLite (dev only).");
+    // لا نوقف التشغيل هنا — إيقافه كان يفشل Deploy على Render.
+    // بدون DATABASE_URL تُحفظ البيانات في SQLite مؤقت ويُمسح مع كل نشر.
+    Console.Error.WriteLine(
+        "WARNING: DATABASE_URL is not set. Using ephemeral SQLite — users/people will be wiped on every Render deploy. Add DATABASE_URL (Neon) in Render Environment.");
 }
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
