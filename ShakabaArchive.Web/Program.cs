@@ -51,9 +51,12 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 
 builder.Services.AddDbContext<ArchiveDbContext>(options => DatabaseService.Configure(options));
 
-// حفظ مفاتيح الجلسة في Neon حتى لا يُطرد المستخدم عند إعادة تشغيل Render
+// مفاتيح الجلسة على قرص الحاوية — تجنب كسر صفحة الدخول إذا Neon نائم
+// (حفظها في Neon كان يرمي خطأ قبل إنشاء الجدول)
+var dpKeysPath = Path.Combine(dataRoot, "dp-keys");
+Directory.CreateDirectory(dpKeysPath);
 builder.Services.AddDataProtection()
-    .PersistKeysToDbContext<ArchiveDbContext>()
+    .PersistKeysToFileSystem(new DirectoryInfo(dpKeysPath))
     .SetApplicationName("ShakabaArchive");
 
 builder.Services.AddRazorPages(options =>
@@ -85,6 +88,22 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+
+// جهّز جداول Neon الأساسية مبكراً دون إيقاف التشغيل إن فشلت
+try
+{
+    AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+    using var warmDb = DatabaseService.CreateContextForSchemaChanges();
+    if (warmDb.Database.CanConnect())
+    {
+        DatabaseService.EnsureDataProtectionKeysTable(warmDb);
+        ApprovalService.EnsureSchemaAsync(warmDb).GetAwaiter().GetResult();
+    }
+}
+catch (Exception ex)
+{
+    Console.Error.WriteLine("Early schema warm-up skipped: " + ex.Message);
+}
 
 app.UseForwardedHeaders();
 

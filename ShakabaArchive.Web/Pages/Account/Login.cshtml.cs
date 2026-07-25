@@ -20,6 +20,16 @@ public class LoginModel : PageModel
 
     public void OnGet()
     {
+        // لا نرمي أخطاء هنا — صفحة الدخول يجب أن تظهر دائماً
+        try
+        {
+            if (LocalUserService.UsesCloud)
+                _ = LocalUserService.ProbeAndRepairUsers();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("Login warm-up: " + ex.Message);
+        }
     }
 
     public async Task<IActionResult> OnPostAsync(string? returnUrl = null)

@@ -7,13 +7,23 @@
 <div class="card-panel">
     <h1 class="h4 text-danger mb-2">حدث خطأ أثناء معالجة الطلب</h1>
     <p class="mb-3">
-        غالباً يكون السبب إيقاظ قاعدة البيانات بعد فترة توقف. انتظر نصف دقيقة ثم
-        <a href="javascript:location.reload()">أعد تحميل الصفحة</a>
-        أو ارجع إلى
-        <a asp-page="/Index">الرئيسية</a>.
+        غالباً يكون السبب إيقاظ قاعدة البيانات بعد فترة توقف.
+    </p>
+    <ol class="mb-3">
+        <li>انتظر <strong>30 ثانية</strong></li>
+        <li>افتح
+            <a href="/health/db?repair=1" target="_blank" rel="noopener">فحص القاعدة</a>
+            وانتظر حتى يظهر <code>ok:true</code>
+        </li>
+        <li>ثم اذهب إلى
+            <a asp-page="/Account/Login">صفحة الدخول</a>
+        </li>
+    </ol>
+    <p class="mb-0">
+        <a asp-page="/Index">الرئيسية</a>
     </p>
     @if (Model.ShowRequestId)
     {
-        <p class="muted small mb-0">رقم الطلب: <code>@Model.RequestId</code></p>
+        <p class="muted small mt-3 mb-0">رقم الطلب: <code>@Model.RequestId</code></p>
     }
 </div>
