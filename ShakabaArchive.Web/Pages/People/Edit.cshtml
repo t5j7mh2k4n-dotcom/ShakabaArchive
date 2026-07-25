@@ -1,19 +1,25 @@
 @page "{id:int}"
 @model ShakabaArchive.Web.Pages.People.EditModel
 @{
-    ViewData["Title"] = "تعديل شخص";
+    ViewData["Title"] = "تعديل سجل أشخاص";
+    ViewData["IsEdit"] = true;
+    ViewData["RegistryCode"] = Model.RegistryCode;
 }
 
 <div class="card-panel">
-    <h1 class="h4 mb-3">تعديل سجل شخص</h1>
+    <h1 class="h4 mb-3">تعديل سجل أشخاص</h1>
+    @if (TempData["FlashError"] is string err)
+    {
+        <div class="alert alert-danger">@err</div>
+    }
     <form method="post" enctype="multipart/form-data">
         <input type="hidden" asp-for="Id" />
         <partial name="_PersonForm" for="Input" />
         <div class="d-flex gap-2 mt-3">
-            <button class="btn btn-accent" type="submit">إرسال التعديل للموافقة</button>
+            <button class="btn btn-accent" type="submit">حفظ التعديل</button>
             <a class="btn btn-soft" asp-page="Details" asp-route-id="@Model.Id">إلغاء</a>
             <button class="btn btn-outline-danger ms-auto" type="submit" asp-page-handler="Delete"
-                    onclick="return confirm('إرسال طلب حذف هذا الشخص وجميع مناسباته؟ لن يُحذف إلا بعد موافقة أحد المخولين.');">طلب حذف</button>
+                    onclick="return confirm('إرسال طلب حذف هذا السجل؟ لن يُحذف إن كان له أبناء في الشجرة.');">طلب حذف</button>
         </div>
     </form>
 </div>

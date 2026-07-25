@@ -1,15 +1,17 @@
 @page
 @model ShakabaArchive.Web.Pages.People.CreateModel
 @{
-    ViewData["Title"] = "إضافة شخص";
+    ViewData["Title"] = "إضافة إلى سجل الأشخاص";
+    ViewBag.ParentOptions = Model.ParentOptions;
 }
 
 <div class="card-panel">
-    <h1 class="h4 mb-3">إضافة سجل شخص</h1>
+    <h1 class="h4 mb-3">إضافة سجل في سجل الأشخاص</h1>
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-2"></div>
     <form method="post" enctype="multipart/form-data">
         <partial name="_PersonForm" for="Input" />
         <div class="d-flex gap-2 mt-3">
-            <button class="btn btn-accent" type="submit">إرسال للموافقة</button>
+            <button class="btn btn-accent" type="submit">حفظ / إرسال للموافقة</button>
             <a class="btn btn-soft" asp-page="Index">إلغاء</a>
         </div>
     </form>

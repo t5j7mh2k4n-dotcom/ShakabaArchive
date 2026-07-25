@@ -20,6 +20,9 @@ public class IndexModel(ArchiveDbContext db) : PageModel
     [BindProperty(SupportsGet = true)]
     public string? BirthPlace { get; set; }
 
+    [BindProperty(SupportsGet = true)]
+    public int? Level { get; set; }
+
     public async Task OnGetAsync()
     {
         var places = await db.People.AsNoTracking()
@@ -35,6 +38,9 @@ public class IndexModel(ArchiveDbContext db) : PageModel
 
         IQueryable<Person> query = db.People.AsNoTracking().Include(p => p.Events);
 
+        if (Level is >= 1 and <= 3)
+            query = query.Where(p => p.HierarchyLevel == Level);
+
         if (!string.IsNullOrWhiteSpace(BirthPlace))
             query = query.Where(p => p.BirthPlace == BirthPlace);
 
@@ -42,15 +48,24 @@ public class IndexModel(ArchiveDbContext db) : PageModel
         {
             var q = Q.Trim();
             query = query.Where(p =>
+                p.RegistryCode.Contains(q) ||
                 p.NationalId.Contains(q) ||
                 p.FullName.Contains(q) ||
+                p.FirstName.Contains(q) ||
                 p.FatherName.Contains(q) ||
+                p.GrandfatherName.Contains(q) ||
+                p.FamilyName.Contains(q) ||
+                p.Tribe.Contains(q) ||
+                p.Profession.Contains(q) ||
                 p.BirthPlace.Contains(q) ||
                 p.Neighborhood.Contains(q) ||
                 p.Residence.Contains(q));
         }
 
-        People = await query.OrderBy(p => p.FullName).ToListAsync();
+        People = await query
+            .OrderBy(p => p.RegistryCode)
+            .ThenBy(p => p.FullName)
+            .ToListAsync();
     }
 
     public async Task<IActionResult> OnPostDeleteAsync(int id)
@@ -61,7 +76,13 @@ public class IndexModel(ArchiveDbContext db) : PageModel
 
         var person = await db.People.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id);
         if (person is null)
-            return RedirectToPage(new { q = Q, birthPlace = BirthPlace });
+            return RedirectToPage(new { q = Q, birthPlace = BirthPlace, level = Level });
+
+        if (await db.People.AnyAsync(p => p.ParentPersonId == id))
+        {
+            TempData["Flash"] = "لا يمكن حذف سجل له أبناء في الشجرة. احذف الأبناء أولاً.";
+            return RedirectToPage(new { q = Q, birthPlace = BirthPlace, level = Level });
+        }
 
         var (_, applied) = await ApprovalService.SubmitAsync(
             db,
@@ -70,12 +91,12 @@ public class IndexModel(ArchiveDbContext db) : PageModel
             ChangeAction.Delete,
             person.Id,
             PersonDraft.From(person),
-            $"حذف: {person.FullName}");
+            $"حذف سجل أشخاص {person.RegistryCode}: {person.FullName}");
 
         if (applied)
         {
-            TempData["Flash"] = "تم حذف السجل من الأرشيف.";
-            return RedirectToPage(new { q = Q, birthPlace = BirthPlace });
+            TempData["Flash"] = "تم حذف السجل من سجل الأشخاص.";
+            return RedirectToPage(new { q = Q, birthPlace = BirthPlace, level = Level });
         }
 
         TempData["Flash"] = "تم إرسال طلب الحذف بانتظار موافقة أحد الثلاثة على صحة البيانات.";

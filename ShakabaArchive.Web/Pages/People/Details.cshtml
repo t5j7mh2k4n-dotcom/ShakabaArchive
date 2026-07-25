@@ -1,7 +1,7 @@
 @page "{id:int}"
 @model ShakabaArchive.Web.Pages.People.DetailsModel
 @{
-    ViewData["Title"] = Model.Person?.FullName ?? "تفاصيل";
+    ViewData["Title"] = Model.Person?.FullName ?? "تفاصيل سجل أشخاص";
     var p = Model.Person!;
 }
 
@@ -14,10 +14,17 @@ else
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
         <div>
             <h1 class="h3 mb-1">@p.FullName</h1>
-            <div class="muted">@p.NationalId — @p.BirthPlace</div>
+            <div class="muted">
+                كود <code>@p.RegistryCode</code> —
+                @PersonRegistryService.LevelLabel(p.HierarchyLevel)
+                @if (!string.IsNullOrWhiteSpace(p.BirthPlace))
+                {
+                    <text> — @p.BirthPlace</text>
+                }
+            </div>
         </div>
         <div class="d-flex gap-2 flex-wrap">
-            <a class="btn btn-soft" asp-page="Index">رجوع</a>
+            <a class="btn btn-soft" asp-page="Index">رجوع لسجل الأشخاص</a>
             @{
                 var detailsUrl = $"{WhatsAppShare.PublicSiteUrl}/People/Details/{p.Id}";
             }
@@ -36,17 +43,41 @@ else
         <div class="col-lg-8">
             <div class="card-panel">
                 <dl class="row mb-0">
-                    <dt class="col-sm-3">الأب</dt><dd class="col-sm-9">@p.FatherName</dd>
-                    <dt class="col-sm-3">الأم</dt><dd class="col-sm-9">@p.MotherName</dd>
+                    <dt class="col-sm-3">الكود</dt><dd class="col-sm-9"><code>@p.RegistryCode</code></dd>
+                    <dt class="col-sm-3">المستوى</dt><dd class="col-sm-9">@PersonRegistryService.LevelLabel(p.HierarchyLevel)</dd>
+                    <dt class="col-sm-3">الاسم الأول</dt><dd class="col-sm-9">@p.FirstName</dd>
+                    <dt class="col-sm-3">اسم الأب</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.FatherName) ? "—" : p.FatherName)</dd>
+                    <dt class="col-sm-3">اسم الجد</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.GrandfatherName) ? "—" : p.GrandfatherName)</dd>
+                    <dt class="col-sm-3">اسم العائلة</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.FamilyName) ? "—" : p.FamilyName)</dd>
+                    <dt class="col-sm-3">اسم الأم</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.MotherName) ? "—" : p.MotherName)</dd>
                     <dt class="col-sm-3">النوع</dt><dd class="col-sm-9">@p.Gender</dd>
                     <dt class="col-sm-3">تاريخ الميلاد</dt><dd class="col-sm-9">@(p.BirthDate?.ToString("yyyy-MM-dd") ?? "—")</dd>
                     <dt class="col-sm-3">مكان الميلاد</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.BirthPlace) ? "—" : p.BirthPlace)</dd>
-                    <dt class="col-sm-3">الإقامة</dt><dd class="col-sm-9">@p.Residence</dd>
+                    <dt class="col-sm-3">القبيلة</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.Tribe) ? "—" : p.Tribe)</dd>
+                    <dt class="col-sm-3">المهنة</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.Profession) ? "—" : p.Profession)</dd>
+                    <dt class="col-sm-3">الإقامة</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.Residence) ? "—" : p.Residence)</dd>
                     <dt class="col-sm-3">الحي</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.Neighborhood) ? "—" : p.Neighborhood)</dd>
                     <dt class="col-sm-3">الهاتف</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.Phone) ? "—" : p.Phone)</dd>
+                    <dt class="col-sm-3">الرقم الوطني</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.NationalId) ? "—" : p.NationalId)</dd>
                     <dt class="col-sm-3">ملاحظات</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.Notes) ? "—" : p.Notes)</dd>
                 </dl>
             </div>
+
+            @if (Model.Children.Count > 0)
+            {
+                <div class="card-panel mt-3">
+                    <h2 class="h5 mb-3">الأبناء في الشجرة (@Model.Children.Count)</h2>
+                    <ul class="mb-0">
+                        @foreach (var c in Model.Children)
+                        {
+                            <li>
+                                <code>@c.RegistryCode</code>
+                                — <a asp-page="Details" asp-route-id="@c.Id">@c.FullName</a>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            }
 
             <div class="card-panel mt-3">
                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">

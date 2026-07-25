@@ -12,6 +12,8 @@ public class EditModel(ArchiveDbContext db) : PageModel
     [BindProperty]
     public int Id { get; set; }
 
+    public string RegistryCode { get; private set; } = "";
+
     [BindProperty]
     public PersonInput Input { get; set; } = new();
 
@@ -23,36 +25,26 @@ public class EditModel(ArchiveDbContext db) : PageModel
         var person = await db.People.FindAsync(id);
         if (person is null) return NotFound();
         Id = id;
+        RegistryCode = person.RegistryCode;
         Input = PersonInput.From(person);
         return Page();
     }
 
     public async Task<IActionResult> OnPostAsync()
     {
+        var person = await db.People.FindAsync(Id);
+        if (person is null) return NotFound();
+        RegistryCode = person.RegistryCode;
+
         if (!ModelState.IsValid) return Page();
 
         var appUser = User.CurrentAppUser();
         if (appUser is null) return Challenge();
 
-        var person = await db.People.FindAsync(Id);
-        if (person is null) return NotFound();
-
-        var draft = PersonDraft.From(person);
-        draft.NationalId = Input.NationalId;
-        draft.FullName = Input.FullName;
-        draft.FatherName = Input.FatherName;
-        draft.MotherName = Input.MotherName;
-        draft.Nationality = "";
-        draft.Gender = Input.Gender;
-        draft.BirthDate = Input.BirthDate.HasValue
-            ? DateTime.SpecifyKind(Input.BirthDate.Value.Date, DateTimeKind.Utc)
-            : null;
-        draft.BirthPlace = Input.BirthPlace;
-        draft.Residence = Input.Residence;
-        draft.Tribe = "";
-        draft.Neighborhood = Input.Neighborhood;
-        draft.Phone = Input.Phone;
-        draft.Notes = Input.Notes;
+        var draft = Input.ToDraft();
+        draft.RegistryCode = person.RegistryCode;
+        draft.HierarchyLevel = person.HierarchyLevel;
+        draft.ParentPersonId = person.ParentPersonId;
 
         if (Document is { Length: > 0 })
         {
@@ -67,11 +59,11 @@ public class EditModel(ArchiveDbContext db) : PageModel
             ChangeAction.Update,
             Id,
             draft,
-            $"تعديل شخص: {draft.FullName} ({draft.NationalId})");
+            $"تعديل سجل أشخاص {person.RegistryCode}: {draft.FullName}");
 
         if (applied)
         {
-            TempData["Flash"] = "تم حفظ التعديل في الأرشيف بنجاح.";
+            TempData["Flash"] = "تم حفظ التعديل في سجل الأشخاص.";
             return RedirectToPage("/People/Details", new { id = Id });
         }
 
@@ -87,6 +79,13 @@ public class EditModel(ArchiveDbContext db) : PageModel
         var person = await db.People.AsNoTracking().FirstOrDefaultAsync(p => p.Id == Id);
         if (person is null) return NotFound();
 
+        var hasChildren = await db.People.AnyAsync(p => p.ParentPersonId == Id);
+        if (hasChildren)
+        {
+            TempData["FlashError"] = "لا يمكن حذف سجل له أبناء في الشجرة. احذف الأبناء أولاً.";
+            return RedirectToPage(new { id = Id });
+        }
+
         var (_, applied) = await ApprovalService.SubmitAsync(
             db,
             appUser,
@@ -94,11 +93,11 @@ public class EditModel(ArchiveDbContext db) : PageModel
             ChangeAction.Delete,
             Id,
             new { },
-            $"حذف شخص: {person.FullName} ({person.NationalId})");
+            $"حذف سجل أشخاص {person.RegistryCode}: {person.FullName}");
 
         if (applied)
         {
-            TempData["Flash"] = "تم حذف السجل من الأرشيف.";
+            TempData["Flash"] = "تم حذف السجل من سجل الأشخاص.";
             return RedirectToPage("/People/Index");
         }
 

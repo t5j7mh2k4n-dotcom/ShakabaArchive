@@ -17,23 +17,35 @@ public class ArchiveDbContext : DbContext
     {
         modelBuilder.Entity<Person>(e =>
         {
+            e.HasIndex(p => p.RegistryCode).IsUnique();
             e.HasIndex(p => p.NationalId);
-            e.HasIndex(p => p.Nationality);
             e.HasIndex(p => p.FullName);
+            e.HasIndex(p => p.FamilyName);
             e.HasIndex(p => p.Tribe);
+            e.HasIndex(p => p.HierarchyLevel);
             e.HasIndex(p => p.Neighborhood);
-            e.Property(p => p.NationalId).HasMaxLength(64).IsRequired();
-            e.Property(p => p.FullName).HasMaxLength(200).IsRequired();
-            e.Property(p => p.FatherName).HasMaxLength(120);
+            e.Property(p => p.RegistryCode).HasMaxLength(32).IsRequired();
+            e.Property(p => p.NationalId).HasMaxLength(64);
+            e.Property(p => p.FirstName).HasMaxLength(80).IsRequired();
+            e.Property(p => p.FatherName).HasMaxLength(80);
+            e.Property(p => p.GrandfatherName).HasMaxLength(80);
+            e.Property(p => p.FamilyName).HasMaxLength(80);
+            e.Property(p => p.FullName).HasMaxLength(320).IsRequired();
             e.Property(p => p.MotherName).HasMaxLength(120);
             e.Property(p => p.Nationality).HasMaxLength(80);
             e.Property(p => p.Gender).HasMaxLength(20);
             e.Property(p => p.BirthPlace).HasMaxLength(200);
             e.Property(p => p.Residence).HasMaxLength(200);
             e.Property(p => p.Tribe).HasMaxLength(120);
+            e.Property(p => p.Profession).HasMaxLength(120);
             e.Property(p => p.Neighborhood).HasMaxLength(120);
             e.Property(p => p.Phone).HasMaxLength(40);
             e.Property(p => p.DocumentImagePath).HasMaxLength(400);
+
+            e.HasOne(p => p.ParentPerson)
+                .WithMany(p => p.Children)
+                .HasForeignKey(p => p.ParentPersonId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<LifeEvent>(e =>

@@ -215,6 +215,13 @@ public static class ApprovalService
         if (item.Action == ChangeAction.Create)
         {
             var person = dto.ToPerson();
+            if (string.IsNullOrWhiteSpace(person.RegistryCode))
+            {
+                person.RegistryCode = await PersonRegistryService.AllocateCodeAsync(
+                    db, person.HierarchyLevel, person.ParentPersonId);
+            }
+
+            person.RefreshFullName();
             db.People.Add(person);
             await db.SaveChangesAsync();
             return;
@@ -223,7 +230,15 @@ public static class ApprovalService
         if (item.EntityId is not int updateId) return;
         var existing = await db.People.FindAsync(updateId)
                        ?? throw new InvalidOperationException("السجل غير موجود.");
+        var keepCode = existing.RegistryCode;
+        var keepLevel = existing.HierarchyLevel;
+        var keepParent = existing.ParentPersonId;
         dto.ApplyTo(existing);
+        // الترميز الهرمي لا يتغير عند التعديل
+        existing.RegistryCode = keepCode;
+        existing.HierarchyLevel = keepLevel;
+        existing.ParentPersonId = keepParent;
+        existing.RefreshFullName();
         existing.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
     }
@@ -252,25 +267,34 @@ public static class ApprovalService
             {
                 var parent = await db.People.FindAsync(dto.PersonId)
                              ?? throw new InvalidOperationException("صاحب المناسبة غير موجود.");
+                var childLevel = Math.Min(PersonRegistryService.MaxLevel, parent.HierarchyLevel + 1);
+                var childCode = await PersonRegistryService.AllocateCodeAsync(db, childLevel, parent.Id);
                 var child = new Person
                 {
+                    RegistryCode = childCode,
+                    HierarchyLevel = childLevel,
+                    ParentPersonId = parent.Id,
                     NationalId = string.IsNullOrWhiteSpace(dto.ChildNationalId)
-                        ? $"TEMP-{DateTime.UtcNow:yyyyMMddHHmmss}"
+                        ? ""
                         : dto.ChildNationalId.Trim(),
-                    FullName = dto.ChildFullName.Trim(),
-                    FatherName = parent.FullName,
+                    FirstName = dto.ChildFullName.Trim(),
+                    FatherName = parent.FirstName,
+                    GrandfatherName = parent.FatherName,
+                    FamilyName = parent.FamilyName,
                     MotherName = dto.MotherName?.Trim() ?? "",
                     Nationality = "",
                     Gender = string.IsNullOrWhiteSpace(dto.ChildGender) ? "ذكر" : dto.ChildGender,
                     BirthDate = dto.EventDate,
                     BirthPlace = dto.Place ?? "الشكابة شاع الدين",
                     Residence = parent.Residence,
-                    Tribe = "",
+                    Tribe = parent.Tribe,
+                    Profession = "",
                     Neighborhood = dto.ChildNeighborhood?.Trim() ?? "",
                     Notes = "أُضيف عبر مناسبة مولود جديد (بعد الاعتماد)",
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
+                child.RefreshFullName();
                 db.People.Add(child);
                 await db.SaveChangesAsync();
 
@@ -294,9 +318,15 @@ public static class ApprovalService
 
 public class PersonDraft
 {
+    public string RegistryCode { get; set; } = "";
+    public int HierarchyLevel { get; set; } = 1;
+    public int? ParentPersonId { get; set; }
     public string NationalId { get; set; } = "";
-    public string FullName { get; set; } = "";
+    public string FirstName { get; set; } = "";
     public string FatherName { get; set; } = "";
+    public string GrandfatherName { get; set; } = "";
+    public string FamilyName { get; set; } = "";
+    public string FullName { get; set; } = "";
     public string MotherName { get; set; } = "";
     public string Nationality { get; set; } = "";
     public string Gender { get; set; } = "ذكر";
@@ -304,36 +334,52 @@ public class PersonDraft
     public string BirthPlace { get; set; } = "الشكابة شاع الدين";
     public string Residence { get; set; } = "الشكابة شاع الدين";
     public string Tribe { get; set; } = "";
+    public string Profession { get; set; } = "";
     public string Neighborhood { get; set; } = "";
     public string Phone { get; set; } = "";
     public string Notes { get; set; } = "";
     public string DocumentImagePath { get; set; } = "";
 
-    public Person ToPerson() => new()
+    public Person ToPerson()
     {
-        NationalId = NationalId.Trim(),
-        FullName = FullName.Trim(),
-        FatherName = FatherName.Trim(),
-        MotherName = MotherName.Trim(),
-        Nationality = Nationality.Trim(),
-        Gender = Gender,
-        BirthDate = BirthDate,
-        BirthPlace = BirthPlace.Trim(),
-        Residence = Residence.Trim(),
-        Tribe = Tribe.Trim(),
-        Neighborhood = Neighborhood.Trim(),
-        Phone = Phone.Trim(),
-        Notes = Notes.Trim(),
-        DocumentImagePath = DocumentImagePath,
-        CreatedAt = DateTime.UtcNow,
-        UpdatedAt = DateTime.UtcNow
-    };
+        var p = new Person
+        {
+            RegistryCode = RegistryCode.Trim(),
+            HierarchyLevel = HierarchyLevel is >= 1 and <= 3 ? HierarchyLevel : 1,
+            ParentPersonId = ParentPersonId,
+            NationalId = NationalId.Trim(),
+            FirstName = FirstName.Trim(),
+            FatherName = FatherName.Trim(),
+            GrandfatherName = GrandfatherName.Trim(),
+            FamilyName = FamilyName.Trim(),
+            MotherName = MotherName.Trim(),
+            Nationality = Nationality.Trim(),
+            Gender = Gender,
+            BirthDate = BirthDate,
+            BirthPlace = BirthPlace.Trim(),
+            Residence = Residence.Trim(),
+            Tribe = Tribe.Trim(),
+            Profession = Profession.Trim(),
+            Neighborhood = Neighborhood.Trim(),
+            Phone = Phone.Trim(),
+            Notes = Notes.Trim(),
+            DocumentImagePath = DocumentImagePath,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        p.RefreshFullName();
+        if (string.IsNullOrWhiteSpace(p.FullName) && !string.IsNullOrWhiteSpace(FullName))
+            p.FullName = FullName.Trim();
+        return p;
+    }
 
     public void ApplyTo(Person p)
     {
         p.NationalId = NationalId.Trim();
-        p.FullName = FullName.Trim();
+        p.FirstName = FirstName.Trim();
         p.FatherName = FatherName.Trim();
+        p.GrandfatherName = GrandfatherName.Trim();
+        p.FamilyName = FamilyName.Trim();
         p.MotherName = MotherName.Trim();
         p.Nationality = Nationality.Trim();
         p.Gender = Gender;
@@ -341,18 +387,26 @@ public class PersonDraft
         p.BirthPlace = BirthPlace.Trim();
         p.Residence = Residence.Trim();
         p.Tribe = Tribe.Trim();
+        p.Profession = Profession.Trim();
         p.Neighborhood = Neighborhood.Trim();
         p.Phone = Phone.Trim();
         p.Notes = Notes.Trim();
+        p.RefreshFullName();
         if (!string.IsNullOrWhiteSpace(DocumentImagePath))
             p.DocumentImagePath = DocumentImagePath;
     }
 
     public static PersonDraft From(Person p) => new()
     {
+        RegistryCode = p.RegistryCode,
+        HierarchyLevel = p.HierarchyLevel,
+        ParentPersonId = p.ParentPersonId,
         NationalId = p.NationalId,
-        FullName = p.FullName,
+        FirstName = p.FirstName,
         FatherName = p.FatherName,
+        GrandfatherName = p.GrandfatherName,
+        FamilyName = p.FamilyName,
+        FullName = p.FullName,
         MotherName = p.MotherName,
         Nationality = p.Nationality,
         Gender = p.Gender,
@@ -360,6 +414,7 @@ public class PersonDraft
         BirthPlace = p.BirthPlace,
         Residence = p.Residence,
         Tribe = p.Tribe,
+        Profession = p.Profession,
         Neighborhood = p.Neighborhood,
         Phone = p.Phone,
         Notes = p.Notes,

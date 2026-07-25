@@ -112,9 +112,9 @@ public class CreateModel(ArchiveDbContext db) : PageModel
     private async Task LoadPeopleAsync()
     {
         PersonOptions = await db.People.AsNoTracking()
-            .OrderBy(p => p.FullName)
+            .OrderBy(p => p.RegistryCode)
             .Select(p => new SelectListItem(
-                $"{p.FullName} — {p.NationalId}",
+                $"{p.RegistryCode} — {p.FullName}",
                 p.Id.ToString(),
                 PersonId == p.Id))
             .ToListAsync();

@@ -141,9 +141,9 @@ public sealed class PersonEditForm : Form
 
     private void Save()
     {
-        if (string.IsNullOrWhiteSpace(_nationalId.Text) || string.IsNullOrWhiteSpace(_fullName.Text))
+        if (string.IsNullOrWhiteSpace(_fullName.Text))
         {
-            MessageBox.Show("الرقم الوطني والاسم مطلوبان.", "تنبيه",
+            MessageBox.Show("الاسم مطلوب.", "تنبيه",
                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
@@ -152,7 +152,12 @@ public sealed class PersonEditForm : Form
         Person person;
         if (_id is null)
         {
-            person = new Person();
+            person = new Person
+            {
+                HierarchyLevel = 1,
+                RegistryCode = PersonRegistryService.AllocateCodeAsync(db, 1, null)
+                    .GetAwaiter().GetResult()
+            };
             db.People.Add(person);
         }
         else
@@ -162,7 +167,7 @@ public sealed class PersonEditForm : Form
         }
 
         person.NationalId = _nationalId.Text.Trim();
-        person.FullName = _fullName.Text.Trim();
+        person.FirstName = _fullName.Text.Trim();
         person.FatherName = _father.Text.Trim();
         person.MotherName = _mother.Text.Trim();
         person.Nationality = "";
@@ -170,11 +175,13 @@ public sealed class PersonEditForm : Form
         person.BirthDate = _birth.Checked ? _birth.Value.Date : null;
         person.BirthPlace = _birthPlace.Text.Trim();
         person.Residence = _residence.Text.Trim();
-        person.Tribe = "";
         person.Neighborhood = _neighborhood.Text.Trim();
         person.Phone = _phone.Text.Trim();
         person.Notes = _notes.Text.Trim();
         person.DocumentImagePath = _existingDoc;
+        person.RefreshFullName();
+        if (string.IsNullOrWhiteSpace(person.FullName))
+            person.FullName = _fullName.Text.Trim();
         person.UpdatedAt = DateTime.UtcNow;
         if (_id is null) person.CreatedAt = DateTime.UtcNow;
 

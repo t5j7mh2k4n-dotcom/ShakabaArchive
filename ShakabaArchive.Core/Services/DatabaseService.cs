@@ -307,6 +307,24 @@ public static class DatabaseService
         TryAlter(db, "ALTER TABLE People ADD COLUMN Tribe TEXT NOT NULL DEFAULT ''");
         TryAlter(db, "ALTER TABLE People ADD COLUMN Neighborhood TEXT NOT NULL DEFAULT ''");
         TryAlter(db, "ALTER TABLE People ADD COLUMN DocumentImagePath TEXT NOT NULL DEFAULT ''");
+        TryAlter(db, "ALTER TABLE People ADD COLUMN RegistryCode TEXT NOT NULL DEFAULT ''");
+        TryAlter(db, "ALTER TABLE People ADD COLUMN HierarchyLevel INTEGER NOT NULL DEFAULT 1");
+        TryAlter(db, "ALTER TABLE People ADD COLUMN ParentPersonId INTEGER NULL");
+        TryAlter(db, "ALTER TABLE People ADD COLUMN FirstName TEXT NOT NULL DEFAULT ''");
+        TryAlter(db, "ALTER TABLE People ADD COLUMN GrandfatherName TEXT NOT NULL DEFAULT ''");
+        TryAlter(db, "ALTER TABLE People ADD COLUMN FamilyName TEXT NOT NULL DEFAULT ''");
+        TryAlter(db, "ALTER TABLE People ADD COLUMN Profession TEXT NOT NULL DEFAULT ''");
+
+        TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "RegistryCode" varchar(32) NOT NULL DEFAULT ''""");
+        TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "HierarchyLevel" integer NOT NULL DEFAULT 1""");
+        TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "ParentPersonId" integer NULL""");
+        TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "FirstName" varchar(80) NOT NULL DEFAULT ''""");
+        TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "GrandfatherName" varchar(80) NOT NULL DEFAULT ''""");
+        TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "FamilyName" varchar(80) NOT NULL DEFAULT ''""");
+        TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "Profession" varchar(120) NOT NULL DEFAULT ''""");
+        TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "Tribe" text NOT NULL DEFAULT ''""");
+
+        BackfillPersonRegistryFields(db);
 
         TryAlter(db, "ALTER TABLE LifeEvents ADD COLUMN Mood INTEGER NOT NULL DEFAULT 0");
         TryAlter(db, "ALTER TABLE \"LifeEvents\" ADD COLUMN \"Mood\" integer NOT NULL DEFAULT 0");
@@ -329,6 +347,48 @@ public static class DatabaseService
         TryAlter(db, "ALTER TABLE \"LifeEvents\" ADD COLUMN \"Degree\" text NOT NULL DEFAULT ''");
     }
 
+    private static void BackfillPersonRegistryFields(ArchiveDbContext db)
+    {
+        try
+        {
+            var people = db.People.Where(p => p.RegistryCode == "" || p.FirstName == "").ToList();
+            if (people.Count == 0) return;
+
+            var seq = 1;
+            foreach (var p in people.OrderBy(x => x.Id))
+            {
+                if (string.IsNullOrWhiteSpace(p.FirstName))
+                {
+                    var parts = (p.FullName ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                    p.FirstName = parts.Length > 0 ? parts[0] : (p.FullName ?? "");
+                    if (string.IsNullOrWhiteSpace(p.FatherName) && parts.Length > 1)
+                        p.FatherName = parts[1];
+                    if (string.IsNullOrWhiteSpace(p.GrandfatherName) && parts.Length > 2)
+                        p.GrandfatherName = parts[2];
+                    if (string.IsNullOrWhiteSpace(p.FamilyName) && parts.Length > 3)
+                        p.FamilyName = string.Join(" ", parts.Skip(3));
+                }
+
+                if (string.IsNullOrWhiteSpace(p.RegistryCode))
+                {
+                    p.HierarchyLevel = 1;
+                    p.RegistryCode = seq.ToString("D2");
+                    seq++;
+                }
+
+                p.RefreshFullName();
+                if (string.IsNullOrWhiteSpace(p.FullName))
+                    p.FullName = p.FirstName;
+            }
+
+            db.SaveChanges();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("BackfillPersonRegistryFields failed: " + ex.Message);
+        }
+    }
+
     private static void TryAlter(ArchiveDbContext db, string sql)
     {
         try { db.Database.ExecuteSqlRaw(sql); }
@@ -341,9 +401,14 @@ public static class DatabaseService
         {
             var sample = new Person
             {
+                RegistryCode = "01",
+                HierarchyLevel = 1,
                 NationalId = "0000000000",
+                FirstName = "سجل",
+                FatherName = "تجريبي",
+                GrandfatherName = "",
+                FamilyName = "احذفه بعد البدء",
                 FullName = "سجل تجريبي — احذفه بعد البدء",
-                FatherName = "—",
                 MotherName = "—",
                 Nationality = "",
                 Gender = "ذكر",
@@ -351,9 +416,11 @@ public static class DatabaseService
                 BirthPlace = "الشكابة شاع الدين",
                 Residence = "الشكابة شاع الدين",
                 Tribe = "",
+                Profession = "",
                 Neighborhood = "—",
                 Notes = "هذا سجل توضيحي فقط."
             };
+            sample.RefreshFullName();
             db.People.Add(sample);
             db.SaveChanges();
 

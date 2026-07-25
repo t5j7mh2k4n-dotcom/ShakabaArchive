@@ -1,21 +1,89 @@
 @model ShakabaArchive.Web.Pages.People.PersonInput
+@{
+    var showParent = Model.HierarchyLevel is 2 or 3;
+    var isEdit = ViewData["IsEdit"] as bool? == true;
+    var registryCode = ViewData["RegistryCode"] as string;
+}
+
+<div class="alert alert-info small">
+    موديول <strong>سجل الأشخاص</strong> —
+    المستوى الأول: <code>01</code>،
+    الثاني: <code>01001</code>،
+    الثالث: <code>01001001</code>.
+    يُولَّد الكود تلقائياً عند الحفظ.
+</div>
+
+@if (!string.IsNullOrWhiteSpace(registryCode))
+{
+    <div class="mb-3">
+        <label class="form-label">كود السجل</label>
+        <input class="form-control" value="@registryCode" readonly />
+    </div>
+}
 
 <div class="row g-3">
-    <div class="col-md-6">
-        <label class="form-label">الرقم الوطني / الهوية</label>
-        <input class="form-control" asp-for="NationalId" />
+    @if (!isEdit)
+    {
+        <div class="col-md-4">
+            <label class="form-label">المستوى</label>
+            <select class="form-select" asp-for="HierarchyLevel" id="hierarchyLevel"
+                    onchange="location.href='?level=' + this.value">
+                <option value="1">المستوى الأول (01)</option>
+                <option value="2">المستوى الثاني (01001)</option>
+                <option value="3">المستوى الثالث (01001001)</option>
+            </select>
+        </div>
+        <div class="col-md-8" id="parentWrap" style="@(showParent ? "" : "display:none")">
+            <label class="form-label">السجل الأب</label>
+            <select class="form-select" asp-for="ParentPersonId" asp-items="ViewBag.ParentOptions">
+                <option value="">— اختر الأب —</option>
+            </select>
+            <div class="form-text">للمستوى 2 اختر أباً من المستوى 1، وللثالث أباً من المستوى 2.</div>
+        </div>
+    }
+    else
+    {
+        <input type="hidden" asp-for="HierarchyLevel" />
+        <input type="hidden" asp-for="ParentPersonId" />
+        <div class="col-md-4">
+            <label class="form-label">المستوى</label>
+            <input class="form-control" value="@PersonRegistryService.LevelLabel(Model.HierarchyLevel)" readonly />
+        </div>
+    }
+
+    <div class="col-md-3">
+        <label class="form-label">الاسم الأول</label>
+        <input class="form-control" asp-for="FirstName" required />
     </div>
-    <div class="col-md-6">
-        <label class="form-label">الاسم الكامل</label>
-        <input class="form-control" asp-for="FullName" />
-    </div>
-    <div class="col-md-6">
+    <div class="col-md-3">
         <label class="form-label">اسم الأب</label>
-        <input class="form-control" asp-for="FatherName" />
+        <input class="form-control" asp-for="FatherName" required />
     </div>
-    <div class="col-md-6">
-        <label class="form-label">اسم الأم</label>
-        <input class="form-control" asp-for="MotherName" />
+    <div class="col-md-3">
+        <label class="form-label">اسم الجد</label>
+        <input class="form-control" asp-for="GrandfatherName" />
+    </div>
+    <div class="col-md-3">
+        <label class="form-label">اسم العائلة</label>
+        <input class="form-control" asp-for="FamilyName" required />
+    </div>
+
+    <div class="col-md-4">
+        <label class="form-label">تاريخ الميلاد</label>
+        <input class="form-control" asp-for="BirthDate" type="date" />
+    </div>
+    <div class="col-md-4">
+        <label class="form-label">مكان الميلاد</label>
+        <input class="form-control" asp-for="BirthPlace" />
+    </div>
+    <div class="col-md-4">
+        <label class="form-label">القبيلة</label>
+        <input class="form-control" asp-for="Tribe" />
+    </div>
+
+    <div class="col-md-4">
+        <label class="form-label">المهنة</label>
+        <input class="form-control" asp-for="Profession" />
     </div>
     <div class="col-md-4">
         <label class="form-label">النوع</label>
@@ -25,24 +93,26 @@
         </select>
     </div>
     <div class="col-md-4">
-        <label class="form-label">تاريخ الميلاد</label>
-        <input class="form-control" asp-for="BirthDate" type="date" />
+        <label class="form-label">اسم الأم</label>
+        <input class="form-control" asp-for="MotherName" />
     </div>
+
     <div class="col-md-4">
-        <label class="form-label">مكان الميلاد</label>
-        <input class="form-control" asp-for="BirthPlace" />
-    </div>
-    <div class="col-md-6">
         <label class="form-label">مكان الإقامة</label>
         <input class="form-control" asp-for="Residence" />
     </div>
-    <div class="col-md-6">
+    <div class="col-md-4">
         <label class="form-label">الحي / الحلة</label>
         <input class="form-control" asp-for="Neighborhood" />
     </div>
-    <div class="col-md-6">
+    <div class="col-md-4">
         <label class="form-label">الهاتف</label>
         <input class="form-control" asp-for="Phone" />
+    </div>
+
+    <div class="col-md-6">
+        <label class="form-label">الرقم الوطني (اختياري)</label>
+        <input class="form-control" asp-for="NationalId" />
     </div>
     <div class="col-md-6">
         <label class="form-label">صورة الوثيقة</label>
@@ -53,7 +123,8 @@
         }
     </div>
     <div class="col-12">
-        <label class="form-label">ملاحظات</label>
+        <label class="form-label">ملاحظات / بيانات خاصة</label>
         <textarea class="form-control" asp-for="Notes" rows="3"></textarea>
     </div>
 </div>
+
