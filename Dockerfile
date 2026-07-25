@@ -1,28 +1,50 @@
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+# بناء خفيف للطبقة المجانية على Render (ذاكرة محدودة)
+FROM mcr.microsoft.com/dotnet/sdk:9.0-alpine AS build
 WORKDIR /src
+
+ENV DOTNET_CLI_TELEMETRY_OPTOUT=1 \
+    DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1 \
+    DOTNET_NOLOGO=1 \
+    NUGET_XMLDOC_MODE=skip \
+    MSBUILDTERMINALLOGGER=off
 
 COPY ShakabaArchive.Core/ShakabaArchive.Core.csproj ShakabaArchive.Core/
 COPY ShakabaArchive.Web/ShakabaArchive.Web.csproj ShakabaArchive.Web/
-RUN dotnet restore ShakabaArchive.Web/ShakabaArchive.Web.csproj
+RUN dotnet restore ShakabaArchive.Web/ShakabaArchive.Web.csproj \
+    --verbosity quiet \
+    -p:RestorePackagesPath=/tmp/nuget
 
 COPY ShakabaArchive.Core/ ShakabaArchive.Core/
 COPY ShakabaArchive.Web/ ShakabaArchive.Web/
+
 RUN dotnet publish ShakabaArchive.Web/ShakabaArchive.Web.csproj \
     -c Release \
     -o /app/publish \
     --no-restore \
-    /p:PublishReadyToRun=false
+    -m:1 \
+    /p:BuildInParallel=false \
+    /p:UseSharedCompilation=false \
+    /p:PublishReadyToRun=false \
+    /p:DebugType=None \
+    /p:DebugSymbols=false \
+    -p:RestorePackagesPath=/tmp/nuget \
+    --verbosity quiet \
+    && rm -rf /tmp/nuget /root/.nuget /tmp/MSBuild*
 
-FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:9.0-alpine AS final
 WORKDIR /app
 
-# تقليل استهلاك الذاكرة على Render Free
-ENV ASPNETCORE_ENVIRONMENT=Production
-ENV ASPNETCORE_URLS=http://0.0.0.0:8080
-ENV DOTNET_EnableDiagnostics=0
-ENV DOTNET_GCServer=0
-ENV DOTNET_GCHeapCount=1
-ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
+RUN apk add --no-cache icu-libs icu-data-full \
+    && rm -rf /var/cache/apk/*
+
+ENV ASPNETCORE_ENVIRONMENT=Production \
+    ASPNETCORE_URLS=http://0.0.0.0:8080 \
+    DOTNET_EnableDiagnostics=0 \
+    DOTNET_GCServer=0 \
+    DOTNET_GCHeapCount=1 \
+    DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false \
+    LC_ALL=en_US.UTF-8 \
+    LANG=en_US.UTF-8
 
 EXPOSE 8080
 COPY --from=build /app/publish .
