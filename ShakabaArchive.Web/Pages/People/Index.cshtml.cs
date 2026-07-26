@@ -106,6 +106,22 @@ public class IndexModel(ArchiveDbContext db) : PageModel
         }
     }
 
+    public async Task<IActionResult> OnGetSuggestAsync(string? field, string? q)
+    {
+        try
+        {
+            DatabaseService.EnsureReady();
+        }
+        catch
+        {
+            return new JsonResult(Array.Empty<SearchSuggestion>());
+        }
+
+        var isPostgres = db.Database.ProviderName?.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) == true;
+        var suggestions = await PersonSearchSuggestions.GetAsync(db, field, q, isPostgres);
+        return new JsonResult(suggestions);
+    }
+
     public async Task<IActionResult> OnPostDeleteAsync(int id)
     {
         var appUser = User.CurrentAppUser();

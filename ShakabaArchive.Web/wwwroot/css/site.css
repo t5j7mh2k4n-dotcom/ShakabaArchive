@@ -243,7 +243,52 @@ html, body {
 
 .search-bar .form-control,
 .search-bar .form-select {
-  border-color: var(--line);
+    border-color: var(--line);
+}
+
+.person-search-autocomplete {
+    position: relative;
+}
+
+.person-search-suggestions {
+    position: absolute;
+    inset-inline: 0;
+    top: calc(100% + 4px);
+    z-index: 30;
+    max-height: 280px;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: 0 10px 24px rgba(31, 41, 36, 0.12);
+}
+
+.person-search-suggestion-item {
+    display: block;
+    width: 100%;
+    text-align: start;
+    border: 0;
+    background: transparent;
+    padding: 0.65rem 0.85rem;
+    cursor: pointer;
+}
+
+.person-search-suggestion-item:hover,
+.person-search-suggestion-item.is-active {
+    background: var(--accent-soft);
+}
+
+.person-search-suggestion-value {
+    display: block;
+    font-weight: 700;
+    color: var(--ink);
+}
+
+.person-search-suggestion-label {
+    display: block;
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin-top: 0.1rem;
 }
 
 .doc-preview {

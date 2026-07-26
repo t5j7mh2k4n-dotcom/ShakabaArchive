@@ -64,11 +64,16 @@
     <div class="row g-2 search-bar align-items-end">
         <div class="col-lg-3 col-md-6">
             <label class="form-label small mb-1">نوع البحث</label>
-            <select class="form-select" name="field" asp-items="Model.SearchFieldOptions"></select>
+            <select class="form-select" id="people-search-field" name="field" asp-items="Model.SearchFieldOptions"></select>
         </div>
         <div class="col-lg-4 col-md-6">
             <label class="form-label small mb-1">كلمة البحث</label>
-            <input class="form-control" name="q" value="@Model.Q" placeholder="مثال: الاسم، رقم الوثيقة، الإقامة، الحي..." />
+            <div class="person-search-autocomplete">
+                <input class="form-control" id="people-search-q" name="q" value="@Model.Q"
+                       autocomplete="off"
+                       placeholder="ابدأ الكتابة — ستظهر اقتراحات مطابقة..." />
+                <div id="people-search-suggestions" class="person-search-suggestions" hidden></div>
+            </div>
         </div>
         <div class="col-lg-2 col-md-4">
             <label class="form-label small mb-1">المستوى</label>
@@ -89,7 +94,7 @@
             <button class="btn btn-accent w-100" type="submit">بحث</button>
         </div>
     </div>
-    <p class="muted small mb-0 mt-2">اختر «كل البيانات» للبحث في جميع الحقول، أو حدّد حقلًا واحدًا من القائمة.</p>
+    <p class="muted small mb-0 mt-2">اختر نوع البحث ثم ابدأ الكتابة — ستظهر قائمة منسدلة بالاقتراحات المطابقة.</p>
 </form>
 
 <div class="card-panel">
@@ -180,4 +185,5 @@
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
     <script src="~/js/person-barcode.js" asp-append-version="true"></script>
+    <script src="~/js/person-search-autocomplete.js" asp-append-version="true"></script>
 }
