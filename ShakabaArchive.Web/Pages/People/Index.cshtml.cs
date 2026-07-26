@@ -15,9 +15,13 @@ public class IndexModel(ArchiveDbContext db) : PageModel
     public List<Person> People { get; private set; } = [];
     public List<PendingPersonRow> PendingPeople { get; private set; } = [];
     public List<SelectListItem> BirthPlaceOptions { get; private set; } = [];
+    public List<SelectListItem> SearchFieldOptions { get; private set; } = [];
 
     [BindProperty(SupportsGet = true)]
     public string? Q { get; set; }
+
+    [BindProperty(SupportsGet = true)]
+    public string? Field { get; set; }
 
     [BindProperty(SupportsGet = true)]
     public string? BirthPlace { get; set; }
@@ -49,6 +53,10 @@ public class IndexModel(ArchiveDbContext db) : PageModel
             .Select(n => new SelectListItem(n, n, n == BirthPlace))
             .ToList();
 
+        SearchFieldOptions = PersonSearchQuery.Fields
+            .Select(f => new SelectListItem(f.Label, f.Value, f.Value == (Field ?? PersonSearchQuery.FieldAll)))
+            .ToList();
+
         IQueryable<Person> query = db.People.AsNoTracking().Include(p => p.Events);
 
         if (Level is >= 1 and <= 3)
@@ -57,27 +65,8 @@ public class IndexModel(ArchiveDbContext db) : PageModel
         if (!string.IsNullOrWhiteSpace(BirthPlace))
             query = query.Where(p => p.BirthPlace == BirthPlace);
 
-        if (!string.IsNullOrWhiteSpace(Q))
-        {
-            var q = Q.Trim();
-            query = query.Where(p =>
-                p.RegistryCode.Contains(q) ||
-                p.NationalId.Contains(q) ||
-                p.DocumentNumber.Contains(q) ||
-                p.DocumentType.Contains(q) ||
-                p.FullName.Contains(q) ||
-                p.FirstName.Contains(q) ||
-                p.FatherName.Contains(q) ||
-                p.GrandfatherName.Contains(q) ||
-                p.FamilyName.Contains(q) ||
-                p.MotherName.Contains(q) ||
-                p.Profession.Contains(q) ||
-                p.Phone.Contains(q) ||
-                p.BirthPlace.Contains(q) ||
-                p.Neighborhood.Contains(q) ||
-                p.Residence.Contains(q) ||
-                p.Notes.Contains(q));
-        }
+        var isPostgres = db.Database.ProviderName?.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) == true;
+        query = PersonSearchQuery.Apply(query, Q, Field, isPostgres);
 
         People = await query
             .OrderBy(p => p.RegistryCode)
@@ -125,12 +114,12 @@ public class IndexModel(ArchiveDbContext db) : PageModel
 
         var person = await db.People.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id);
         if (person is null)
-            return RedirectToPage(new { q = Q, birthPlace = BirthPlace, level = Level });
+            return RedirectToPage(new { q = Q, field = Field, birthPlace = BirthPlace, level = Level });
 
         if (await db.People.AnyAsync(p => p.ParentPersonId == id))
         {
             TempData["Flash"] = "لا يمكن حذف سجل له أبناء في الشجرة. احذف الأبناء أولاً.";
-            return RedirectToPage(new { q = Q, birthPlace = BirthPlace, level = Level });
+            return RedirectToPage(new { q = Q, field = Field, birthPlace = BirthPlace, level = Level });
         }
 
         var (_, applied) = await ApprovalService.SubmitAsync(
@@ -145,7 +134,7 @@ public class IndexModel(ArchiveDbContext db) : PageModel
         if (applied)
         {
             TempData["Flash"] = "تم حذف السجل من سجل الأشخاص.";
-            return RedirectToPage(new { q = Q, birthPlace = BirthPlace, level = Level });
+            return RedirectToPage(new { q = Q, field = Field, birthPlace = BirthPlace, level = Level });
         }
 
         TempData["Flash"] = "تم إرسال طلب الحذف بانتظار موافقة أحد الثلاثة على صحة البيانات.";

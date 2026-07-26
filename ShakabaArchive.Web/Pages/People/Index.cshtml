@@ -61,11 +61,17 @@
 }
 
 <form method="get" action="/People" class="card-panel mb-3">
-    <div class="row g-2 search-bar">
-        <div class="col-md-5">
-            <input class="form-control" name="q" value="@Model.Q" placeholder="بحث بالكود أو الاسم أو رقم الوثيقة..." />
+    <div class="row g-2 search-bar align-items-end">
+        <div class="col-lg-3 col-md-6">
+            <label class="form-label small mb-1">نوع البحث</label>
+            <select class="form-select" name="field" asp-items="Model.SearchFieldOptions"></select>
         </div>
-        <div class="col-md-3">
+        <div class="col-lg-4 col-md-6">
+            <label class="form-label small mb-1">كلمة البحث</label>
+            <input class="form-control" name="q" value="@Model.Q" placeholder="مثال: الاسم، رقم الوثيقة، الإقامة، الحي..." />
+        </div>
+        <div class="col-lg-2 col-md-4">
+            <label class="form-label small mb-1">المستوى</label>
             <select class="form-select" name="level">
                 <option value="">كل المستويات</option>
                 @if (Model.Level == 1) { <option value="1" selected>المستوى الأول</option> } else { <option value="1">المستوى الأول</option> }
@@ -73,15 +79,17 @@
                 @if (Model.Level == 3) { <option value="3" selected>المستوى الثالث</option> } else { <option value="3">المستوى الثالث</option> }
             </select>
         </div>
-        <div class="col-md-2">
+        <div class="col-lg-2 col-md-4">
+            <label class="form-label small mb-1">مكان الميلاد</label>
             <select class="form-select" name="birthPlace" asp-items="Model.BirthPlaceOptions">
                 <option value="">كل أماكن الميلاد</option>
             </select>
         </div>
-        <div class="col-md-2">
+        <div class="col-lg-1 col-md-4">
             <button class="btn btn-accent w-100" type="submit">بحث</button>
         </div>
     </div>
+    <p class="muted small mb-0 mt-2">اختر «كل البيانات» للبحث في جميع الحقول، أو حدّد حقلًا واحدًا من القائمة.</p>
 </form>
 
 <div class="card-panel">
