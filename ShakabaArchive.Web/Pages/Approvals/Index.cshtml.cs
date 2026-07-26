@@ -16,6 +16,7 @@ public class IndexModel : PageModel
     public int PendingCount { get; private set; }
     public int TotalCount { get; private set; }
     public int MissingInRegistryCount { get; private set; }
+    public HashSet<int> PersonIdsInRegistry { get; private set; } = [];
     public string Filter { get; private set; } = "pending";
     public string? Message { get; private set; }
     public string? Error { get; private set; }
@@ -136,23 +137,65 @@ public class IndexModel : PageModel
 
             if (result.Migrated == 0 && result.Linked == 0)
             {
-                TempData["Flash"] = result.Failed > 0
-                    ? $"تعذر ترحيل {result.Failed} طلب/طلبات. راجع السجلات أو أعد المحاولة."
-                    : "كل الطلبات المعتمدة موجودة مسبقاً في سجل الأشخاص.";
+                if (result.Failed > 0)
+                {
+                    TempData["FlashError"] =
+                        $"تعذر ترحيل {result.Failed} طلب. " +
+                        string.Join(" | ", result.Errors.Take(3));
+                }
+                else
+                {
+                    TempData["Flash"] = "كل طلبات إضافة الأشخاص المعتمدة موجودة مسبقاً في السجل. (موافقة الحساب وحده لا تُنشئ سجل شخص)";
+                }
             }
             else
             {
                 TempData["Flash"] =
-                    $"تم الترحيل: أُضيف {result.Migrated} إلى السجل" +
-                    (result.Linked > 0 ? $"، وربط {result.Linked} بسجلات موجودة" : "") +
-                    (result.Failed > 0 ? $"، وفشل {result.Failed}" : "") +
-                    ".";
+                    $"تم الترحيل إلى السجل: جديد {result.Migrated}" +
+                    (result.Linked > 0 ? $"، مربوط {result.Linked}" : "") +
+                    (result.Failed > 0 ? $"، فشل {result.Failed}" : "") +
+                    ". افتح سجل الأشخاص للتأكد.";
+                if (result.Failed > 0 && result.Errors.Count > 0)
+                    TempData["FlashError"] = string.Join(" | ", result.Errors.Take(3));
             }
         }
         catch (Exception ex)
         {
             Console.Error.WriteLine("MigrateApproved: " + ex);
             TempData["FlashError"] = "تعذر الترحيل الآن: " + ex.GetBaseException().Message;
+        }
+
+        return RedirectToPage(new { filter = filter ?? "approved" });
+    }
+
+    public async Task<IActionResult> OnPostMigrateOneAsync(int id, string? filter = null)
+    {
+        var appUser = ResolveAppUser();
+        if (appUser is null || !appUser.CanApprove)
+        {
+            TempData["FlashError"] = "ليست لديك صلاحية الترحيل.";
+            return RedirectToPage(new { filter = filter ?? "approved" });
+        }
+
+        try
+        {
+            await using var db = DatabaseService.CreateContext();
+            var (ok, error, personId) = await ApprovalService.MigrateOneApprovedPersonAsync(db, id);
+            if (!ok)
+            {
+                TempData["FlashError"] = error;
+                return RedirectToPage(new { filter = filter ?? "approved" });
+            }
+
+            TempData["Flash"] = string.IsNullOrWhiteSpace(error)
+                ? "تم حفظ الشخص في سجل الأشخاص."
+                : error;
+            if (personId is int pid)
+                return RedirectToPage("/People/Details", new { id = pid });
+        }
+        catch (Exception ex)
+        {
+            TempData["FlashError"] = "تعذر الترحيل: " + ex.GetBaseException().Message;
         }
 
         return RedirectToPage(new { filter = filter ?? "approved" });
@@ -214,6 +257,21 @@ public class IndexModel : PageModel
                     .ThenByDescending(x => x.Id)
                     .Take(200)
                     .ToListAsync();
+
+                var entityIds = Items
+                    .Where(x => x.EntityType == ChangeEntity.Person && x.EntityId is > 0)
+                    .Select(x => x.EntityId!.Value)
+                    .Distinct()
+                    .ToList();
+                if (entityIds.Count > 0)
+                {
+                    PersonIdsInRegistry = (await db.People.AsNoTracking()
+                            .Where(p => entityIds.Contains(p.Id))
+                            .Select(p => p.Id)
+                            .ToListAsync())
+                        .ToHashSet();
+                }
+
                 return;
             }
             catch (Exception ex)

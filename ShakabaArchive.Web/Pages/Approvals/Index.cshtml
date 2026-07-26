@@ -70,7 +70,8 @@
             <div>
                 <h2 class="h6 mb-1">ترحيل المعتمدة إلى سجل الأشخاص</h2>
                 <p class="muted small mb-0">
-                    إن ظهرت طلبات «تمت الموافقة» وما زالت غير موجودة في السجل، اضغط الزر لنقلها الآن.
+                    ينقل طلبات <strong>إضافة شخص</strong> المعتمدة إلى سجل الأشخاص.
+                    موافقة «حساب مستخدم» لا تُنشئ سجل شخص — يجب إضافة بياناتي أولاً.
                     @if (Model.MissingInRegistryCount > 0)
                     {
                         <span class="text-danger fw-semibold">(@Model.MissingInRegistryCount بانتظار الترحيل)</span>
@@ -133,11 +134,27 @@ else
                         && item.EntityType == ChangeEntity.Person
                         && item.Action != ChangeAction.Delete
                         && (Model.CanReview || item.SubmittedByUserId == Model.CurrentUserId);
+                    var isPersonCreate = item.EntityType == ChangeEntity.Person && item.Action == ChangeAction.Create;
+                    var inRegistry = item.EntityId is int eid && Model.PersonIdsInRegistry.Contains(eid);
+                    var needsMigrate = Model.CanReview && isPersonCreate && item.Status == ChangeStatus.Approved && !inRegistry;
                     <tr class="@(item.Status == ChangeStatus.Pending ? "" : "table-secondary")">
                         <td>@item.Id</td>
                         <td>@EntityAr(item.EntityType)</td>
                         <td>@ActionAr(item.Action)</td>
-                        <td>@item.Summary</td>
+                        <td>
+                            @item.Summary
+                            @if (isPersonCreate && item.Status == ChangeStatus.Approved)
+                            {
+                                if (inRegistry)
+                                {
+                                    <div class="small text-success">✓ موجود في سجل الأشخاص</div>
+                                }
+                                else
+                                {
+                                    <div class="small text-danger">✗ غير موجود في السجل — استخدم الترحيل</div>
+                                }
+                            }
+                        </td>
                         <td>@item.SubmittedByName</td>
                         <td>
                             @StatusAr(item.Status)
@@ -155,6 +172,18 @@ else
                             @if (canEditPending)
                             {
                                 <a class="btn btn-sm btn-soft" asp-page="/People/EditPending" asp-route-id="@item.Id">تعديل قبل الاعتماد</a>
+                            }
+                            @if (needsMigrate)
+                            {
+                                <form method="post" asp-page-handler="MigrateOne" class="d-inline">
+                                    <input type="hidden" name="id" value="@item.Id" />
+                                    <input type="hidden" name="filter" value="@Model.Filter" />
+                                    <button class="btn btn-sm btn-accent" type="submit">حفظ في السجل</button>
+                                </form>
+                            }
+                            else if (inRegistry && item.EntityId is int personId)
+                            {
+                                <a class="btn btn-sm btn-soft" asp-page="/People/Details" asp-route-id="@personId">عرض في السجل</a>
                             }
                             @if (Model.CanReview && item.Status == ChangeStatus.Pending)
                             {

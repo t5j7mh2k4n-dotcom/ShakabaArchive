@@ -426,26 +426,7 @@ public static class ApprovalService
                     return;
             }
 
-            if (!string.IsNullOrWhiteSpace(dto.RegistryCode))
-            {
-                var byCode = await db.People.AsNoTracking()
-                    .FirstOrDefaultAsync(p => p.RegistryCode == dto.RegistryCode.Trim());
-                if (byCode is not null
-                    && string.Equals(byCode.FullName, dto.FullName?.Trim(), StringComparison.OrdinalIgnoreCase))
-                {
-                    item.EntityId = byCode.Id;
-                    return;
-                }
-            }
-
-            var person = dto.ToPerson();
-            // دائماً كود جديد من السجل الفعلي — تجنّب تعارض أكواد الطلبات المعلّقة
-            person.RegistryCode = await PersonRegistryService.AllocateCodeAsync(
-                db, person.HierarchyLevel, person.ParentPersonId);
-            if (person.BirthDate is { } bd)
-                person.BirthDate = DateTime.SpecifyKind(bd.Date, DateTimeKind.Utc);
-
-            person.RefreshFullName();
+            var person = await BuildPersonForCreateAsync(db, dto);
             db.People.Add(person);
             await db.SaveChangesAsync();
             item.EntityId = person.Id;
@@ -473,7 +454,7 @@ public static class ApprovalService
 
     private static PersonDraft? DeserializePersonDraft(string json)
     {
-        if (string.IsNullOrWhiteSpace(json))
+        if (string.IsNullOrWhiteSpace(json) || json is "{}" or "{{}}")
             return null;
         try
         {
@@ -482,15 +463,125 @@ public static class ApprovalService
         catch (Exception ex)
         {
             Console.Error.WriteLine("DeserializePersonDraft: " + ex.Message);
-            // محاولة ثانية بدون سياسة تسمية
-            return JsonSerializer.Deserialize<PersonDraft>(json, new JsonSerializerOptions
+            try
             {
-                PropertyNameCaseInsensitive = true
-            });
+                return JsonSerializer.Deserialize<PersonDraft>(json, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+            }
+            catch
+            {
+                return null;
+            }
         }
     }
 
-    public sealed record MigrateResult(int Migrated, int Linked, int AlreadyInRegistry, int Failed);
+    /// <summary>يبني مسودة من ملخص الطلب إن فسدت حمولة JSON.</summary>
+    private static PersonDraft? DraftFromSummary(string? summary)
+    {
+        if (string.IsNullOrWhiteSpace(summary))
+            return null;
+
+        // أشكال شائعة: "إضافة سجل أشخاص 03: الاسم الكامل"
+        var text = summary.Trim();
+        var colon = text.IndexOf(':');
+        if (colon < 0 || colon >= text.Length - 1)
+            return null;
+
+        var name = text[(colon + 1)..].Trim();
+        if (name.Length < 2)
+            return null;
+
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return new PersonDraft
+        {
+            HierarchyLevel = 1,
+            ParentPersonId = null,
+            FirstName = parts.ElementAtOrDefault(0) ?? name,
+            FatherName = parts.ElementAtOrDefault(1) ?? "",
+            GrandfatherName = parts.Length >= 4 ? parts[2] : "",
+            FamilyName = parts.Length >= 4
+                ? string.Join(" ", parts.Skip(3))
+                : parts.ElementAtOrDefault(2) ?? "",
+            FullName = name,
+            Gender = "ذكر",
+            BirthPlace = "الشكابة شاع الدين",
+            Residence = "الشكابة شاع الدين"
+        };
+    }
+
+    private static async Task<Person> BuildPersonForCreateAsync(ArchiveDbContext db, PersonDraft dto)
+    {
+        var person = dto.ToPerson();
+
+        // إن الأب غير موجود في السجل — احفظ كمستوى 1 حتى لا يفشل المفتاح الأجنبي
+        if (person.HierarchyLevel is 2 or 3)
+        {
+            if (person.ParentPersonId is not int parentId
+                || !await db.People.AsNoTracking().AnyAsync(p => p.Id == parentId))
+            {
+                person.HierarchyLevel = 1;
+                person.ParentPersonId = null;
+            }
+        }
+        else
+        {
+            person.HierarchyLevel = 1;
+            person.ParentPersonId = null;
+        }
+
+        person.RegistryCode = await PersonRegistryService.AllocateCodeAsync(
+            db, person.HierarchyLevel, person.ParentPersonId);
+
+        if (person.BirthDate is { } bd)
+            person.BirthDate = DateTime.SpecifyKind(bd.Date, DateTimeKind.Utc);
+
+        person.CreatedAt = DateTime.UtcNow;
+        person.UpdatedAt = DateTime.UtcNow;
+        person.RefreshFullName();
+        if (string.IsNullOrWhiteSpace(person.FullName) && !string.IsNullOrWhiteSpace(dto.FullName))
+            person.FullName = dto.FullName.Trim();
+        if (string.IsNullOrWhiteSpace(person.FullName))
+            throw new InvalidOperationException("اسم الشخص فارغ — لا يمكن الحفظ في السجل.");
+
+        return person;
+    }
+
+    private static async Task<Person?> FindExactPersonMatchAsync(ArchiveDbContext db, PersonDraft dto)
+    {
+        var name = (dto.FullName ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(dto.FirstName))
+        {
+            name = Person.ComposeFullName(dto.FirstName, dto.FatherName, dto.GrandfatherName, dto.FamilyName);
+        }
+
+        var doc = (dto.DocumentNumber ?? dto.NationalId ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(name))
+            return null;
+
+        // لا نربط بالكود وحده — الكود في الطلب قد يخص شخصاً آخر
+        if (!string.IsNullOrWhiteSpace(doc))
+        {
+            return await db.People.AsNoTracking()
+                .FirstOrDefaultAsync(p =>
+                    p.FullName == name
+                    && (p.DocumentNumber == doc || p.NationalId == doc));
+        }
+
+        return await db.People.AsNoTracking()
+            .FirstOrDefaultAsync(p =>
+                p.FullName == name
+                && p.FirstName == dto.FirstName.Trim()
+                && p.FatherName == dto.FatherName.Trim());
+    }
+
+    public sealed record MigrateResult(
+        int Migrated,
+        int Linked,
+        int AlreadyInRegistry,
+        int Failed,
+        IReadOnlyList<string> Errors);
 
     /// <summary>عدد طلبات إضافة أشخاص معتمدة وغير موجودة فعلياً في سجل الأشخاص.</summary>
     public static async Task<int> CountApprovedPersonsMissingFromRegistryAsync(ArchiveDbContext db)
@@ -517,7 +608,9 @@ public static class ApprovalService
     /// <summary>ترحيل طلبات إضافة أشخاص اعتُمدت لكن لم تُحفظ في السجل.</summary>
     public static async Task<MigrateResult> RepairApprovedPersonCreatesAsync(ArchiveDbContext db)
     {
+        DatabaseService.EnsureReady();
         await EnsureSchemaAsync(db);
+
         var stuck = await db.PendingChanges
             .Where(x => x.Status == ChangeStatus.Approved
                         && x.EntityType == ChangeEntity.Person
@@ -529,6 +622,7 @@ public static class ApprovalService
         var linked = 0;
         var already = 0;
         var failed = 0;
+        var errors = new List<string>();
 
         foreach (var item in stuck)
         {
@@ -540,44 +634,43 @@ public static class ApprovalService
                     continue;
                 }
 
-                var dto = DeserializePersonDraft(item.PayloadJson);
+                // EntityId قديم يشير لسجل محذوف — أعد الإنشاء
+                item.EntityId = null;
+
+                var dto = DeserializePersonDraft(item.PayloadJson) ?? DraftFromSummary(item.Summary);
                 if (dto is null)
                 {
                     failed++;
+                    errors.Add($"#{item.Id}: بيانات الطلب فارغة أو تالفة.");
                     continue;
                 }
 
-                // ربط بسجل موجود إن وُجد بنفس الكود أو الاسم + رقم الوثيقة
-                Person? match = null;
-                if (!string.IsNullOrWhiteSpace(dto.RegistryCode))
-                {
-                    match = await db.People.AsNoTracking()
-                        .FirstOrDefaultAsync(p => p.RegistryCode == dto.RegistryCode.Trim());
-                }
-
-                if (match is null && !string.IsNullOrWhiteSpace(dto.FullName))
-                {
-                    var name = dto.FullName.Trim();
-                    var doc = (dto.DocumentNumber ?? dto.NationalId ?? "").Trim();
-                    var q = db.People.AsNoTracking().Where(p => p.FullName == name);
-                    if (!string.IsNullOrWhiteSpace(doc))
-                        q = q.Where(p => p.DocumentNumber == doc || p.NationalId == doc);
-                    match = await q.FirstOrDefaultAsync();
-                }
-
+                var match = await FindExactPersonMatchAsync(db, dto);
                 if (match is not null)
                 {
                     item.EntityId = match.Id;
+                    item.Summary = $"إضافة سجل أشخاص {match.RegistryCode}: {match.FullName}";
                     linked++;
                     continue;
                 }
 
-                await ApplyPersonAsync(db, item);
+                var person = await BuildPersonForCreateAsync(db, dto);
+                db.People.Add(person);
+                await db.SaveChangesAsync();
+                item.EntityId = person.Id;
+                item.Summary = $"إضافة سجل أشخاص {person.RegistryCode}: {person.FullName}";
+                item.ReviewNote = string.IsNullOrWhiteSpace(item.ReviewNote)
+                    ? "تم الترحيل إلى السجل"
+                    : item.ReviewNote;
                 migrated++;
             }
             catch (Exception ex)
             {
                 failed++;
+                var msg = ex.GetBaseException().Message;
+                if (msg.Length > 120)
+                    msg = msg[..120] + "…";
+                errors.Add($"#{item.Id}: {msg}");
                 Console.Error.WriteLine($"Repair person pending #{item.Id}: {ex}");
             }
         }
@@ -585,7 +678,60 @@ public static class ApprovalService
         if (db.ChangeTracker.HasChanges())
             await db.SaveChangesAsync();
 
-        return new MigrateResult(migrated, linked, already, failed);
+        return new MigrateResult(migrated, linked, already, failed, errors);
+    }
+
+    /// <summary>ترحيل طلب إضافة شخص واحد معتمد إلى السجل.</summary>
+    public static async Task<(bool Ok, string Error, int? PersonId)> MigrateOneApprovedPersonAsync(
+        ArchiveDbContext db,
+        int pendingId)
+    {
+        DatabaseService.EnsureReady();
+        await EnsureSchemaAsync(db);
+
+        var item = await db.PendingChanges.FirstOrDefaultAsync(x => x.Id == pendingId);
+        if (item is null)
+            return (false, "الطلب غير موجود.", null);
+        if (item.EntityType != ChangeEntity.Person || item.Action != ChangeAction.Create)
+            return (false, "هذا الطلب ليس إضافة شخص إلى السجل.", null);
+        if (item.Status != ChangeStatus.Approved && item.Status != ChangeStatus.Pending)
+            return (false, "لا يمكن ترحيل طلب مرفوض.", null);
+
+        if (item.EntityId is int existingId && await db.People.AnyAsync(p => p.Id == existingId))
+            return (true, "موجود مسبقاً في السجل.", existingId);
+
+        item.EntityId = null;
+        var dto = DeserializePersonDraft(item.PayloadJson) ?? DraftFromSummary(item.Summary);
+        if (dto is null)
+            return (false, "بيانات الطلب فارغة أو تالفة.", null);
+
+        var match = await FindExactPersonMatchAsync(db, dto);
+        if (match is not null)
+        {
+            item.EntityId = match.Id;
+            item.Status = ChangeStatus.Approved;
+            item.ReviewedAt ??= DateTime.UtcNow;
+            await db.SaveChangesAsync();
+            return (true, "تم الربط بسجل موجود.", match.Id);
+        }
+
+        try
+        {
+            var person = await BuildPersonForCreateAsync(db, dto);
+            db.People.Add(person);
+            await db.SaveChangesAsync();
+            item.EntityId = person.Id;
+            item.Status = ChangeStatus.Approved;
+            item.ReviewedAt ??= DateTime.UtcNow;
+            item.Summary = $"إضافة سجل أشخاص {person.RegistryCode}: {person.FullName}";
+            item.ReviewNote = "تم الترحيل إلى السجل";
+            await db.SaveChangesAsync();
+            return (true, "", person.Id);
+        }
+        catch (Exception ex)
+        {
+            return (false, ex.GetBaseException().Message, null);
+        }
     }
 
     private static async Task ApplyLifeEventAsync(ArchiveDbContext db, PendingChange item)
