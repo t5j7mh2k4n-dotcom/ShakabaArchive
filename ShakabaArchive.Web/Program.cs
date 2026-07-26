@@ -71,8 +71,9 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AuthorizeFolder("/People");
     options.Conventions.AllowAnonymousToPage("/People/Index");
     options.Conventions.AllowAnonymousToPage("/People/Details");
-    // المدخل العادي يضيف فقط — التعديل/الحذف والحذف للمخولين
-    options.Conventions.AuthorizePage("/People/Edit", "Staff");
+    // التعديل: أي مستخدم مسجّل — الصفحة تتحقق أنه يعدّل سجله فقط (أو أدمن/موافق)
+    options.Conventions.AuthorizePage("/People/Edit");
+    options.Conventions.AuthorizePage("/People/Complete");
     options.Conventions.AuthorizeFolder("/People/Events", "Staff");
     // المناسبات: العرض للجميع، الإضافة لأي مستخدم مسجّل (تنتظر موافقة إن لم يكن مخوّلاً)
     options.Conventions.AuthorizeFolder("/Occasions");

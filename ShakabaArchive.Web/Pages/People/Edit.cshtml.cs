@@ -27,6 +27,12 @@ public class EditModel(ArchiveDbContext db) : PageModel
     {
         var person = await db.People.FindAsync(id);
         if (person is null) return NotFound();
+        if (!User.CanEditPerson(person))
+        {
+            TempData["FlashError"] = "يمكنك تعديل بياناتك فقط، وليس بيانات أشخاص آخرين.";
+            return RedirectToPage("/People/Details", new { id });
+        }
+
         Id = id;
         RegistryCode = person.RegistryCode;
         Input = PersonInput.From(person);
@@ -37,12 +43,21 @@ public class EditModel(ArchiveDbContext db) : PageModel
     {
         var person = await db.People.FindAsync(Id);
         if (person is null) return NotFound();
+        if (!User.CanEditPerson(person))
+        {
+            TempData["FlashError"] = "يمكنك تعديل بياناتك فقط، وليس بيانات أشخاص آخرين.";
+            return RedirectToPage("/People/Details", new { id = Id });
+        }
+
         RegistryCode = person.RegistryCode;
 
         if (!ModelState.IsValid) return Page();
 
         var appUser = User.CurrentAppUser();
         if (appUser is null) return Challenge();
+
+        if (person.OwnerUserId is null && !appUser.CanApprove)
+            person.OwnerUserId = appUser.Id;
 
         var draft = Input.ToDraft();
         draft.RegistryCode = person.RegistryCode;

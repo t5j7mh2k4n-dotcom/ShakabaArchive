@@ -426,7 +426,7 @@ public static class ApprovalService
                     return;
             }
 
-            var person = await BuildPersonForCreateAsync(db, dto);
+            var person = await BuildPersonForCreateAsync(db, dto, item.SubmittedByUserId);
             db.People.Add(person);
             await db.SaveChangesAsync();
             item.EntityId = person.Id;
@@ -571,11 +571,15 @@ public static class ApprovalService
         return dto;
     }
 
-    private static async Task<Person> BuildPersonForCreateAsync(ArchiveDbContext db, PersonDraft dto)
+    private static async Task<Person> BuildPersonForCreateAsync(
+        ArchiveDbContext db,
+        PersonDraft dto,
+        int? ownerUserId = null)
     {
         var person = dto.ToPerson();
         person.HierarchyLevel = 1;
         person.ParentPersonId = null;
+        person.OwnerUserId = ownerUserId is > 0 ? ownerUserId : null;
 
         person.RegistryCode = await PersonRegistryService.AllocateCodeAsync(db, 1, null);
 
@@ -798,7 +802,7 @@ public static class ApprovalService
                     continue;
                 }
 
-                var personRow = await BuildPersonForCreateAsync(db, dto);
+                var personRow = await BuildPersonForCreateAsync(db, dto, item.SubmittedByUserId);
                 db.People.Add(personRow);
                 await db.SaveChangesAsync();
                 item.EntityId = personRow.Id;
@@ -863,7 +867,7 @@ public static class ApprovalService
             Notes = "أُنشئ من تسجيل حساب معتمد"
         }, item, submitter);
 
-        var person = await BuildPersonForCreateAsync(db, dto);
+        var person = await BuildPersonForCreateAsync(db, dto, item.SubmittedByUserId);
         db.People.Add(person);
         await db.SaveChangesAsync();
         return (true, person, true);
@@ -923,7 +927,7 @@ public static class ApprovalService
 
         try
         {
-            var person = await BuildPersonForCreateAsync(db, dto);
+            var person = await BuildPersonForCreateAsync(db, dto, item.SubmittedByUserId);
             db.People.Add(person);
             await db.SaveChangesAsync();
             item.EntityId = person.Id;

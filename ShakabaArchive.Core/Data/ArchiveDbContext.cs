@@ -34,6 +34,7 @@ public class ArchiveDbContext : DbContext, IDataProtectionKeyContext
             e.HasIndex(p => p.IsMigrant);
             e.HasIndex(p => p.MigrationCountry);
             e.HasIndex(p => p.MigrationCity);
+            e.HasIndex(p => p.OwnerUserId);
             e.Property(p => p.RegistryCode).HasMaxLength(32).IsRequired();
             e.Property(p => p.DocumentType).HasMaxLength(40);
             e.Property(p => p.DocumentNumber).HasMaxLength(80);

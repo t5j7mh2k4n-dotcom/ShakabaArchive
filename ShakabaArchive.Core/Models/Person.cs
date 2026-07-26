@@ -65,6 +65,9 @@ public class Person
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
+    /// <summary>معرف المستخدم المالك — يعدّل بياناته فقط (الأدمن/الموافق يستثنون).</summary>
+    public int? OwnerUserId { get; set; }
+
     public List<LifeEvent> Events { get; set; } = [];
 
     public static string ComposeFullName(string first, string father, string grandfather, string family)

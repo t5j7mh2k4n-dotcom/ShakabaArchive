@@ -167,11 +167,15 @@
                     <td class="notes-cell">@Dash(p.Notes)</td>
                     @if (canAdd)
                     {
+                        var canEditThis = User.CanEditPerson(p);
                         <td class="text-nowrap">
                             <a class="btn btn-sm btn-soft" asp-page="/Occasions/Create" asp-route-personId="@p.Id">مناسبة</a>
+                            @if (canEditThis)
+                            {
+                                <a class="btn btn-sm btn-soft" asp-page="Edit" asp-route-id="@p.Id">تعديل بياناتي</a>
+                            }
                             @if (canManage)
                             {
-                                <a class="btn btn-sm btn-soft" asp-page="Edit" asp-route-id="@p.Id">تعديل</a>
                                 <form method="post" asp-page-handler="Delete" class="d-inline"
                                       onsubmit="return confirm('إرسال طلب حذف هذا السجل؟');">
                                     <input type="hidden" name="id" value="@p.Id" />

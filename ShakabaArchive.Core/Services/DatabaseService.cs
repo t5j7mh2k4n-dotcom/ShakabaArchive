@@ -586,8 +586,11 @@ public static class DatabaseService
         TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "IsMigrant" boolean NOT NULL DEFAULT false""");
         TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "MigrationCountry" varchar(120) NOT NULL DEFAULT ''""");
         TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "MigrationCity" varchar(120) NOT NULL DEFAULT ''""");
+        TryAlter(db, "ALTER TABLE People ADD COLUMN OwnerUserId INTEGER NULL");
+        TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "OwnerUserId" integer NULL""");
 
         BackfillPersonRegistryFields(db);
+        BackfillPersonOwners(db);
 
         TryAlter(db, "ALTER TABLE LifeEvents ADD COLUMN Mood INTEGER NOT NULL DEFAULT 0");
         TryAlter(db, "ALTER TABLE \"LifeEvents\" ADD COLUMN \"Mood\" integer NOT NULL DEFAULT 0");
@@ -656,6 +659,45 @@ public static class DatabaseService
         catch (Exception ex)
         {
             Console.Error.WriteLine("BackfillPersonRegistryFields failed: " + ex.Message);
+        }
+    }
+
+    private static void BackfillPersonOwners(ArchiveDbContext db)
+    {
+        try
+        {
+            // من طلبات الإضافة المعتمدة
+            var links = db.PendingChanges.AsNoTracking()
+                .Where(x => x.EntityType == ChangeEntity.Person
+                            && x.Action == ChangeAction.Create
+                            && x.EntityId != null
+                            && x.SubmittedByUserId > 0)
+                .Select(x => new { PersonId = x.EntityId!.Value, x.SubmittedByUserId })
+                .ToList();
+
+            foreach (var group in links.GroupBy(x => x.PersonId))
+            {
+                var person = db.People.FirstOrDefault(p => p.Id == group.Key && p.OwnerUserId == null);
+                if (person is null) continue;
+                person.OwnerUserId = group.First().SubmittedByUserId;
+            }
+
+            // بالهاتف إن تطابق مع مستخدم
+            var orphans = db.People.Where(p => p.OwnerUserId == null && p.Phone != "").ToList();
+            foreach (var person in orphans)
+            {
+                var user = db.Users.AsNoTracking()
+                    .FirstOrDefault(u => u.Phone == person.Phone);
+                if (user is not null)
+                    person.OwnerUserId = user.Id;
+            }
+
+            if (db.ChangeTracker.HasChanges())
+                db.SaveChanges();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("BackfillPersonOwners failed: " + ex.Message);
         }
     }
 

@@ -7,7 +7,7 @@ using ShakabaArchive.Services;
 
 namespace ShakabaArchive.Web.Pages.People;
 
-/// <summary>إكمال بيانات سجل مرحّل ناقص — متاح لأي مستخدم مسجّل الدخول.</summary>
+/// <summary>إكمال/تعديل بيانات السجل — للمالك فقط (أو أدمن/موافق).</summary>
 public class CompleteModel(ArchiveDbContext db) : PageModel
 {
     [BindProperty]
@@ -26,6 +26,15 @@ public class CompleteModel(ArchiveDbContext db) : PageModel
         if (person is null)
             return NotFound();
 
+        if (!User.CanEditPerson(person))
+        {
+            TempData["FlashError"] = "يمكنك تعديل بياناتك فقط، وليس بيانات أشخاص آخرين.";
+            return RedirectToPage("/People/Details", new { id });
+        }
+
+        // اربط الملكية إن كانت فارغة وتطابق الهاتف
+        await EnsureOwnershipAsync(person);
+
         Id = id;
         RegistryCode = person.RegistryCode;
         Input = PersonInput.From(person);
@@ -39,6 +48,12 @@ public class CompleteModel(ArchiveDbContext db) : PageModel
         if (person is null)
             return NotFound();
 
+        if (!User.CanEditPerson(person))
+        {
+            TempData["FlashError"] = "يمكنك تعديل بياناتك فقط، وليس بيانات أشخاص آخرين.";
+            return RedirectToPage("/People/Details", new { id = Id });
+        }
+
         RegistryCode = person.RegistryCode;
 
         if (!ModelState.IsValid)
@@ -50,7 +65,10 @@ public class CompleteModel(ArchiveDbContext db) : PageModel
         draft.ParentPersonId = person.ParentPersonId;
         draft.ApplyTo(person);
 
-        // إزالة علامة النقص إن اكتملت الحقول الأساسية
+        var appUser = User.CurrentAppUser();
+        if (person.OwnerUserId is null && appUser is not null && !appUser.CanApprove)
+            person.OwnerUserId = appUser.Id;
+
         var incomplete = IsStillIncomplete(person);
         var marker = ApprovalService.IncompleteProfileMarker;
         if (!incomplete && person.Notes.Contains(marker, StringComparison.Ordinal))
@@ -72,8 +90,26 @@ public class CompleteModel(ArchiveDbContext db) : PageModel
 
         TempData["Flash"] = incomplete
             ? "تم الحفظ. ما زالت بعض البيانات ناقصة — يمكنك إكمالها لاحقاً."
-            : "تم إكمال البيانات وحفظها في السجل.";
+            : "تم حفظ بياناتك في السجل.";
         return RedirectToPage("/People/Details", new { id = Id });
+    }
+
+    private async Task EnsureOwnershipAsync(Person person)
+    {
+        if (person.OwnerUserId is not null)
+            return;
+        var appUser = User.CurrentAppUser();
+        if (appUser is null || appUser.CanApprove)
+            return;
+        if (string.IsNullOrWhiteSpace(appUser.Phone) || appUser.Phone.Trim() != (person.Phone ?? "").Trim())
+            return;
+
+        var tracked = await db.People.FirstOrDefaultAsync(p => p.Id == person.Id);
+        if (tracked is null || tracked.OwnerUserId is not null)
+            return;
+        tracked.OwnerUserId = appUser.Id;
+        await db.SaveChangesAsync();
+        person.OwnerUserId = appUser.Id;
     }
 
     private static bool IsStillIncomplete(Person p) =>
