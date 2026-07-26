@@ -358,12 +358,130 @@ public static class DatabaseService
         if (!allowed.Contains(ext))
             ext = ".jpg";
 
+        using var ms = new MemoryStream();
+        content.CopyTo(ms);
+        var bytes = ms.ToArray();
+        if (bytes.Length == 0)
+            throw new InvalidOperationException("الملف فارغ.");
+        if (bytes.Length > 5 * 1024 * 1024)
+            throw new InvalidOperationException("حجم الملف أكبر من 5 ميجابايت.");
+
         var name = $"{Guid.NewGuid():N}{ext.ToLowerInvariant()}";
+        Directory.CreateDirectory(UploadsFolder);
         var full = Path.Combine(UploadsFolder, name);
-        using (var fs = File.Create(full))
-            content.CopyTo(fs);
+        File.WriteAllBytes(full, bytes);
+
+        // على Render القرص مؤقت — احفظ أيضاً في Neon ليظهر من أي جهاز
+        TrySaveMediaToDatabase(name, GuessContentType(ext), bytes);
         return name;
     }
+
+    public static MediaFile? FindMediaFile(string fileName)
+    {
+        if (string.IsNullOrWhiteSpace(fileName)
+            || fileName.Contains("..")
+            || fileName.Contains('/')
+            || fileName.Contains('\\'))
+            return null;
+
+        try
+        {
+            using var db = CreateContext();
+            EnsureMediaFilesTable(db);
+            return db.MediaFiles.AsNoTracking().FirstOrDefault(x => x.Id == fileName);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("FindMediaFile: " + ex.Message);
+            return null;
+        }
+    }
+
+    public static void EnsureMediaFilesTable(ArchiveDbContext db)
+    {
+        try
+        {
+            _ = db.MediaFiles.Select(x => x.Id).Take(1).ToList();
+            return;
+        }
+        catch
+        {
+            // create below
+        }
+
+        try
+        {
+            var isPostgres = db.Database.ProviderName?.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) == true;
+            if (isPostgres)
+            {
+                using var ddl = CreateContextForSchemaChanges();
+                ddl.Database.ExecuteSqlRaw("""
+                    CREATE TABLE IF NOT EXISTS "MediaFiles" (
+                        "Id" character varying(80) PRIMARY KEY,
+                        "ContentType" character varying(120) NOT NULL DEFAULT 'application/octet-stream',
+                        "Data" bytea NOT NULL,
+                        "CreatedAt" timestamp with time zone NOT NULL DEFAULT NOW()
+                    );
+                    """);
+            }
+            else
+            {
+                db.Database.ExecuteSqlRaw("""
+                    CREATE TABLE IF NOT EXISTS MediaFiles (
+                        Id TEXT PRIMARY KEY,
+                        ContentType TEXT NOT NULL DEFAULT 'application/octet-stream',
+                        Data BLOB NOT NULL,
+                        CreatedAt TEXT NOT NULL
+                    );
+                    """);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("EnsureMediaFilesTable: " + ex.Message);
+        }
+    }
+
+    private static void TrySaveMediaToDatabase(string id, string contentType, byte[] data)
+    {
+        try
+        {
+            var envPg = Environment.GetEnvironmentVariable("DATABASE_URL")
+                        ?? Environment.GetEnvironmentVariable("POSTGRES_CONNECTION");
+            var usePg = !string.IsNullOrWhiteSpace(envPg)
+                        || string.Equals(Settings.Provider, "PostgreSql", StringComparison.OrdinalIgnoreCase);
+            if (!usePg)
+                return;
+
+            using var db = CreateContext();
+            EnsureMediaFilesTable(db);
+            if (db.MediaFiles.Any(x => x.Id == id))
+                return;
+
+            db.MediaFiles.Add(new MediaFile
+            {
+                Id = id,
+                ContentType = contentType,
+                Data = data,
+                CreatedAt = DateTime.UtcNow
+            });
+            db.SaveChanges();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("TrySaveMediaToDatabase: " + ex.Message);
+        }
+    }
+
+    private static string GuessContentType(string ext) => ext.ToLowerInvariant() switch
+    {
+        ".jpg" or ".jpeg" => "image/jpeg",
+        ".png" => "image/png",
+        ".webp" => "image/webp",
+        ".gif" => "image/gif",
+        ".pdf" => "application/pdf",
+        _ => "application/octet-stream"
+    };
 
     public static string NormalizeConnectionString(string value) => NormalizePostgresUrl(value);
 

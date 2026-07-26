@@ -118,6 +118,48 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
+// تقديم الصور/الوثائق من Neon إن لم توجد على القرص المؤقت لـ Render
+app.MapGet("/uploads/{fileName}", (string fileName) =>
+{
+    if (string.IsNullOrWhiteSpace(fileName)
+        || fileName.Contains("..", StringComparison.Ordinal)
+        || fileName.Contains('/')
+        || fileName.Contains('\\'))
+        return Results.BadRequest();
+
+    var diskPath = Path.Combine(uploads, fileName);
+    if (System.IO.File.Exists(diskPath))
+        return Results.File(diskPath, contentType: GuessUploadContentType(fileName));
+
+    var media = DatabaseService.FindMediaFile(fileName);
+    if (media is null || media.Data.Length == 0)
+        return Results.NotFound();
+
+    // اكتب نسخة محلية لتسريع الطلبات التالية على نفس الحاوية
+    try
+    {
+        Directory.CreateDirectory(uploads);
+        System.IO.File.WriteAllBytes(diskPath, media.Data);
+    }
+    catch { /* ignore cache write */ }
+
+    return Results.File(media.Data, media.ContentType);
+}).AllowAnonymous();
+
+static string GuessUploadContentType(string fileName)
+{
+    var ext = Path.GetExtension(fileName).ToLowerInvariant();
+    return ext switch
+    {
+        ".jpg" or ".jpeg" => "image/jpeg",
+        ".png" => "image/png",
+        ".webp" => "image/webp",
+        ".gif" => "image/gif",
+        ".pdf" => "application/pdf",
+        _ => "application/octet-stream"
+    };
+}
+
 // صحة سريعة لـ Render قبل اكتمال تهيئة قاعدة البيانات
 app.MapGet("/health", () => Results.Ok("ok"));
 
@@ -173,6 +215,7 @@ _ = Task.Run(async () =>
             var db = scope.ServiceProvider.GetRequiredService<ArchiveDbContext>();
             await ApprovalService.EnsureSchemaAsync(db);
             DatabaseService.EnsureDataProtectionKeysTable(db);
+            DatabaseService.EnsureMediaFilesTable(db);
         }
         catch (Exception ex)
         {
