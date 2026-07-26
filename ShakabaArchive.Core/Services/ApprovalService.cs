@@ -42,7 +42,7 @@ public static class ApprovalService
                   "EntityType" integer NOT NULL,
                   "Action" integer NOT NULL,
                   "EntityId" integer NULL,
-                  "PayloadJson" text NOT NULL DEFAULT '{}',
+                  "PayloadJson" text NOT NULL DEFAULT '{{}}',
                   "Summary" varchar(400) NOT NULL DEFAULT '',
                   "Status" integer NOT NULL DEFAULT 0,
                   "SubmittedByUserId" integer NOT NULL,
@@ -65,7 +65,7 @@ public static class ApprovalService
               EntityType INTEGER NOT NULL,
               Action INTEGER NOT NULL,
               EntityId INTEGER NULL,
-              PayloadJson TEXT NOT NULL DEFAULT '{}',
+              PayloadJson TEXT NOT NULL DEFAULT '{{}}',
               Summary TEXT NOT NULL DEFAULT '',
               Status INTEGER NOT NULL DEFAULT 0,
               SubmittedByUserId INTEGER NOT NULL,
@@ -110,8 +110,11 @@ public static class ApprovalService
         db.PendingChanges.Add(item);
         await db.SaveChangesAsync();
 
+        // المدخل (Editor) ينتظر دائماً — الأدمن/الموافق يحفظون مباشرة
+        var autoApply = user.Role != UserRole.Editor && user.CanApprove;
+
         // الأدمن والموافقون: حفظ فوري في الأرشيف
-        if (user.CanApprove)
+        if (autoApply)
         {
             try
             {

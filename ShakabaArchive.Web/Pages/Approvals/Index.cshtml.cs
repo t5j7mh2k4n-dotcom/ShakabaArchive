@@ -11,22 +11,28 @@ namespace ShakabaArchive.Web.Pages.Approvals;
 public class IndexModel : PageModel
 {
     public List<PendingChange> Items { get; private set; } = [];
+    public List<AppUser> RecentPublicUsers { get; private set; } = [];
     public bool CanReview { get; private set; }
     public int CurrentUserId { get; private set; }
     public int PendingCount { get; private set; }
+    public int TotalCount { get; private set; }
+    public string Filter { get; private set; } = "pending";
     public string? Message { get; private set; }
     public string? Error { get; private set; }
 
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(string? filter = null)
     {
         Message = TempData["Flash"] as string;
         Error = TempData["FlashError"] as string;
         CurrentUserId = ReadUserId();
         CanReview = ResolveCanReview();
+        Filter = NormalizeFilter(filter);
 
         try
         {
             await LoadItemsAsync();
+            if (CanReview)
+                LoadRecentPublicUsers();
         }
         catch (Exception ex)
         {
@@ -36,7 +42,7 @@ public class IndexModel : PageModel
         }
     }
 
-    public async Task<IActionResult> OnPostApproveAsync(int id, string? note)
+    public async Task<IActionResult> OnPostApproveAsync(int id, string? note, string? filter = null)
     {
         var appUser = ResolveAppUser();
         if (appUser is null)
@@ -48,7 +54,7 @@ public class IndexModel : PageModel
         if (!appUser.CanApprove)
         {
             TempData["FlashError"] = "ليست لديك صلاحية الموافقة.";
-            return RedirectToPage();
+            return RedirectToPage(new { filter });
         }
 
         try
@@ -67,10 +73,10 @@ public class IndexModel : PageModel
             TempData["FlashError"] = "تعذر الاعتماد الآن لأن القاعدة تُجهَّز. انتظر قليلاً ثم أعد المحاولة.";
         }
 
-        return RedirectToPage();
+        return RedirectToPage(new { filter = filter ?? "pending" });
     }
 
-    public async Task<IActionResult> OnPostRejectAsync(int id, string? note)
+    public async Task<IActionResult> OnPostRejectAsync(int id, string? note, string? filter = null)
     {
         var appUser = ResolveAppUser();
         if (appUser is null)
@@ -82,7 +88,7 @@ public class IndexModel : PageModel
         if (!appUser.CanApprove)
         {
             TempData["FlashError"] = "ليست لديك صلاحية الرفض.";
-            return RedirectToPage();
+            return RedirectToPage(new { filter });
         }
 
         try
@@ -101,17 +107,34 @@ public class IndexModel : PageModel
             TempData["FlashError"] = "تعذر الرفض الآن لأن القاعدة تُجهَّز. انتظر قليلاً ثم أعد المحاولة.";
         }
 
-        return RedirectToPage();
+        return RedirectToPage(new { filter = filter ?? "pending" });
     }
+
+    private static string NormalizeFilter(string? filter) =>
+        filter is "all" or "approved" or "rejected" ? filter : "pending";
 
     private bool ResolveCanReview()
     {
         if (User.IsInRole("Admin") || User.IsInRole("Approver"))
             return true;
+        return User.CurrentAppUser()?.CanApprove == true;
+    }
 
-        // الجلسة القديمة قد لا تحمل الأدوار — نعتمد قاعدة البيانات
-        var fromDb = User.CurrentAppUser();
-        return fromDb?.CanApprove == true;
+    private void LoadRecentPublicUsers()
+    {
+        try
+        {
+            RecentPublicUsers = LocalUserService.ListUsers()
+                .Where(u => string.Equals(u.InviteCodeUsed, "PUBLIC", StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(u => u.CreatedAt)
+                .Take(50)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("RecentPublicUsers: " + ex.Message);
+            RecentPublicUsers = [];
+        }
     }
 
     private async Task LoadItemsAsync()
@@ -126,10 +149,10 @@ public class IndexModel : PageModel
 
                 PendingCount = await db.PendingChanges.AsNoTracking()
                     .CountAsync(x => x.Status == ChangeStatus.Pending);
+                TotalCount = await db.PendingChanges.AsNoTracking().CountAsync();
 
                 IQueryable<PendingChange> query = db.PendingChanges.AsNoTracking();
 
-                // الأدمن/الموافق: كل الطلبات — المدخل: طلباته فقط
                 if (!CanReview)
                 {
                     if (CurrentUserId <= 0)
@@ -141,13 +164,19 @@ public class IndexModel : PageModel
                     query = query.Where(x => x.SubmittedByUserId == CurrentUserId);
                 }
 
-                var rows = await query
-                    .OrderByDescending(x => x.Status == ChangeStatus.Pending)
-                    .ThenByDescending(x => x.SubmittedAt)
+                query = Filter switch
+                {
+                    "approved" => query.Where(x => x.Status == ChangeStatus.Approved),
+                    "rejected" => query.Where(x => x.Status == ChangeStatus.Rejected),
+                    "all" => query,
+                    _ => query.Where(x => x.Status == ChangeStatus.Pending)
+                };
+
+                Items = await query
+                    .OrderByDescending(x => x.SubmittedAt)
+                    .ThenByDescending(x => x.Id)
                     .Take(200)
                     .ToListAsync();
-
-                Items = rows;
                 return;
             }
             catch (Exception ex)
@@ -164,7 +193,6 @@ public class IndexModel : PageModel
     private int ReadUserId() =>
         int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : 0;
 
-    /// <summary>يبني المستخدم من الجلسة إن تعذر قراءة Neon مؤقتاً — حتى لا يُطرد للخروج.</summary>
     private AppUser? ResolveAppUser()
     {
         var fromDb = User.CurrentAppUser();

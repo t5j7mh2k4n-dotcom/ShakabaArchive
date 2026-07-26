@@ -24,13 +24,27 @@ public class CreateModel(ArchiveDbContext db) : PageModel
 
     public async Task OnGetAsync(int? level = null)
     {
-        if (level is >= 1 and <= 3)
+        var appUser = User.CurrentAppUser();
+        // المدخل العادي يضيف سجل مستوى 1 فقط — أبسط وأضمن للوصول لصفحة الموافقة
+        if (appUser?.IsEditorOnly == true)
+            Input.HierarchyLevel = 1;
+        else if (level is >= 1 and <= 3)
             Input.HierarchyLevel = level.Value;
         await LoadParentsAsync();
     }
 
     public async Task<IActionResult> OnPostAsync()
     {
+        var appUser = User.CurrentAppUser();
+        if (appUser is null)
+            return Challenge();
+
+        if (appUser.IsEditorOnly)
+        {
+            Input.HierarchyLevel = 1;
+            Input.ParentPersonId = null;
+        }
+
         await LoadParentsAsync();
 
         if (Input.HierarchyLevel is < 1 or > 3)
@@ -43,10 +57,6 @@ public class CreateModel(ArchiveDbContext db) : PageModel
 
         if (!ModelState.IsValid)
             return Page();
-
-        var appUser = User.CurrentAppUser();
-        if (appUser is null)
-            return Challenge();
 
         string code;
         try

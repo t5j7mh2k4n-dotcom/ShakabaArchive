@@ -23,13 +23,14 @@
     <div>
         <h1 class="h4 mb-1">الموافقة على صحة البيانات</h1>
         <p class="muted mb-0">
-            ما يدخله المستخدمون يُحفظ مؤقتاً هنا. أي واحد من الثلاثة الموافقين (أو الأدمن الرئيسي) يعتمد صحة البيانات ليُرفع للأرشيف.
+            تظهر هنا طلبات <strong>إضافة/تعديل بيانات الأشخاص</strong> بعد أن يضغط المستخدم «حفظ / إرسال للموافقة».
+            تسجيل الحساب وحده لا يكفي — يجب إكمال «إضافة بياناتي».
         </p>
         @if (Model.CanReview)
         {
             <p class="mb-0 mt-2">
-                طلبات بانتظار الاعتماد:
-                <strong class="text-danger">@Model.PendingCount</strong>
+                بانتظار الاعتماد: <strong class="text-danger">@Model.PendingCount</strong>
+                — إجمالي السجلات: <strong>@Model.TotalCount</strong>
             </p>
         }
     </div>
@@ -46,21 +47,82 @@
 
 @if (Model.CanReview)
 {
-    <div class="alert alert-success">
-        يمكنك اعتماد أو رفض الطلبات (أدمن / موافق على صحة البيانات).
+    <div class="alert alert-success py-2">
+        يمكنك اعتماد أو رفض طلبات إضافة البيانات (أدمن / موافق على صحة البيانات).
     </div>
+
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        <a class="btn btn-sm @(Model.Filter == "pending" ? "btn-accent" : "btn-soft")" asp-page="./Index" asp-route-filter="pending">بانتظار الاعتماد (@Model.PendingCount)</a>
+        <a class="btn btn-sm @(Model.Filter == "all" ? "btn-accent" : "btn-soft")" asp-page="./Index" asp-route-filter="all">الكل</a>
+        <a class="btn btn-sm @(Model.Filter == "approved" ? "btn-accent" : "btn-soft")" asp-page="./Index" asp-route-filter="approved">المعتمدة</a>
+        <a class="btn btn-sm @(Model.Filter == "rejected" ? "btn-accent" : "btn-soft")" asp-page="./Index" asp-route-filter="rejected">المرفوضة</a>
+        <a class="btn btn-sm btn-soft" asp-page="/Account/Users">المستخدمون المسجّلون</a>
+    </div>
+
+    @if (Model.RecentPublicUsers.Count > 0)
+    {
+        <div class="card-panel mb-3 border-info">
+            <h2 class="h6 mb-2">حسابات سجّلت عبر الموقع (@Model.RecentPublicUsers.Count)</h2>
+            <p class="muted small mb-2">
+                هؤلاء أنشؤوا حسابات. طلب الموافقة يظهر أعلاه فقط بعد أن يضيفوا بياناتهم من «إضافة بياناتي».
+            </p>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                    <tr>
+                        <th>الاسم</th>
+                        <th>البريد</th>
+                        <th>الهاتف</th>
+                        <th>تاريخ التسجيل</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var u in Model.RecentPublicUsers)
+                    {
+                        <tr>
+                            <td>@u.DisplayName</td>
+                            <td>@u.Email</td>
+                            <td>@u.Phone</td>
+                            <td>@u.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
 }
 else
 {
     <div class="alert alert-info">
-        أنت مدخل بيانات: يمكنك الإدخال ومتابعة الطلبات. الحفظ النهائي بعد موافقة أحد الثلاثة فقط.
+        أنت مدخل بيانات: أضف بياناتك من «إضافة بياناتي». الحفظ النهائي بعد موافقة الأدمن فقط.
     </div>
 }
 
 <div class="card-panel">
+    <h2 class="h6 mb-3">
+        @if (Model.Filter == "pending") { <text>طلبات بانتظار الاعتماد</text> }
+        else if (Model.Filter == "approved") { <text>الطلبات المعتمدة</text> }
+        else if (Model.Filter == "rejected") { <text>الطلبات المرفوضة</text> }
+        else { <text>كل الطلبات</text> }
+    </h2>
+
     @if (Model.Items.Count == 0)
     {
-        <p class="muted mb-0">لا توجد طلبات بعد.</p>
+        @if (Model.Filter == "pending" && Model.CanReview)
+        {
+            <p class="mb-0">
+                لا توجد إضافات أشخاص بانتظار الاعتماد حالياً.
+                @if (Model.RecentPublicUsers.Count > 0)
+                {
+                    <span class="text-danger">يوجد حسابات مسجّلة أعلاه — اطلب منهم فتح «إضافة بياناتي» ثم الحفظ.</span>
+                }
+            </p>
+        }
+        else
+        {
+            <p class="muted mb-0">لا توجد طلبات في هذا التبويب.</p>
+        }
     }
     else
     {
@@ -112,11 +174,13 @@ else
                             {
                                 <form method="post" asp-page-handler="Approve" class="d-inline">
                                     <input type="hidden" name="id" value="@item.Id" />
+                                    <input type="hidden" name="filter" value="@Model.Filter" />
                                     <button class="btn btn-sm btn-accent" type="submit">موافقة على صحة البيانات</button>
                                 </form>
                                 <form method="post" asp-page-handler="Reject" class="d-inline">
                                     <input type="hidden" name="id" value="@item.Id" />
                                     <input type="hidden" name="note" value="مرفوض" />
+                                    <input type="hidden" name="filter" value="@Model.Filter" />
                                     <button class="btn btn-sm btn-outline-danger" type="submit">رفض</button>
                                 </form>
                             }
