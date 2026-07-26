@@ -45,13 +45,13 @@ public class Person
     public string Neighborhood { get; set; } = string.Empty;
     public string Phone { get; set; } = string.Empty;
 
-    /// <summary>هل الشخص مقترب (مقيم خارج البلد)؟</summary>
+    /// <summary>هل الشخص مغترب (مقيم خارج البلد)؟</summary>
     public bool IsMigrant { get; set; }
 
-    /// <summary>دولة المهجر للمقترب.</summary>
+    /// <summary>دولة المهجر للمغترب.</summary>
     public string MigrationCountry { get; set; } = string.Empty;
 
-    /// <summary>مدينة المهجر للمقترب.</summary>
+    /// <summary>مدينة المهجر للمغترب.</summary>
     public string MigrationCity { get; set; } = string.Empty;
 
     public string Notes { get; set; } = string.Empty;

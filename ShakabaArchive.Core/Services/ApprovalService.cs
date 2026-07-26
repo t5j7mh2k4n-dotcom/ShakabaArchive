@@ -22,29 +22,27 @@ public static class ApprovalService
     {
         try
         {
-            _ = await db.PendingChanges.AsNoTracking().Select(x => new { x.Id, x.Summary, x.Status }).Take(1).ToListAsync();
+            _ = await db.PendingChanges.AsNoTracking().Select(x => x.Id).Take(1).ToListAsync();
             return;
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine("PendingChanges query failed, repairing: " + ex.Message);
+            Console.Error.WriteLine("PendingChanges query failed, creating if missing: " + ex.Message);
         }
 
         var isPostgres = db.Database.ProviderName?.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) == true;
         if (isPostgres)
         {
+            // لا نحذف الجدول أبداً — حتى لا تُمسح طلبات الموافقة عند خطأ مؤقت
             await using var ddl = DatabaseService.CreateContextForSchemaChanges();
-            // دائماً أعد الإنشاء إن فشل الاستعلام — الجداول التالفة كانت السبب الأشيع
-            await ddl.Database.ExecuteSqlRawAsync("""DROP TABLE IF EXISTS "PendingChanges" CASCADE;""");
-            await ddl.Database.ExecuteSqlRawAsync("""DROP TABLE IF EXISTS pendingchanges CASCADE;""");
             await ddl.Database.ExecuteSqlRawAsync(
                 """
-                CREATE TABLE "PendingChanges" (
+                CREATE TABLE IF NOT EXISTS "PendingChanges" (
                   "Id" SERIAL PRIMARY KEY,
                   "EntityType" integer NOT NULL,
                   "Action" integer NOT NULL,
                   "EntityId" integer NULL,
-                  "PayloadJson" text NOT NULL DEFAULT '{{}}',
+                  "PayloadJson" text NOT NULL DEFAULT '{}',
                   "Summary" varchar(400) NOT NULL DEFAULT '',
                   "Status" integer NOT NULL DEFAULT 0,
                   "SubmittedByUserId" integer NOT NULL,
@@ -56,19 +54,18 @@ public static class ApprovalService
                   "ReviewedAt" timestamp with time zone NULL
                 );
                 """);
-            Console.WriteLine("PendingChanges table recreated via direct Neon connection.");
+            Console.WriteLine("PendingChanges ensured (CREATE IF NOT EXISTS).");
             return;
         }
 
-        await db.Database.ExecuteSqlRawAsync("""DROP TABLE IF EXISTS PendingChanges;""");
         await db.Database.ExecuteSqlRawAsync(
             """
-            CREATE TABLE PendingChanges (
+            CREATE TABLE IF NOT EXISTS PendingChanges (
               Id INTEGER PRIMARY KEY AUTOINCREMENT,
               EntityType INTEGER NOT NULL,
               Action INTEGER NOT NULL,
               EntityId INTEGER NULL,
-              PayloadJson TEXT NOT NULL DEFAULT '{{}}',
+              PayloadJson TEXT NOT NULL DEFAULT '{}',
               Summary TEXT NOT NULL DEFAULT '',
               Status INTEGER NOT NULL DEFAULT 0,
               SubmittedByUserId INTEGER NOT NULL,

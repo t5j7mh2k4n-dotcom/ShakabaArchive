@@ -2,7 +2,8 @@
 @model ShakabaArchive.Web.Pages.People.IndexModel
 @{
     ViewData["Title"] = "سجل الأشخاص";
-    var canManage = User.IsInRole("Admin") || User.IsInRole("Approver");
+    var idxUser = User.Identity?.IsAuthenticated == true ? User.CurrentAppUser() : null;
+    var canManage = User.IsInRole("Admin") || User.IsInRole("Approver") || idxUser?.CanApprove == true;
     var canAdd = User.Identity?.IsAuthenticated == true;
     string Dash(string? v) => string.IsNullOrWhiteSpace(v) ? "—" : v;
 }

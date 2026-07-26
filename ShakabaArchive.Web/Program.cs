@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using ShakabaArchive.Data;
+using ShakabaArchive.Models;
 using ShakabaArchive.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -185,8 +186,9 @@ app.MapGet("/health/db", async (HttpRequest req) =>
         {
             await using var db = DatabaseService.CreateContext();
             await ApprovalService.EnsureSchemaAsync(db);
-            var count = await db.PendingChanges.CountAsync();
-            approvals = $"pendingChanges={count}";
+            var total = await db.PendingChanges.CountAsync();
+            var pending = await db.PendingChanges.CountAsync(x => x.Status == ChangeStatus.Pending);
+            approvals = $"pendingChanges={total};waitingApproval={pending}";
         }
         catch (Exception ex)
         {

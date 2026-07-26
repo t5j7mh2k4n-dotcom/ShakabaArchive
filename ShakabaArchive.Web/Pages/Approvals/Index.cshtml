@@ -25,6 +25,13 @@
         <p class="muted mb-0">
             ما يدخله المستخدمون يُحفظ مؤقتاً هنا. أي واحد من الثلاثة الموافقين (أو الأدمن الرئيسي) يعتمد صحة البيانات ليُرفع للأرشيف.
         </p>
+        @if (Model.CanReview)
+        {
+            <p class="mb-0 mt-2">
+                طلبات بانتظار الاعتماد:
+                <strong class="text-danger">@Model.PendingCount</strong>
+            </p>
+        }
     </div>
 </div>
 

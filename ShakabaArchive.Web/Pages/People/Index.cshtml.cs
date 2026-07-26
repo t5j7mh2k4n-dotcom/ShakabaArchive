@@ -76,8 +76,9 @@ public class IndexModel(ArchiveDbContext db) : PageModel
         // طلبات الإضافة التي لم تُعتمد بعد — المدخل يرى طلباته فقط
         if (User.Identity?.IsAuthenticated == true)
         {
-            var uid = User.CurrentAppUser()?.Id;
-            var canSeeAll = User.IsInRole("Admin") || User.IsInRole("Approver");
+            var appUser = User.CurrentAppUser();
+            var uid = appUser?.Id;
+            var canSeeAll = User.IsInRole("Admin") || User.IsInRole("Approver") || appUser?.CanApprove == true;
             var pendingQuery = db.PendingChanges.AsNoTracking()
                 .Where(x => x.Status == ChangeStatus.Pending
                             && x.EntityType == ChangeEntity.Person

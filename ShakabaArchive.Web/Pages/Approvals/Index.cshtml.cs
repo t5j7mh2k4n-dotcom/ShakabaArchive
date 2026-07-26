@@ -13,6 +13,7 @@ public class IndexModel : PageModel
     public List<PendingChange> Items { get; private set; } = [];
     public bool CanReview { get; private set; }
     public int CurrentUserId { get; private set; }
+    public int PendingCount { get; private set; }
     public string? Message { get; private set; }
     public string? Error { get; private set; }
 
@@ -20,8 +21,8 @@ public class IndexModel : PageModel
     {
         Message = TempData["Flash"] as string;
         Error = TempData["FlashError"] as string;
-        CanReview = User.IsInRole("Admin") || User.IsInRole("Approver");
         CurrentUserId = ReadUserId();
+        CanReview = ResolveCanReview();
 
         try
         {
@@ -30,7 +31,6 @@ public class IndexModel : PageModel
         catch (Exception ex)
         {
             Console.Error.WriteLine("Approvals OnGet: " + ex);
-            // لا نرمي المستخدم للخروج — نعرض الصفحة فارغة مع تنبيه
             Error = "تعذر تحميل الطلبات الآن. افتح /health/db?repair=1 ثم حدّث هذه الصفحة بعد 10 ثوانٍ.";
             Items = [];
         }
@@ -43,6 +43,12 @@ public class IndexModel : PageModel
         {
             TempData["FlashError"] = "انتهت الجلسة أو تعذر قراءة الحساب. أعد الدخول ثم حاول مرة أخرى.";
             return RedirectToPage("/Account/Login");
+        }
+
+        if (!appUser.CanApprove)
+        {
+            TempData["FlashError"] = "ليست لديك صلاحية الموافقة.";
+            return RedirectToPage();
         }
 
         try
@@ -73,6 +79,12 @@ public class IndexModel : PageModel
             return RedirectToPage("/Account/Login");
         }
 
+        if (!appUser.CanApprove)
+        {
+            TempData["FlashError"] = "ليست لديك صلاحية الرفض.";
+            return RedirectToPage();
+        }
+
         try
         {
             await using var db = DatabaseService.CreateContext();
@@ -92,6 +104,16 @@ public class IndexModel : PageModel
         return RedirectToPage();
     }
 
+    private bool ResolveCanReview()
+    {
+        if (User.IsInRole("Admin") || User.IsInRole("Approver"))
+            return true;
+
+        // الجلسة القديمة قد لا تحمل الأدوار — نعتمد قاعدة البيانات
+        var fromDb = User.CurrentAppUser();
+        return fromDb?.CanApprove == true;
+    }
+
     private async Task LoadItemsAsync()
     {
         Exception? last = null;
@@ -102,20 +124,30 @@ public class IndexModel : PageModel
                 await using var db = DatabaseService.CreateContext();
                 await ApprovalService.EnsureSchemaAsync(db);
 
-                var query = db.PendingChanges.AsNoTracking().AsQueryable();
-                // المدخل العادي يرى طلباته فقط — الأدمن/الموافق يرى الكل
-                if (!CanReview && CurrentUserId > 0)
+                PendingCount = await db.PendingChanges.AsNoTracking()
+                    .CountAsync(x => x.Status == ChangeStatus.Pending);
+
+                IQueryable<PendingChange> query = db.PendingChanges.AsNoTracking();
+
+                // الأدمن/الموافق: كل الطلبات — المدخل: طلباته فقط
+                if (!CanReview)
+                {
+                    if (CurrentUserId <= 0)
+                    {
+                        Items = [];
+                        return;
+                    }
+
                     query = query.Where(x => x.SubmittedByUserId == CurrentUserId);
+                }
 
                 var rows = await query
-                    .OrderByDescending(x => x.SubmittedAt)
-                    .Take(100)
-                    .ToListAsync();
-
-                Items = rows
                     .OrderByDescending(x => x.Status == ChangeStatus.Pending)
                     .ThenByDescending(x => x.SubmittedAt)
-                    .ToList();
+                    .Take(200)
+                    .ToListAsync();
+
+                Items = rows;
                 return;
             }
             catch (Exception ex)

@@ -70,7 +70,7 @@ else
                     <dt class="col-sm-3">الحي</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.Neighborhood) ? "—" : p.Neighborhood)</dd>
                     @if (p.IsMigrant)
                     {
-                        <dt class="col-sm-3">الحالة</dt><dd class="col-sm-9"><span class="badge bg-info text-dark">مقترب</span></dd>
+                        <dt class="col-sm-3">الحالة</dt><dd class="col-sm-9"><span class="badge bg-info text-dark">مغترب</span></dd>
                         <dt class="col-sm-3">دولة المهجر</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.MigrationCountry) ? "—" : p.MigrationCountry)</dd>
                         <dt class="col-sm-3">مدينة المهجر</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.MigrationCity) ? "—" : p.MigrationCity)</dd>
                     }

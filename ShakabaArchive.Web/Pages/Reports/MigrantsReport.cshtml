@@ -1,13 +1,13 @@
 @page
 @model ShakabaArchive.Web.Pages.Reports.MigrantsReportModel
 @{
-    ViewData["Title"] = "تقرير المقتربين";
+    ViewData["Title"] = "تقرير المغتربين";
 }
 
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 no-print">
     <div>
-        <h1 class="h4 mb-1">تقرير المقتربين بالخارج</h1>
-        <p class="muted mb-0">عرض المقتربين حسب دولة المهجر والمدينة — مع تصدير وطباعة.</p>
+        <h1 class="h4 mb-1">تقرير المغتربين بالخارج</h1>
+        <p class="muted mb-0">عرض المغتربين حسب دولة المهجر والمدينة — مع تصدير وطباعة.</p>
     </div>
     <div class="d-flex flex-wrap gap-2">
         <a class="btn btn-soft" asp-page="/People/Index">رجوع لسجل الأشخاص</a>
@@ -60,7 +60,7 @@
 
 <div class="report-sheet">
     <div class="report-header mb-3">
-        <h2 class="h5 mb-1">أرشيف الشكابة شاع الدين — تقرير المقتربين</h2>
+        <h2 class="h5 mb-1">أرشيف الشكابة شاع الدين — تقرير المغتربين</h2>
         <p class="muted mb-0">
             تاريخ التقرير: @Model.GeneratedAt
             @if (!string.IsNullOrWhiteSpace(Model.Country))
@@ -77,7 +77,7 @@
     <div class="row g-2 mb-3 report-summary">
         <div class="col-6 col-md-4">
             <div class="card-panel text-center py-3">
-                <div class="muted small">إجمالي المقتربين</div>
+                <div class="muted small">إجمالي المغتربين</div>
                 <div class="h3 mb-0">@Model.TotalCount</div>
             </div>
         </div>
@@ -97,7 +97,7 @@
 
     @if (Model.TotalCount == 0)
     {
-        <div class="alert alert-info mb-0">لا يوجد مقتربون مسجّلون حالياً@(string.IsNullOrWhiteSpace(Model.Country) && string.IsNullOrWhiteSpace(Model.City) ? "." : " وفق الفلاتر المحددة.")</div>
+        <div class="alert alert-info mb-0">لا يوجد مغتربون مسجّلون حالياً@(string.IsNullOrWhiteSpace(Model.Country) && string.IsNullOrWhiteSpace(Model.City) ? "." : " وفق الفلاتر المحددة.")</div>
     }
     else
     {
@@ -106,7 +106,7 @@
             <div class="card-panel mb-3">
                 <h3 class="h6 mb-3">
                     @countryGroup.Country
-                    <span class="muted small">(@countryGroup.Cities.Sum(c => c.People.Count) مقترب)</span>
+                    <span class="muted small">(@countryGroup.Cities.Sum(c => c.People.Count) مغترب)</span>
                 </h3>
 
                 @foreach (var cityGroup in countryGroup.Cities)

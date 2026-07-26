@@ -245,9 +245,9 @@ public class PersonInput : IValidatableObject
             yield break;
 
         if (string.IsNullOrWhiteSpace(MigrationCountry))
-            yield return new ValidationResult("أدخل دولة المهجر للمقترب.", [nameof(MigrationCountry)]);
+            yield return new ValidationResult("أدخل دولة المهجر للمغترب.", [nameof(MigrationCountry)]);
 
         if (string.IsNullOrWhiteSpace(MigrationCity))
-            yield return new ValidationResult("أدخل مدينة المهجر للمقترب.", [nameof(MigrationCity)]);
+            yield return new ValidationResult("أدخل مدينة المهجر للمغترب.", [nameof(MigrationCity)]);
     }
 }
