@@ -58,11 +58,21 @@ public class IndexModel : PageModel
         {
             await using var db = DatabaseService.CreateContext();
             await ApprovalService.EnsureSchemaAsync(db);
-            var (ok, error) = await ApprovalService.ApproveAsync(db, appUser, id, note);
+            var (ok, error, createdPersonId) = await ApprovalService.ApproveAsync(db, appUser, id, note);
             if (!ok)
+            {
                 TempData["FlashError"] = error;
-            else
-                TempData["Flash"] = "تمت الموافقة على صحة البيانات وحفظها في الأرشيف.";
+                return RedirectToPage(new { filter = filter ?? "pending" });
+            }
+
+            // بعد حفظ الشخص في السجل — فتح صفحة إضافة مناسبة مباشرة
+            if (createdPersonId is int personId)
+            {
+                TempData["Flash"] = "تمت الموافقة وحُفظ الشخص في سجل الأشخاص. يمكنك الآن تسجيل مناسبة له.";
+                return RedirectToPage("/Occasions/Create", new { personId });
+            }
+
+            TempData["Flash"] = "تمت الموافقة وحفظ الطلب بنجاح.";
         }
         catch (Exception ex)
         {
@@ -128,7 +138,13 @@ public class IndexModel : PageModel
                 await ApprovalService.EnsureSchemaAsync(db);
                 // تحويل الحسابات المسجّلة عبر الموقع إلى طلبات موافقة بأزرار اعتماد/رفض
                 if (CanReview)
+                {
                     await ApprovalService.EnsureUserRegistrationPendingsAsync(db);
+                    // استرداد إضافات أشخاص اعتُمدت سابقاً ولم تُحفظ في السجل
+                    var repaired = await ApprovalService.RepairApprovedPersonCreatesAsync(db);
+                    if (repaired > 0)
+                        Message = $"تمت استعادة {repaired} سجل/سجلات إلى سجل الأشخاص تلقائياً.";
+                }
 
                 PendingCount = await db.PendingChanges.AsNoTracking()
                     .CountAsync(x => x.Status == ChangeStatus.Pending);

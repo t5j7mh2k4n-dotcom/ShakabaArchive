@@ -45,8 +45,11 @@ else
                target="_blank" rel="noopener">واتساب</a>
             @if (User.Identity?.IsAuthenticated == true)
             {
-                <a class="btn btn-accent" asp-page="Edit" asp-route-id="@p.Id">تعديل</a>
-                <a class="btn btn-soft" asp-page="/Occasions/Create" asp-route-personId="@p.Id">مناسبة جديدة</a>
+                @if (User.IsInRole("Admin") || User.IsInRole("Approver"))
+                {
+                    <a class="btn btn-accent" asp-page="Edit" asp-route-id="@p.Id">تعديل</a>
+                }
+                <a class="btn btn-soft" asp-page="/Occasions/Create" asp-route-personId="@p.Id">إضافة مناسبة</a>
             }
         </div>
     </div>

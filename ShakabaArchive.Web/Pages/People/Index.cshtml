@@ -125,7 +125,7 @@
                 <th>نوع الوثيقة</th>
                 <th>رقم الوثيقة</th>
                 <th>ملاحظات</th>
-                @if (canManage)
+                @if (canAdd)
                 {
                     <th>إجراءات</th>
                 }
@@ -165,16 +165,19 @@
                     <td>@Dash(string.IsNullOrWhiteSpace(p.DocumentType) ? DocumentTypes.NationalId : p.DocumentType)</td>
                     <td>@Dash(string.IsNullOrWhiteSpace(p.DocumentNumber) ? p.NationalId : p.DocumentNumber)</td>
                     <td class="notes-cell">@Dash(p.Notes)</td>
-                    @if (canManage)
+                    @if (canAdd)
                     {
                         <td class="text-nowrap">
                             <a class="btn btn-sm btn-soft" asp-page="/Occasions/Create" asp-route-personId="@p.Id">مناسبة</a>
-                            <a class="btn btn-sm btn-soft" asp-page="Edit" asp-route-id="@p.Id">تعديل</a>
-                            <form method="post" asp-page-handler="Delete" class="d-inline"
-                                  onsubmit="return confirm('إرسال طلب حذف هذا السجل؟');">
-                                <input type="hidden" name="id" value="@p.Id" />
-                                <button type="submit" class="btn btn-sm btn-danger-soft">طلب حذف</button>
-                            </form>
+                            @if (canManage)
+                            {
+                                <a class="btn btn-sm btn-soft" asp-page="Edit" asp-route-id="@p.Id">تعديل</a>
+                                <form method="post" asp-page-handler="Delete" class="d-inline"
+                                      onsubmit="return confirm('إرسال طلب حذف هذا السجل؟');">
+                                    <input type="hidden" name="id" value="@p.Id" />
+                                    <button type="submit" class="btn btn-sm btn-danger-soft">طلب حذف</button>
+                                </form>
+                            }
                         </td>
                     }
                 </tr>

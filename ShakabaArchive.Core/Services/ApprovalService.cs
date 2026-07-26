@@ -15,7 +15,8 @@ public static class ApprovalService
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = false,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = true
     };
 
     public static async Task EnsureSchemaAsync(ArchiveDbContext db)
@@ -212,22 +213,22 @@ public static class ApprovalService
             : (true, "", draft);
     }
 
-    public static async Task<(bool Ok, string Error)> ApproveAsync(
+    public static async Task<(bool Ok, string Error, int? CreatedPersonId)> ApproveAsync(
         ArchiveDbContext db,
         AppUser reviewer,
         int pendingId,
         string? note = null)
     {
         if (!reviewer.CanApprove)
-            return (false, "ليست لديك صلاحية الموافقة على صحة البيانات.");
+            return (false, "ليست لديك صلاحية الموافقة على صحة البيانات.", null);
 
         var item = await db.PendingChanges.FirstOrDefaultAsync(x => x.Id == pendingId);
         if (item is null)
-            return (false, "الطلب غير موجود.");
+            return (false, "الطلب غير موجود.", null);
         if (item.Status != ChangeStatus.Pending)
-            return (false, "تمت مراجعة هذا الطلب مسبقاً.");
+            return (false, "تمت مراجعة هذا الطلب مسبقاً.", null);
         if (item.SubmittedByUserId == reviewer.Id && !reviewer.IsAdmin)
-            return (false, "لا يمكن اعتماد طلبك بنفسك — يوافق أحد الثلاثة الآخرين أو الأدمن الرئيسي.");
+            return (false, "لا يمكن اعتماد طلبك بنفسك — يوافق أحد الثلاثة الآخرين أو الأدمن الرئيسي.", null);
 
         try
         {
@@ -235,7 +236,8 @@ public static class ApprovalService
         }
         catch (Exception ex)
         {
-            return (false, "تعذر تطبيق التعديل: " + ex.Message);
+            Console.Error.WriteLine("Approve Apply failed: " + ex);
+            return (false, "تعذر حفظ البيانات في السجل: " + ex.GetBaseException().Message, null);
         }
 
         item.Status = ChangeStatus.Approved;
@@ -244,7 +246,14 @@ public static class ApprovalService
         item.ReviewNote = note?.Trim() ?? "";
         item.ReviewedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
-        return (true, "");
+
+        int? createdPersonId = item.EntityType == ChangeEntity.Person
+                               && item.Action == ChangeAction.Create
+                               && item.EntityId is int pid
+            ? pid
+            : null;
+
+        return (true, "", createdPersonId);
     }
 
     public static async Task<(bool Ok, string Error)> RejectAsync(
@@ -404,21 +413,43 @@ public static class ApprovalService
             return;
         }
 
-        var dto = JsonSerializer.Deserialize<PersonDraft>(item.PayloadJson, JsonOptions)
+        var dto = DeserializePersonDraft(item.PayloadJson)
                   ?? throw new InvalidOperationException("بيانات الشخص غير صالحة.");
 
         if (item.Action == ChangeAction.Create)
         {
-            var person = dto.ToPerson();
-            if (string.IsNullOrWhiteSpace(person.RegistryCode))
+            // إن وُجد السجل مسبقاً (محاولة سابقة نجحت جزئياً) لا نكرّر الإضافة
+            if (item.EntityId is int existingId)
             {
-                person.RegistryCode = await PersonRegistryService.AllocateCodeAsync(
-                    db, person.HierarchyLevel, person.ParentPersonId);
+                var already = await db.People.AsNoTracking().AnyAsync(p => p.Id == existingId);
+                if (already)
+                    return;
             }
+
+            if (!string.IsNullOrWhiteSpace(dto.RegistryCode))
+            {
+                var byCode = await db.People.AsNoTracking()
+                    .FirstOrDefaultAsync(p => p.RegistryCode == dto.RegistryCode.Trim());
+                if (byCode is not null
+                    && string.Equals(byCode.FullName, dto.FullName?.Trim(), StringComparison.OrdinalIgnoreCase))
+                {
+                    item.EntityId = byCode.Id;
+                    return;
+                }
+            }
+
+            var person = dto.ToPerson();
+            // دائماً كود جديد من السجل الفعلي — تجنّب تعارض أكواد الطلبات المعلّقة
+            person.RegistryCode = await PersonRegistryService.AllocateCodeAsync(
+                db, person.HierarchyLevel, person.ParentPersonId);
+            if (person.BirthDate is { } bd)
+                person.BirthDate = DateTime.SpecifyKind(bd.Date, DateTimeKind.Utc);
 
             person.RefreshFullName();
             db.People.Add(person);
             await db.SaveChangesAsync();
+            item.EntityId = person.Id;
+            item.Summary = $"إضافة سجل أشخاص {person.RegistryCode}: {person.FullName}";
             return;
         }
 
@@ -433,9 +464,78 @@ public static class ApprovalService
         existing.RegistryCode = keepCode;
         existing.HierarchyLevel = keepLevel;
         existing.ParentPersonId = keepParent;
+        if (existing.BirthDate is { } ebd)
+            existing.BirthDate = DateTime.SpecifyKind(ebd.Date, DateTimeKind.Utc);
         existing.RefreshFullName();
         existing.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
+    }
+
+    private static PersonDraft? DeserializePersonDraft(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return null;
+        try
+        {
+            return JsonSerializer.Deserialize<PersonDraft>(json, JsonOptions);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("DeserializePersonDraft: " + ex.Message);
+            // محاولة ثانية بدون سياسة تسمية
+            return JsonSerializer.Deserialize<PersonDraft>(json, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+        }
+    }
+
+    /// <summary>يعيد تطبيق طلبات إضافة أشخاص اعتُمدت لكن لم تُحفظ في السجل.</summary>
+    public static async Task<int> RepairApprovedPersonCreatesAsync(ArchiveDbContext db)
+    {
+        await EnsureSchemaAsync(db);
+        var stuck = await db.PendingChanges
+            .Where(x => x.Status == ChangeStatus.Approved
+                        && x.EntityType == ChangeEntity.Person
+                        && x.Action == ChangeAction.Create)
+            .OrderBy(x => x.Id)
+            .ToListAsync();
+
+        var fixedCount = 0;
+        foreach (var item in stuck)
+        {
+            try
+            {
+                if (item.EntityId is int id && await db.People.AnyAsync(p => p.Id == id))
+                    continue;
+
+                var dto = DeserializePersonDraft(item.PayloadJson);
+                if (dto is null)
+                    continue;
+
+                if (!string.IsNullOrWhiteSpace(dto.RegistryCode))
+                {
+                    var match = await db.People.AsNoTracking()
+                        .FirstOrDefaultAsync(p => p.RegistryCode == dto.RegistryCode.Trim());
+                    if (match is not null)
+                    {
+                        item.EntityId = match.Id;
+                        continue;
+                    }
+                }
+
+                await ApplyPersonAsync(db, item);
+                fixedCount++;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Repair person pending #{item.Id}: {ex.Message}");
+            }
+        }
+
+        if (db.ChangeTracker.HasChanges())
+            await db.SaveChangesAsync();
+        return fixedCount;
     }
 
     private static async Task ApplyLifeEventAsync(ArchiveDbContext db, PendingChange item)

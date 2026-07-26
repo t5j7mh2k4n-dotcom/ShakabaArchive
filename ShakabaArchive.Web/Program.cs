@@ -74,7 +74,8 @@ builder.Services.AddRazorPages(options =>
     // المدخل العادي يضيف فقط — التعديل/الحذف والحذف للمخولين
     options.Conventions.AuthorizePage("/People/Edit", "Staff");
     options.Conventions.AuthorizeFolder("/People/Events", "Staff");
-    options.Conventions.AuthorizeFolder("/Occasions", "Staff");
+    // المناسبات: العرض للجميع، الإضافة لأي مستخدم مسجّل (تنتظر موافقة إن لم يكن مخوّلاً)
+    options.Conventions.AuthorizeFolder("/Occasions");
     options.Conventions.AllowAnonymousToPage("/Occasions/Index");
     options.Conventions.AuthorizeFolder("/Approvals");
     options.Conventions.AuthorizeFolder("/Reports", "Staff");

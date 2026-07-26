@@ -4,9 +4,14 @@
     ViewData["Title"] = "إضافة مناسبة";
 }
 
+@if (TempData["Flash"] is string flash && !string.IsNullOrEmpty(flash))
+{
+    <div class="alert alert-success">@flash</div>
+}
+
 <div class="card-panel mb-3">
     <h1 class="h4 mb-2">إضافة مناسبة اجتماعية</h1>
-    <p class="muted mb-0">مولود جديد، زواج، تخرج، أفراح أو أتراح — ببيانات كاملة.</p>
+    <p class="muted mb-0">مولود جديد، زواج، تخرج، أفراح أو أتراح — ببيانات كاملة. اختر صاحب المناسبة من السجل ثم نوع المناسبة.</p>
 </div>
 
 <div class="row g-2 mb-3">

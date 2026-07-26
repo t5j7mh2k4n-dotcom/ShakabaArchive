@@ -19,22 +19,19 @@
         <a class="brand" asp-page="/Index">أرشيف الشكابة شاع الدين</a>
         <nav class="d-flex flex-wrap gap-3 align-items-center">
             <a asp-page="/Index">الرئيسية</a>
-            @if (!isEditorOnly)
-            {
-                <a asp-page="/People/Index">سجل الأشخاص</a>
-            }
+            <a asp-page="/People/Index">سجل الأشخاص</a>
+            <a asp-page="/Occasions/Index">المناسبات</a>
             @if (isApprover)
             {
                 <a asp-page="/Reports/MigrantsReport">تقرير المغتربين</a>
-                <a asp-page="/Occasions/Index">المناسبات</a>
             }
             <a class="btn-whatsapp-nav" href="@WhatsAppShare.SiteShareUrl()" target="_blank" rel="noopener">واتساب</a>
             @if (User.Identity?.IsAuthenticated == true)
             {
                 <a asp-page="/People/Create">إضافة بياناتي</a>
+                <a asp-page="/Occasions/Create">إضافة مناسبة</a>
                 @if (isApprover)
                 {
-                    <a asp-page="/Occasions/Create">إضافة مناسبة</a>
                     <a asp-page="/Approvals/Index">الموافقة على البيانات</a>
                 }
                 else
@@ -64,7 +61,7 @@
     @if (isEditorOnly)
     {
         <div class="alert alert-info py-2 small">
-            حسابك لإدخال البيانات فقط. ما تضيفه يُرفع لموافقة الأدمن، ولا يمكنك الدخول إلى إدارة المستخدمين أو الاعتماد النهائي.
+            حسابك لإدخال البيانات والمناسبات. ما تضيفه يُرفع لموافقة الأدمن قبل الحفظ النهائي في السجل.
         </div>
     }
     @RenderBody()
