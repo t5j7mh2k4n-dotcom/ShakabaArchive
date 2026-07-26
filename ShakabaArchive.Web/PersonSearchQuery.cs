@@ -19,6 +19,8 @@ public static class PersonSearchQuery
         ("birthPlace", "مكان الميلاد"),
         ("residence", "الإقامة"),
         ("neighborhood", "الحي"),
+        ("migrationCountry", "دولة المهجر"),
+        ("migrationCity", "مدينة المهجر"),
         ("tribe", "القبيلة"),
         ("profession", "المهنة"),
         ("phone", "الهاتف"),
@@ -94,6 +96,12 @@ public static class PersonSearchQuery
 
             "neighborhood" => query.Where(p => EF.Functions.ILike(p.Neighborhood, pattern)),
 
+            "migrationCountry" => query.Where(p =>
+                p.IsMigrant && EF.Functions.ILike(p.MigrationCountry, pattern)),
+
+            "migrationCity" => query.Where(p =>
+                p.IsMigrant && EF.Functions.ILike(p.MigrationCity, pattern)),
+
             "tribe" => query.Where(p => EF.Functions.ILike(p.Tribe, pattern)),
 
             "profession" => query.Where(p => EF.Functions.ILike(p.Profession, pattern)),
@@ -122,6 +130,8 @@ public static class PersonSearchQuery
                 EF.Functions.ILike(p.BirthPlace, pattern) ||
                 EF.Functions.ILike(p.Neighborhood, pattern) ||
                 EF.Functions.ILike(p.Residence, pattern) ||
+                EF.Functions.ILike(p.MigrationCountry, pattern) ||
+                EF.Functions.ILike(p.MigrationCity, pattern) ||
                 EF.Functions.ILike(p.Tribe, pattern) ||
                 EF.Functions.ILike(p.Notes, pattern))
         };
@@ -158,6 +168,12 @@ public static class PersonSearchQuery
 
             "neighborhood" => query.Where(p => p.Neighborhood.Contains(current)),
 
+            "migrationCountry" => query.Where(p =>
+                p.IsMigrant && p.MigrationCountry.Contains(current)),
+
+            "migrationCity" => query.Where(p =>
+                p.IsMigrant && p.MigrationCity.Contains(current)),
+
             "tribe" => query.Where(p => p.Tribe.Contains(current)),
 
             "profession" => query.Where(p => p.Profession.Contains(current)),
@@ -186,6 +202,8 @@ public static class PersonSearchQuery
                 p.BirthPlace.Contains(current) ||
                 p.Neighborhood.Contains(current) ||
                 p.Residence.Contains(current) ||
+                p.MigrationCountry.Contains(current) ||
+                p.MigrationCity.Contains(current) ||
                 p.Tribe.Contains(current) ||
                 p.Notes.Contains(current))
         };

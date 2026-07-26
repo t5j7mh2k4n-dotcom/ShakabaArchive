@@ -67,6 +67,7 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AuthorizeFolder("/Occasions");
     options.Conventions.AllowAnonymousToPage("/Occasions/Index");
     options.Conventions.AuthorizeFolder("/Approvals");
+    options.Conventions.AuthorizeFolder("/Reports");
     options.Conventions.AuthorizePage("/Account/Invites");
     options.Conventions.AuthorizePage("/Account/Users");
     options.Conventions.AuthorizePage("/Account/UsersReport");

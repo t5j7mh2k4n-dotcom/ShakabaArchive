@@ -14,6 +14,10 @@
         <nav class="d-flex flex-wrap gap-3 align-items-center">
             <a asp-page="/Index">الرئيسية</a>
             <a asp-page="/People/Index">سجل الأشخاص</a>
+            @if (User.Identity?.IsAuthenticated == true)
+            {
+                <a asp-page="/Reports/MigrantsReport">تقرير المقتربين</a>
+            }
             <a asp-page="/Occasions/Index">المناسبات</a>
             <a class="btn-whatsapp-nav" href="@WhatsAppShare.SiteShareUrl()" target="_blank" rel="noopener">واتساب</a>
             @if (User.Identity?.IsAuthenticated == true)

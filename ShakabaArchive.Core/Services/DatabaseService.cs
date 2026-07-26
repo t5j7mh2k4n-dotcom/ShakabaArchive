@@ -450,6 +450,9 @@ public static class DatabaseService
         TryAlter(db, "ALTER TABLE People ADD COLUMN PhotoPath TEXT NOT NULL DEFAULT ''");
         TryAlter(db, "ALTER TABLE People ADD COLUMN DocumentType TEXT NOT NULL DEFAULT 'رقم وطني'");
         TryAlter(db, "ALTER TABLE People ADD COLUMN DocumentNumber TEXT NOT NULL DEFAULT ''");
+        TryAlter(db, "ALTER TABLE People ADD COLUMN IsMigrant INTEGER NOT NULL DEFAULT 0");
+        TryAlter(db, "ALTER TABLE People ADD COLUMN MigrationCountry TEXT NOT NULL DEFAULT ''");
+        TryAlter(db, "ALTER TABLE People ADD COLUMN MigrationCity TEXT NOT NULL DEFAULT ''");
 
         TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "RegistryCode" varchar(32) NOT NULL DEFAULT ''""");
         TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "HierarchyLevel" integer NOT NULL DEFAULT 1""");
@@ -462,6 +465,9 @@ public static class DatabaseService
         TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "PhotoPath" varchar(400) NOT NULL DEFAULT ''""");
         TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "DocumentType" varchar(40) NOT NULL DEFAULT 'رقم وطني'""");
         TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "DocumentNumber" varchar(80) NOT NULL DEFAULT ''""");
+        TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "IsMigrant" boolean NOT NULL DEFAULT false""");
+        TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "MigrationCountry" varchar(120) NOT NULL DEFAULT ''""");
+        TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "MigrationCity" varchar(120) NOT NULL DEFAULT ''""");
 
         BackfillPersonRegistryFields(db);
 

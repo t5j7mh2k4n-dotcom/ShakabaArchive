@@ -44,6 +44,16 @@ public class Person
     public string Profession { get; set; } = string.Empty;
     public string Neighborhood { get; set; } = string.Empty;
     public string Phone { get; set; } = string.Empty;
+
+    /// <summary>هل الشخص مقترب (مقيم خارج البلد)؟</summary>
+    public bool IsMigrant { get; set; }
+
+    /// <summary>دولة المهجر للمقترب.</summary>
+    public string MigrationCountry { get; set; } = string.Empty;
+
+    /// <summary>مدينة المهجر للمقترب.</summary>
+    public string MigrationCity { get; set; } = string.Empty;
+
     public string Notes { get; set; } = string.Empty;
 
     /// <summary>مسار الصورة الشخصية المعروضة مع بيانات الشخص.</summary>

@@ -421,6 +421,9 @@ public class PersonDraft
     public string Profession { get; set; } = "";
     public string Neighborhood { get; set; } = "";
     public string Phone { get; set; } = "";
+    public bool IsMigrant { get; set; }
+    public string MigrationCountry { get; set; } = "";
+    public string MigrationCity { get; set; } = "";
     public string Notes { get; set; } = "";
     public string PhotoPath { get; set; } = "";
     public string DocumentType { get; set; } = DocumentTypes.NationalId;
@@ -462,6 +465,9 @@ public class PersonDraft
             Profession = Profession.Trim(),
             Neighborhood = Neighborhood.Trim(),
             Phone = Phone.Trim(),
+            IsMigrant = IsMigrant,
+            MigrationCountry = IsMigrant ? MigrationCountry.Trim() : "",
+            MigrationCity = IsMigrant ? MigrationCity.Trim() : "",
             Notes = Notes.Trim(),
             PhotoPath = PhotoPath,
             DocumentImagePath = DocumentImagePath,
@@ -494,6 +500,9 @@ public class PersonDraft
         p.Profession = Profession.Trim();
         p.Neighborhood = Neighborhood.Trim();
         p.Phone = Phone.Trim();
+        p.IsMigrant = IsMigrant;
+        p.MigrationCountry = IsMigrant ? MigrationCountry.Trim() : "";
+        p.MigrationCity = IsMigrant ? MigrationCity.Trim() : "";
         p.Notes = Notes.Trim();
         p.RefreshFullName();
         if (!string.IsNullOrWhiteSpace(PhotoPath))
@@ -525,6 +534,9 @@ public class PersonDraft
         Profession = p.Profession,
         Neighborhood = p.Neighborhood,
         Phone = p.Phone,
+        IsMigrant = p.IsMigrant,
+        MigrationCountry = p.MigrationCountry,
+        MigrationCity = p.MigrationCity,
         Notes = p.Notes,
         PhotoPath = p.PhotoPath,
         DocumentImagePath = p.DocumentImagePath

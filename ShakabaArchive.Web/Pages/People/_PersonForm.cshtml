@@ -107,6 +107,23 @@
         <input class="form-control" asp-for="Phone" />
     </div>
 
+    <div class="col-12">
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" asp-for="IsMigrant" id="isMigrant" />
+            <label class="form-check-label" for="isMigrant">مقترب (مقيم خارج البلد)</label>
+        </div>
+    </div>
+    <div class="col-md-6" id="migrationCountryWrap">
+        <label class="form-label">دولة المهجر</label>
+        <input class="form-control" asp-for="MigrationCountry" placeholder="مثال: السعودية، الإمارات..." />
+        <span asp-validation-for="MigrationCountry" class="text-danger small"></span>
+    </div>
+    <div class="col-md-6" id="migrationCityWrap">
+        <label class="form-label">مدينة المهجر</label>
+        <input class="form-control" asp-for="MigrationCity" placeholder="مثال: الرياض، دبي..." />
+        <span asp-validation-for="MigrationCity" class="text-danger small"></span>
+    </div>
+
     <div class="col-md-4">
         <label class="form-label">نوع الوثيقة</label>
         <select class="form-select" asp-for="DocumentType">
@@ -151,3 +168,21 @@
         <textarea class="form-control" asp-for="Notes" rows="3"></textarea>
     </div>
 </div>
+
+<script>
+    (function () {
+        var cb = document.getElementById('isMigrant');
+        var countryWrap = document.getElementById('migrationCountryWrap');
+        var cityWrap = document.getElementById('migrationCityWrap');
+        if (!cb || !countryWrap || !cityWrap) return;
+
+        function sync() {
+            var show = cb.checked;
+            countryWrap.style.display = show ? '' : 'none';
+            cityWrap.style.display = show ? '' : 'none';
+        }
+
+        cb.addEventListener('change', sync);
+        sync();
+    })();
+</script>

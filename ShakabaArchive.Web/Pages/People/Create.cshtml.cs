@@ -108,7 +108,7 @@ public class CreateModel(ArchiveDbContext db) : PageModel
     }
 }
 
-public class PersonInput
+public class PersonInput : IValidatableObject
 {
     [Range(1, 3)]
     public int HierarchyLevel { get; set; } = 1;
@@ -138,6 +138,14 @@ public class PersonInput
     public string Profession { get; set; } = "";
     public string Neighborhood { get; set; } = "";
     public string Phone { get; set; } = "";
+    public bool IsMigrant { get; set; }
+
+    [Display(Name = "دولة المهجر")]
+    public string MigrationCountry { get; set; } = "";
+
+    [Display(Name = "مدينة المهجر")]
+    public string MigrationCity { get; set; } = "";
+
     public string Notes { get; set; } = "";
     public string PhotoPath { get; set; } = "";
     public string DocumentImagePath { get; set; } = "";
@@ -164,6 +172,9 @@ public class PersonInput
         Profession = p.Profession,
         Neighborhood = p.Neighborhood,
         Phone = p.Phone,
+        IsMigrant = p.IsMigrant,
+        MigrationCountry = p.MigrationCountry,
+        MigrationCity = p.MigrationCity,
         Notes = p.Notes,
         PhotoPath = p.PhotoPath,
         DocumentImagePath = p.DocumentImagePath
@@ -188,6 +199,9 @@ public class PersonInput
         Profession = d.Profession,
         Neighborhood = d.Neighborhood,
         Phone = d.Phone,
+        IsMigrant = d.IsMigrant,
+        MigrationCountry = d.MigrationCountry,
+        MigrationCity = d.MigrationCity,
         Notes = d.Notes,
         PhotoPath = d.PhotoPath,
         DocumentImagePath = d.DocumentImagePath
@@ -217,8 +231,23 @@ public class PersonInput
         Profession = Profession,
         Neighborhood = Neighborhood,
         Phone = Phone,
+        IsMigrant = IsMigrant,
+        MigrationCountry = IsMigrant ? MigrationCountry.Trim() : "",
+        MigrationCity = IsMigrant ? MigrationCity.Trim() : "",
         Notes = Notes,
         PhotoPath = PhotoPath,
         DocumentImagePath = DocumentImagePath
     };
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (!IsMigrant)
+            yield break;
+
+        if (string.IsNullOrWhiteSpace(MigrationCountry))
+            yield return new ValidationResult("أدخل دولة المهجر للمقترب.", [nameof(MigrationCountry)]);
+
+        if (string.IsNullOrWhiteSpace(MigrationCity))
+            yield return new ValidationResult("أدخل مدينة المهجر للمقترب.", [nameof(MigrationCity)]);
+    }
 }

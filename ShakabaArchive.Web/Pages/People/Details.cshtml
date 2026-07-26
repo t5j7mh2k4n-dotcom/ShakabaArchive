@@ -68,6 +68,12 @@ else
                     <dt class="col-sm-3">المهنة</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.Profession) ? "—" : p.Profession)</dd>
                     <dt class="col-sm-3">الإقامة</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.Residence) ? "—" : p.Residence)</dd>
                     <dt class="col-sm-3">الحي</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.Neighborhood) ? "—" : p.Neighborhood)</dd>
+                    @if (p.IsMigrant)
+                    {
+                        <dt class="col-sm-3">الحالة</dt><dd class="col-sm-9"><span class="badge bg-info text-dark">مقترب</span></dd>
+                        <dt class="col-sm-3">دولة المهجر</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.MigrationCountry) ? "—" : p.MigrationCountry)</dd>
+                        <dt class="col-sm-3">مدينة المهجر</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.MigrationCity) ? "—" : p.MigrationCity)</dd>
+                    }
                     <dt class="col-sm-3">الهاتف</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.Phone) ? "—" : p.Phone)</dd>
                     <dt class="col-sm-3">نوع الوثيقة</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.DocumentType) ? DocumentTypes.NationalId : p.DocumentType)</dd>
                     <dt class="col-sm-3">رقم الوثيقة</dt><dd class="col-sm-9">@(string.IsNullOrWhiteSpace(p.DocumentNumber) ? (string.IsNullOrWhiteSpace(p.NationalId) ? "—" : p.NationalId) : p.DocumentNumber)</dd>

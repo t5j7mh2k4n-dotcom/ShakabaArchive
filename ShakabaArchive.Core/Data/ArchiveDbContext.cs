@@ -30,6 +30,9 @@ public class ArchiveDbContext : DbContext, IDataProtectionKeyContext
             e.HasIndex(p => p.Tribe);
             e.HasIndex(p => p.HierarchyLevel);
             e.HasIndex(p => p.Neighborhood);
+            e.HasIndex(p => p.IsMigrant);
+            e.HasIndex(p => p.MigrationCountry);
+            e.HasIndex(p => p.MigrationCity);
             e.Property(p => p.RegistryCode).HasMaxLength(32).IsRequired();
             e.Property(p => p.DocumentType).HasMaxLength(40);
             e.Property(p => p.DocumentNumber).HasMaxLength(80);
@@ -48,6 +51,8 @@ public class ArchiveDbContext : DbContext, IDataProtectionKeyContext
             e.Property(p => p.Profession).HasMaxLength(120);
             e.Property(p => p.Neighborhood).HasMaxLength(120);
             e.Property(p => p.Phone).HasMaxLength(40);
+            e.Property(p => p.MigrationCountry).HasMaxLength(120);
+            e.Property(p => p.MigrationCity).HasMaxLength(120);
             e.Property(p => p.PhotoPath).HasMaxLength(400);
             e.Property(p => p.DocumentImagePath).HasMaxLength(400);
 

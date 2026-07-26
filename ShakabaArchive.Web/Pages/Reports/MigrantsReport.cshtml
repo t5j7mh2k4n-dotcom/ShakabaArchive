@@ -1,0 +1,153 @@
+@page
+@model ShakabaArchive.Web.Pages.Reports.MigrantsReportModel
+@{
+    ViewData["Title"] = "تقرير المقتربين";
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 no-print">
+    <div>
+        <h1 class="h4 mb-1">تقرير المقتربين بالخارج</h1>
+        <p class="muted mb-0">عرض المقتربين حسب دولة المهجر والمدينة — مع تصدير وطباعة.</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-soft" asp-page="/People/Index">رجوع لسجل الأشخاص</a>
+        <a class="btn btn-soft" asp-page-handler="Csv" asp-route-country="@Model.Country" asp-route-city="@Model.City">تصدير CSV</a>
+        <button class="btn btn-accent" type="button" onclick="window.print()">طباعة التقرير</button>
+    </div>
+</div>
+
+<form method="get" class="card-panel mb-3 no-print">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-4">
+            <label class="form-label">دولة المهجر</label>
+            <select class="form-select" name="country" onchange="this.form.submit()">
+                <option value="">— كل الدول —</option>
+                @foreach (var c in Model.CountryOptions)
+                {
+                    if (Model.Country == c)
+                    {
+                        <option value="@c" selected>@c</option>
+                    }
+                    else
+                    {
+                        <option value="@c">@c</option>
+                    }
+                }
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">مدينة المهجر</label>
+            <select class="form-select" name="city" onchange="this.form.submit()">
+                <option value="">— كل المدن —</option>
+                @foreach (var c in Model.CityOptions)
+                {
+                    if (Model.City == c)
+                    {
+                        <option value="@c" selected>@c</option>
+                    }
+                    else
+                    {
+                        <option value="@c">@c</option>
+                    }
+                }
+            </select>
+        </div>
+        <div class="col-md-4">
+            <a class="btn btn-soft" asp-page="./MigrantsReport">مسح الفلاتر</a>
+        </div>
+    </div>
+</form>
+
+<div class="report-sheet">
+    <div class="report-header mb-3">
+        <h2 class="h5 mb-1">أرشيف الشكابة شاع الدين — تقرير المقتربين</h2>
+        <p class="muted mb-0">
+            تاريخ التقرير: @Model.GeneratedAt
+            @if (!string.IsNullOrWhiteSpace(Model.Country))
+            {
+                <text> — الدولة: @Model.Country</text>
+            }
+            @if (!string.IsNullOrWhiteSpace(Model.City))
+            {
+                <text> — المدينة: @Model.City</text>
+            }
+        </p>
+    </div>
+
+    <div class="row g-2 mb-3 report-summary">
+        <div class="col-6 col-md-4">
+            <div class="card-panel text-center py-3">
+                <div class="muted small">إجمالي المقتربين</div>
+                <div class="h3 mb-0">@Model.TotalCount</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4">
+            <div class="card-panel text-center py-3">
+                <div class="muted small">عدد الدول</div>
+                <div class="h3 mb-0">@Model.CountryCount</div>
+            </div>
+        </div>
+        <div class="col-12 col-md-4">
+            <div class="card-panel text-center py-3">
+                <div class="muted small">عدد المدن</div>
+                <div class="h3 mb-0">@Model.CityCount</div>
+            </div>
+        </div>
+    </div>
+
+    @if (Model.TotalCount == 0)
+    {
+        <div class="alert alert-info mb-0">لا يوجد مقتربون مسجّلون حالياً@(string.IsNullOrWhiteSpace(Model.Country) && string.IsNullOrWhiteSpace(Model.City) ? "." : " وفق الفلاتر المحددة.")</div>
+    }
+    else
+    {
+        @foreach (var countryGroup in Model.Groups)
+        {
+            <div class="card-panel mb-3">
+                <h3 class="h6 mb-3">
+                    @countryGroup.Country
+                    <span class="muted small">(@countryGroup.Cities.Sum(c => c.People.Count) مقترب)</span>
+                </h3>
+
+                @foreach (var cityGroup in countryGroup.Cities)
+                {
+                    <div class="mb-3">
+                        <h4 class="h6 text-secondary mb-2">@cityGroup.City (@cityGroup.People.Count)</h4>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered align-middle mb-0">
+                                <thead>
+                                <tr>
+                                    <th style="width:3rem">م</th>
+                                    <th>الكود</th>
+                                    <th>الاسم</th>
+                                    <th>الهاتف</th>
+                                    <th>مكان الإقامة</th>
+                                    <th>المهنة</th>
+                                    <th class="no-print">تفاصيل</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                @{ var n = 1; }
+                                @foreach (var p in cityGroup.People)
+                                {
+                                    <tr>
+                                        <td>@(n++)</td>
+                                        <td><code>@p.RegistryCode</code></td>
+                                        <td>@p.FullName</td>
+                                        <td>@(string.IsNullOrWhiteSpace(p.Phone) ? "—" : p.Phone)</td>
+                                        <td>@(string.IsNullOrWhiteSpace(p.Residence) ? "—" : p.Residence)</td>
+                                        <td>@(string.IsNullOrWhiteSpace(p.Profession) ? "—" : p.Profession)</td>
+                                        <td class="no-print">
+                                            <a asp-page="/People/Details" asp-route-id="@p.Id">عرض</a>
+                                        </td>
+                                    </tr>
+                                }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>

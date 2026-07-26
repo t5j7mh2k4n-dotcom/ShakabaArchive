@@ -50,6 +50,8 @@ public static class PersonSearchSuggestions
             "birthPlace" => await SuggestDistinctAsync(filtered, limit, q => q.Select(p => p.BirthPlace)),
             "residence" => await SuggestDistinctAsync(filtered, limit, q => q.Select(p => p.Residence)),
             "neighborhood" => await SuggestDistinctAsync(filtered, limit, q => q.Select(p => p.Neighborhood)),
+            "migrationCountry" => await SuggestDistinctAsync(filtered, limit, q => q.Where(p => p.IsMigrant).Select(p => p.MigrationCountry)),
+            "migrationCity" => await SuggestDistinctAsync(filtered, limit, q => q.Where(p => p.IsMigrant).Select(p => p.MigrationCity)),
             "tribe" => await SuggestDistinctAsync(filtered, limit, q => q.Select(p => p.Tribe)),
             "profession" => await SuggestDistinctAsync(filtered, limit, q => q.Select(p => p.Profession)),
             "motherName" => await SuggestDistinctAsync(filtered, limit, q => q.Select(p => p.MotherName)),
