@@ -303,11 +303,91 @@ html, body {
 }
 
 .person-photo-list {
-  width: 40px;
-  height: 40px;
-  object-fit: cover;
-  border-radius: 8px;
-  border: 1px solid var(--line);
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+}
+
+.person-barcode-card {
+    text-align: center;
+}
+
+.person-barcode-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.person-barcode-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--accent);
+}
+
+.person-barcode {
+    max-width: 100%;
+    height: auto;
+}
+
+.person-barcode-code {
+    font-size: 0.82rem;
+    color: var(--muted);
+}
+
+.person-barcode-wrap--compact .person-barcode-code {
+    display: none;
+}
+
+.person-barcode-cell {
+    min-width: 120px;
+    vertical-align: middle;
+}
+
+.person-barcode-wrap--compact {
+    padding: 0.15rem 0;
+}
+
+.person-codes-card {
+    text-align: center;
+}
+
+.person-codes-header {
+    margin-bottom: 0.75rem;
+}
+
+.person-codes-name {
+    font-weight: 700;
+    color: var(--ink);
+}
+
+.person-qr-wrap {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px dashed var(--line);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.person-qr {
+    display: inline-block;
+    padding: 0.35rem;
+    background: #fffcf7;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+}
+
+.person-qr img,
+.person-qr canvas {
+    display: block;
+}
+
+.person-codes-actions {
+    margin-top: 0.85rem;
 }
 
 .badge-soft {
@@ -373,15 +453,32 @@ html, body {
 }
 
 @media print {
-  .site-header,
-  .site-footer,
-  .no-print {
-    display: none !important;
-  }
+    .site-header,
+    .site-footer,
+    .no-print {
+        display: none !important;
+    }
 
-  body {
-    background: #fff !important;
-  }
+    body.printing-person-codes * {
+        visibility: hidden !important;
+    }
+
+    body.printing-person-codes #person-codes-print,
+    body.printing-person-codes #person-codes-print * {
+        visibility: visible !important;
+    }
+
+    body.printing-person-codes #person-codes-print {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        padding: 1.5rem;
+        background: #fff !important;
+    }
+
+    body {
+        background: #fff !important;
+    }
 
   main.container {
     max-width: 100% !important;

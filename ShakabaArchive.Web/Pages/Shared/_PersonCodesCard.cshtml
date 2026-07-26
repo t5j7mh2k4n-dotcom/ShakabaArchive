@@ -1,0 +1,29 @@
+@model PersonCodesCardView
+
+<div id="person-codes-print" class="person-codes-card">
+    <div class="person-codes-header">
+        <h2 class="h6 mb-1">رموز السجل</h2>
+        <div class="person-codes-name">@Model.FullName</div>
+    </div>
+
+    <partial name="_PersonBarcode" model='new PersonBarcodeView(Model.RegistryBarcode, false, "باركود كود السجل")' />
+
+    @if (!string.IsNullOrWhiteSpace(Model.DocumentBarcode))
+    {
+        <partial name="_PersonBarcode" model='new PersonBarcodeView(Model.DocumentBarcode!, false, "باركود رقم الوثيقة")' />
+    }
+
+    <div class="person-qr-wrap">
+        <div class="person-barcode-title">QR — فتح صفحة السجل</div>
+        <div class="person-qr" data-qr-url="@Model.DetailsUrl" role="img" aria-label="QR لصفحة @Model.FullName"></div>
+        <div class="person-barcode-code"><a href="@Model.DetailsUrl">@Model.DetailsUrl</a></div>
+    </div>
+
+    <div class="person-codes-actions no-print">
+        <button type="button" class="btn btn-soft btn-sm" id="btn-print-person-codes">طباعة الرموز</button>
+    </div>
+
+    <p class="muted small mb-0 mt-2 no-print">
+        امسح الباركود للكود أو الوثيقة، أو امسح QR لفتح صفحة الشخص مباشرة.
+    </p>
+</div>

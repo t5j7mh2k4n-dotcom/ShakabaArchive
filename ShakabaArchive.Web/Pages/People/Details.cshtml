@@ -162,6 +162,9 @@ else
             </div>
         </div>
         <div class="col-lg-4">
+            <div class="card-panel mb-3 person-barcode-card">
+                <partial name="_PersonCodesCard" model="PersonCodesCardView.ForPerson(p, Model.PersonDetailsUrl)" />
+            </div>
             <div class="card-panel mb-3">
                 <h2 class="h6 mb-3">الصورة الشخصية</h2>
                 @if (!string.IsNullOrWhiteSpace(p.PhotoPath))
@@ -194,4 +197,10 @@ else
             </div>
         </div>
     </div>
+}
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script src="~/js/person-barcode.js" asp-append-version="true"></script>
 }

@@ -1,0 +1,14 @@
+@model PersonBarcodeView
+
+<div class="person-barcode-wrap @(Model.Compact ? "person-barcode-wrap--compact" : "")">
+    @if (!Model.Compact && !string.IsNullOrWhiteSpace(Model.Title))
+    {
+        <div class="person-barcode-title">@Model.Title</div>
+    }
+    <svg class="person-barcode"
+         data-barcode="@Model.Value"
+         data-compact="@(Model.Compact ? "1" : "0")"
+         role="img"
+         aria-label="باركود @Model.Value"></svg>
+    <div class="person-barcode-code"><code>@Model.Value</code></div>
+</div>

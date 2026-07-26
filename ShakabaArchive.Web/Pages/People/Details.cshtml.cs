@@ -10,6 +10,7 @@ public class DetailsModel(ArchiveDbContext db) : PageModel
 {
     public Person? Person { get; private set; }
     public List<Person> Children { get; private set; } = [];
+    public string PersonDetailsUrl { get; private set; } = string.Empty;
 
     public async Task<IActionResult> OnGetAsync(int id)
     {
@@ -17,6 +18,8 @@ public class DetailsModel(ArchiveDbContext db) : PageModel
             .Include(p => p.Events.Where(e => e.Type != EventType.Divorce && e.Type != EventType.Condolence))
             .FirstOrDefaultAsync(p => p.Id == id);
         if (Person is null) return NotFound();
+
+        PersonDetailsUrl = $"{Request.Scheme}://{Request.Host}/People/Details/{id}";
 
         Children = await db.People.AsNoTracking()
             .Where(p => p.ParentPersonId == id)

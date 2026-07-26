@@ -91,6 +91,7 @@
             <tr>
                 <th></th>
                 <th>الكود</th>
+                <th>الباركود</th>
                 <th>المستوى</th>
                 <th>الاسم الأول</th>
                 <th>اسم الأب</th>
@@ -126,6 +127,9 @@
                         }
                     </td>
                     <td><code>@p.RegistryCode</code></td>
+                    <td class="person-barcode-cell">
+                        <partial name="_PersonBarcode" model="PersonBarcodeView.ForPerson(p, compact: true)" />
+                    </td>
                     <td>@PersonRegistryService.LevelLabel(p.HierarchyLevel)</td>
                     <td><a asp-page="Details" asp-route-id="@p.Id">@Dash(p.FirstName)</a></td>
                     <td>@Dash(p.FatherName)</td>
@@ -164,3 +168,8 @@
         <p class="muted mt-3 mb-0">لا توجد نتائج في سجل الأشخاص.</p>
     }
 </div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+    <script src="~/js/person-barcode.js" asp-append-version="true"></script>
+}
