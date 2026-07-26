@@ -511,28 +511,73 @@ public static class ApprovalService
         };
     }
 
+    public const string IncompleteProfileMarker = "[بيانات غير مكتملة]";
+
+    private static bool IsIncompleteDraft(PersonDraft dto) =>
+        string.IsNullOrWhiteSpace(dto.FatherName)
+        || string.IsNullOrWhiteSpace(dto.FamilyName)
+        || string.IsNullOrWhiteSpace(dto.DocumentNumber) && string.IsNullOrWhiteSpace(dto.NationalId)
+        || string.IsNullOrWhiteSpace(dto.Phone);
+
+    private static void MarkIncomplete(Person person, bool incomplete)
+    {
+        if (!incomplete)
+            return;
+        if (person.Notes.Contains(IncompleteProfileMarker, StringComparison.Ordinal))
+            return;
+        var note = $"{IncompleteProfileMarker} — يرجى إكمال البيانات عبر الرابط المرسل واتساب.";
+        person.Notes = string.IsNullOrWhiteSpace(person.Notes) ? note : $"{note} {person.Notes}";
+    }
+
+    private static PersonDraft EnsureMinimalDraft(PersonDraft? dto, PendingChange item, AppUser? submitter)
+    {
+        dto ??= DraftFromSummary(item.Summary) ?? new PersonDraft();
+
+        if (string.IsNullOrWhiteSpace(dto.FirstName) && string.IsNullOrWhiteSpace(dto.FullName))
+        {
+            var fromSummary = DraftFromSummary(item.Summary);
+            if (fromSummary is not null)
+            {
+                dto.FirstName = fromSummary.FirstName;
+                dto.FatherName = fromSummary.FatherName;
+                dto.GrandfatherName = fromSummary.GrandfatherName;
+                dto.FamilyName = fromSummary.FamilyName;
+                dto.FullName = fromSummary.FullName;
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.FirstName) && string.IsNullOrWhiteSpace(dto.FullName))
+        {
+            var fallback = !string.IsNullOrWhiteSpace(item.SubmittedByName)
+                ? item.SubmittedByName.Trim()
+                : $"سجل مؤقت #{item.Id}";
+            dto.FirstName = fallback;
+            dto.FullName = fallback;
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.Phone) && submitter is not null)
+            dto.Phone = submitter.Phone ?? "";
+
+        if (string.IsNullOrWhiteSpace(dto.Gender))
+            dto.Gender = "ذكر";
+        if (string.IsNullOrWhiteSpace(dto.BirthPlace))
+            dto.BirthPlace = "الشكابة شاع الدين";
+        if (string.IsNullOrWhiteSpace(dto.Residence))
+            dto.Residence = "الشكابة شاع الدين";
+
+        dto.HierarchyLevel = 1;
+        dto.ParentPersonId = null;
+        dto.NormalizeDocument();
+        return dto;
+    }
+
     private static async Task<Person> BuildPersonForCreateAsync(ArchiveDbContext db, PersonDraft dto)
     {
         var person = dto.ToPerson();
+        person.HierarchyLevel = 1;
+        person.ParentPersonId = null;
 
-        // إن الأب غير موجود في السجل — احفظ كمستوى 1 حتى لا يفشل المفتاح الأجنبي
-        if (person.HierarchyLevel is 2 or 3)
-        {
-            if (person.ParentPersonId is not int parentId
-                || !await db.People.AsNoTracking().AnyAsync(p => p.Id == parentId))
-            {
-                person.HierarchyLevel = 1;
-                person.ParentPersonId = null;
-            }
-        }
-        else
-        {
-            person.HierarchyLevel = 1;
-            person.ParentPersonId = null;
-        }
-
-        person.RegistryCode = await PersonRegistryService.AllocateCodeAsync(
-            db, person.HierarchyLevel, person.ParentPersonId);
+        person.RegistryCode = await PersonRegistryService.AllocateCodeAsync(db, 1, null);
 
         if (person.BirthDate is { } bd)
             person.BirthDate = DateTime.SpecifyKind(bd.Date, DateTimeKind.Utc);
@@ -543,8 +588,11 @@ public static class ApprovalService
         if (string.IsNullOrWhiteSpace(person.FullName) && !string.IsNullOrWhiteSpace(dto.FullName))
             person.FullName = dto.FullName.Trim();
         if (string.IsNullOrWhiteSpace(person.FullName))
-            throw new InvalidOperationException("اسم الشخص فارغ — لا يمكن الحفظ في السجل.");
+            person.FullName = string.IsNullOrWhiteSpace(person.FirstName) ? "بدون اسم" : person.FirstName;
+        if (string.IsNullOrWhiteSpace(person.FirstName))
+            person.FirstName = person.FullName;
 
+        MarkIncomplete(person, IsIncompleteDraft(dto));
         return person;
     }
 
@@ -552,15 +600,24 @@ public static class ApprovalService
     {
         var name = (dto.FullName ?? "").Trim();
         if (string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(dto.FirstName))
-        {
             name = Person.ComposeFullName(dto.FirstName, dto.FatherName, dto.GrandfatherName, dto.FamilyName);
-        }
 
         var doc = (dto.DocumentNumber ?? dto.NationalId ?? "").Trim();
+        var phone = (dto.Phone ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(name) && string.IsNullOrWhiteSpace(phone) && string.IsNullOrWhiteSpace(doc))
+            return null;
+
+        if (!string.IsNullOrWhiteSpace(phone))
+        {
+            var byPhone = await db.People.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Phone == phone);
+            if (byPhone is not null)
+                return byPhone;
+        }
+
         if (string.IsNullOrWhiteSpace(name))
             return null;
 
-        // لا نربط بالكود وحده — الكود في الطلب قد يخص شخصاً آخر
         if (!string.IsNullOrWhiteSpace(doc))
         {
             return await db.People.AsNoTracking()
@@ -572,40 +629,91 @@ public static class ApprovalService
         return await db.People.AsNoTracking()
             .FirstOrDefaultAsync(p =>
                 p.FullName == name
-                && p.FirstName == dto.FirstName.Trim()
-                && p.FatherName == dto.FatherName.Trim());
+                && p.FirstName == dto.FirstName.Trim());
     }
+
+    public sealed record MigrateReminder(int PersonId, string Name, string Phone, bool Incomplete);
 
     public sealed record MigrateResult(
         int Migrated,
         int Linked,
         int AlreadyInRegistry,
         int Failed,
-        IReadOnlyList<string> Errors);
+        IReadOnlyList<string> Errors,
+        IReadOnlyList<MigrateReminder> Reminders);
 
-    /// <summary>عدد طلبات إضافة أشخاص معتمدة وغير موجودة فعلياً في سجل الأشخاص.</summary>
+    /// <summary>عدد الطلبات المعتمدة التي لم تُحفظ بعد في سجل الأشخاص (شخص أو حساب).</summary>
     public static async Task<int> CountApprovedPersonsMissingFromRegistryAsync(ArchiveDbContext db)
     {
         await EnsureSchemaAsync(db);
         var approved = await db.PendingChanges.AsNoTracking()
             .Where(x => x.Status == ChangeStatus.Approved
-                        && x.EntityType == ChangeEntity.Person
-                        && x.Action == ChangeAction.Create)
-            .Select(x => new { x.Id, x.EntityId })
+                        && x.Action == ChangeAction.Create
+                        && (x.EntityType == ChangeEntity.Person || x.EntityType == ChangeEntity.UserAccount))
+            .Select(x => new { x.Id, x.EntityId, x.EntityType, x.PayloadJson, x.Summary, x.SubmittedByName })
             .ToListAsync();
 
         var missing = 0;
         foreach (var row in approved)
         {
-            if (row.EntityId is int id && await db.People.AsNoTracking().AnyAsync(p => p.Id == id))
+            if (row.EntityType == ChangeEntity.Person
+                && row.EntityId is int id
+                && await db.People.AsNoTracking().AnyAsync(p => p.Id == id))
                 continue;
+
+            if (row.EntityType == ChangeEntity.UserAccount)
+            {
+                var phone = ExtractPhoneFromUserPayload(row.PayloadJson);
+                if (!string.IsNullOrWhiteSpace(phone)
+                    && await db.People.AsNoTracking().AnyAsync(p => p.Phone == phone))
+                    continue;
+            }
+
             missing++;
         }
 
         return missing;
     }
 
-    /// <summary>ترحيل طلبات إضافة أشخاص اعتُمدت لكن لم تُحفظ في السجل.</summary>
+    private static string ExtractPhoneFromUserPayload(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(json) ? "{}" : json);
+            if (doc.RootElement.TryGetProperty("phone", out var p))
+                return p.GetString()?.Trim() ?? "";
+            if (doc.RootElement.TryGetProperty("Phone", out var p2))
+                return p2.GetString()?.Trim() ?? "";
+        }
+        catch { /* ignore */ }
+        return "";
+    }
+
+    private static (string DisplayName, string Email, string Phone) ExtractUserPayload(string json, PendingChange item)
+    {
+        var name = item.SubmittedByName;
+        var email = "";
+        var phone = "";
+        try
+        {
+            using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(json) ? "{}" : json);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("displayName", out var dn) || root.TryGetProperty("DisplayName", out dn))
+                name = dn.GetString() ?? name;
+            if (root.TryGetProperty("email", out var em) || root.TryGetProperty("Email", out em))
+                email = em.GetString() ?? "";
+            if (root.TryGetProperty("phone", out var ph) || root.TryGetProperty("Phone", out ph))
+                phone = ph.GetString() ?? "";
+        }
+        catch { /* ignore */ }
+
+        if (string.IsNullOrWhiteSpace(name) && item.Summary.Contains(':'))
+            name = item.Summary[(item.Summary.IndexOf(':') + 1)..].Split('—')[0].Trim();
+
+        return (name.Trim(), email.Trim(), phone.Trim());
+    }
+
+    /// <summary>ترحيل المعتمدة إلى السجل حتى لو كانت البيانات ناقصة.</summary>
     public static async Task<MigrateResult> RepairApprovedPersonCreatesAsync(ArchiveDbContext db)
     {
         DatabaseService.EnsureReady();
@@ -613,8 +721,8 @@ public static class ApprovalService
 
         var stuck = await db.PendingChanges
             .Where(x => x.Status == ChangeStatus.Approved
-                        && x.EntityType == ChangeEntity.Person
-                        && x.Action == ChangeAction.Create)
+                        && x.Action == ChangeAction.Create
+                        && (x.EntityType == ChangeEntity.Person || x.EntityType == ChangeEntity.UserAccount))
             .OrderBy(x => x.Id)
             .ToListAsync();
 
@@ -623,27 +731,58 @@ public static class ApprovalService
         var already = 0;
         var failed = 0;
         var errors = new List<string>();
+        var reminders = new List<MigrateReminder>();
 
         foreach (var item in stuck)
         {
             try
             {
+                AppUser? submitter = null;
+                try
+                {
+                    submitter = await db.Users.AsNoTracking()
+                        .FirstOrDefaultAsync(u => u.Id == item.SubmittedByUserId);
+                }
+                catch { /* ignore */ }
+
+                if (item.EntityType == ChangeEntity.UserAccount)
+                {
+                    var (ok, person, wasNew) = await MigrateUserAccountToPersonAsync(db, item, submitter);
+                    if (!ok || person is null)
+                    {
+                        failed++;
+                        errors.Add($"#{item.Id}: تعذر إنشاء سجل من الحساب.");
+                        continue;
+                    }
+
+                    if (wasNew) migrated++;
+                    else already++;
+
+                    reminders.Add(new MigrateReminder(
+                        person.Id,
+                        person.FullName,
+                        person.Phone,
+                        person.Notes.Contains(IncompleteProfileMarker, StringComparison.Ordinal)));
+                    continue;
+                }
+
                 if (item.EntityId is int id && await db.People.AnyAsync(p => p.Id == id))
                 {
                     already++;
+                    var existing = await db.People.AsNoTracking().FirstAsync(p => p.Id == id);
+                    reminders.Add(new MigrateReminder(
+                        existing.Id,
+                        existing.FullName,
+                        existing.Phone,
+                        existing.Notes.Contains(IncompleteProfileMarker, StringComparison.Ordinal)));
                     continue;
                 }
 
-                // EntityId قديم يشير لسجل محذوف — أعد الإنشاء
                 item.EntityId = null;
-
-                var dto = DeserializePersonDraft(item.PayloadJson) ?? DraftFromSummary(item.Summary);
-                if (dto is null)
-                {
-                    failed++;
-                    errors.Add($"#{item.Id}: بيانات الطلب فارغة أو تالفة.");
-                    continue;
-                }
+                var dto = EnsureMinimalDraft(
+                    DeserializePersonDraft(item.PayloadJson),
+                    item,
+                    submitter);
 
                 var match = await FindExactPersonMatchAsync(db, dto);
                 if (match is not null)
@@ -651,18 +790,28 @@ public static class ApprovalService
                     item.EntityId = match.Id;
                     item.Summary = $"إضافة سجل أشخاص {match.RegistryCode}: {match.FullName}";
                     linked++;
+                    reminders.Add(new MigrateReminder(
+                        match.Id,
+                        match.FullName,
+                        string.IsNullOrWhiteSpace(match.Phone) ? dto.Phone : match.Phone,
+                        true));
                     continue;
                 }
 
-                var person = await BuildPersonForCreateAsync(db, dto);
-                db.People.Add(person);
+                var personRow = await BuildPersonForCreateAsync(db, dto);
+                db.People.Add(personRow);
                 await db.SaveChangesAsync();
-                item.EntityId = person.Id;
-                item.Summary = $"إضافة سجل أشخاص {person.RegistryCode}: {person.FullName}";
-                item.ReviewNote = string.IsNullOrWhiteSpace(item.ReviewNote)
-                    ? "تم الترحيل إلى السجل"
-                    : item.ReviewNote;
+                item.EntityId = personRow.Id;
+                item.Summary = $"إضافة سجل أشخاص {personRow.RegistryCode}: {personRow.FullName}";
+                item.ReviewNote = IsIncompleteDraft(dto)
+                    ? "تم الترحيل إلى السجل (بيانات غير مكتملة)"
+                    : "تم الترحيل إلى السجل";
                 migrated++;
+                reminders.Add(new MigrateReminder(
+                    personRow.Id,
+                    personRow.FullName,
+                    personRow.Phone,
+                    IsIncompleteDraft(dto)));
             }
             catch (Exception ex)
             {
@@ -671,18 +820,57 @@ public static class ApprovalService
                 if (msg.Length > 120)
                     msg = msg[..120] + "…";
                 errors.Add($"#{item.Id}: {msg}");
-                Console.Error.WriteLine($"Repair person pending #{item.Id}: {ex}");
+                Console.Error.WriteLine($"Repair pending #{item.Id}: {ex}");
             }
         }
 
         if (db.ChangeTracker.HasChanges())
             await db.SaveChangesAsync();
 
-        return new MigrateResult(migrated, linked, already, failed, errors);
+        return new MigrateResult(migrated, linked, already, failed, errors, reminders);
     }
 
-    /// <summary>ترحيل طلب إضافة شخص واحد معتمد إلى السجل.</summary>
-    public static async Task<(bool Ok, string Error, int? PersonId)> MigrateOneApprovedPersonAsync(
+    private static async Task<(bool Ok, Person? Person, bool WasNew)> MigrateUserAccountToPersonAsync(
+        ArchiveDbContext db,
+        PendingChange item,
+        AppUser? submitter)
+    {
+        var (displayName, _, phone) = ExtractUserPayload(item.PayloadJson, item);
+        if (string.IsNullOrWhiteSpace(phone) && submitter is not null)
+            phone = submitter.Phone ?? "";
+        if (string.IsNullOrWhiteSpace(displayName) && submitter is not null)
+            displayName = submitter.DisplayName;
+
+        if (string.IsNullOrWhiteSpace(displayName))
+            displayName = $"مستخدم #{item.SubmittedByUserId}";
+
+        if (!string.IsNullOrWhiteSpace(phone))
+        {
+            var existing = await db.People.FirstOrDefaultAsync(p => p.Phone == phone);
+            if (existing is not null)
+            {
+                // اربط الطلب بسجل الشخص إن أمكن عبر ملاحظة فقط
+                return (true, existing, false);
+            }
+        }
+
+        var dto = EnsureMinimalDraft(new PersonDraft
+        {
+            FirstName = displayName.Split(' ', 2)[0],
+            FatherName = displayName.Contains(' ') ? displayName[(displayName.IndexOf(' ') + 1)..] : "",
+            FullName = displayName,
+            Phone = phone,
+            Notes = "أُنشئ من تسجيل حساب معتمد"
+        }, item, submitter);
+
+        var person = await BuildPersonForCreateAsync(db, dto);
+        db.People.Add(person);
+        await db.SaveChangesAsync();
+        return (true, person, true);
+    }
+
+    /// <summary>ترحيل طلب واحد معتمد إلى السجل (شخص أو حساب).</summary>
+    public static async Task<(bool Ok, string Error, int? PersonId, bool Incomplete)> MigrateOneApprovedPersonAsync(
         ArchiveDbContext db,
         int pendingId)
     {
@@ -691,20 +879,38 @@ public static class ApprovalService
 
         var item = await db.PendingChanges.FirstOrDefaultAsync(x => x.Id == pendingId);
         if (item is null)
-            return (false, "الطلب غير موجود.", null);
+            return (false, "الطلب غير موجود.", null, false);
+        if (item.Status == ChangeStatus.Rejected)
+            return (false, "لا يمكن ترحيل طلب مرفوض.", null, false);
+
+        AppUser? submitter = null;
+        try
+        {
+            submitter = await db.Users.AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == item.SubmittedByUserId);
+        }
+        catch { /* ignore */ }
+
+        if (item.EntityType == ChangeEntity.UserAccount)
+        {
+            var (ok, person, _) = await MigrateUserAccountToPersonAsync(db, item, submitter);
+            if (!ok || person is null)
+                return (false, "تعذر إنشاء السجل من الحساب.", null, false);
+            return (true, "", person.Id, person.Notes.Contains(IncompleteProfileMarker, StringComparison.Ordinal));
+        }
+
         if (item.EntityType != ChangeEntity.Person || item.Action != ChangeAction.Create)
-            return (false, "هذا الطلب ليس إضافة شخص إلى السجل.", null);
-        if (item.Status != ChangeStatus.Approved && item.Status != ChangeStatus.Pending)
-            return (false, "لا يمكن ترحيل طلب مرفوض.", null);
+            return (false, "هذا الطلب لا يُرحَّل إلى سجل الأشخاص.", null, false);
 
         if (item.EntityId is int existingId && await db.People.AnyAsync(p => p.Id == existingId))
-            return (true, "موجود مسبقاً في السجل.", existingId);
+        {
+            var p = await db.People.AsNoTracking().FirstAsync(x => x.Id == existingId);
+            return (true, "موجود مسبقاً في السجل.", existingId,
+                p.Notes.Contains(IncompleteProfileMarker, StringComparison.Ordinal));
+        }
 
         item.EntityId = null;
-        var dto = DeserializePersonDraft(item.PayloadJson) ?? DraftFromSummary(item.Summary);
-        if (dto is null)
-            return (false, "بيانات الطلب فارغة أو تالفة.", null);
-
+        var dto = EnsureMinimalDraft(DeserializePersonDraft(item.PayloadJson), item, submitter);
         var match = await FindExactPersonMatchAsync(db, dto);
         if (match is not null)
         {
@@ -712,7 +918,7 @@ public static class ApprovalService
             item.Status = ChangeStatus.Approved;
             item.ReviewedAt ??= DateTime.UtcNow;
             await db.SaveChangesAsync();
-            return (true, "تم الربط بسجل موجود.", match.Id);
+            return (true, "تم الربط بسجل موجود.", match.Id, true);
         }
 
         try
@@ -724,13 +930,15 @@ public static class ApprovalService
             item.Status = ChangeStatus.Approved;
             item.ReviewedAt ??= DateTime.UtcNow;
             item.Summary = $"إضافة سجل أشخاص {person.RegistryCode}: {person.FullName}";
-            item.ReviewNote = "تم الترحيل إلى السجل";
+            item.ReviewNote = IsIncompleteDraft(dto)
+                ? "تم الترحيل إلى السجل (بيانات غير مكتملة)"
+                : "تم الترحيل إلى السجل";
             await db.SaveChangesAsync();
-            return (true, "", person.Id);
+            return (true, "", person.Id, IsIncompleteDraft(dto));
         }
         catch (Exception ex)
         {
-            return (false, ex.GetBaseException().Message, null);
+            return (false, ex.GetBaseException().Message, null, false);
         }
     }
 

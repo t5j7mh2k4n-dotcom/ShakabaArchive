@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
@@ -17,6 +18,7 @@ public class IndexModel : PageModel
     public int TotalCount { get; private set; }
     public int MissingInRegistryCount { get; private set; }
     public HashSet<int> PersonIdsInRegistry { get; private set; } = [];
+    public List<ApprovalService.MigrateReminder> WhatsAppReminders { get; private set; } = [];
     public string Filter { get; private set; } = "pending";
     public string? Message { get; private set; }
     public string? Error { get; private set; }
@@ -25,6 +27,15 @@ public class IndexModel : PageModel
     {
         Message = TempData["Flash"] as string;
         Error = TempData["FlashError"] as string;
+        if (TempData["WhatsAppReminders"] is string remindersJson && !string.IsNullOrWhiteSpace(remindersJson))
+        {
+            try
+            {
+                WhatsAppReminders = JsonSerializer.Deserialize<List<ApprovalService.MigrateReminder>>(remindersJson) ?? [];
+            }
+            catch { WhatsAppReminders = []; }
+        }
+
         CurrentUserId = ReadUserId();
         CanReview = ResolveCanReview();
         Filter = NormalizeFilter(filter);
@@ -135,26 +146,26 @@ public class IndexModel : PageModel
             await ApprovalService.EnsureSchemaAsync(db);
             var result = await ApprovalService.RepairApprovedPersonCreatesAsync(db);
 
-            if (result.Migrated == 0 && result.Linked == 0)
+            if (result.Reminders.Count > 0)
             {
-                if (result.Failed > 0)
-                {
-                    TempData["FlashError"] =
-                        $"تعذر ترحيل {result.Failed} طلب. " +
-                        string.Join(" | ", result.Errors.Take(3));
-                }
-                else
-                {
-                    TempData["Flash"] = "كل طلبات إضافة الأشخاص المعتمدة موجودة مسبقاً في السجل. (موافقة الحساب وحده لا تُنشئ سجل شخص)";
-                }
+                TempData["WhatsAppReminders"] = JsonSerializer.Serialize(
+                    result.Reminders.Where(r => r.Incomplete || !string.IsNullOrWhiteSpace(r.Phone)).Take(40).ToList());
+            }
+
+            if (result.Migrated == 0 && result.Linked == 0 && result.AlreadyInRegistry == 0)
+            {
+                TempData["FlashError"] = result.Failed > 0
+                    ? $"تعذر ترحيل {result.Failed} طلب. " + string.Join(" | ", result.Errors.Take(3))
+                    : "لا توجد طلبات معتمدة قابلة للترحيل.";
             }
             else
             {
                 TempData["Flash"] =
                     $"تم الترحيل إلى السجل: جديد {result.Migrated}" +
                     (result.Linked > 0 ? $"، مربوط {result.Linked}" : "") +
+                    (result.AlreadyInRegistry > 0 ? $"، موجود مسبقاً {result.AlreadyInRegistry}" : "") +
                     (result.Failed > 0 ? $"، فشل {result.Failed}" : "") +
-                    ". افتح سجل الأشخاص للتأكد.";
+                    ". أرسل تنبيه واتساب لإكمال البيانات الناقصة من الأزرار بالأسفل.";
                 if (result.Failed > 0 && result.Errors.Count > 0)
                     TempData["FlashError"] = string.Join(" | ", result.Errors.Take(3));
             }
@@ -180,18 +191,29 @@ public class IndexModel : PageModel
         try
         {
             await using var db = DatabaseService.CreateContext();
-            var (ok, error, personId) = await ApprovalService.MigrateOneApprovedPersonAsync(db, id);
+            var (ok, error, personId, incomplete) = await ApprovalService.MigrateOneApprovedPersonAsync(db, id);
             if (!ok)
             {
                 TempData["FlashError"] = error;
                 return RedirectToPage(new { filter = filter ?? "approved" });
             }
 
-            TempData["Flash"] = string.IsNullOrWhiteSpace(error)
-                ? "تم حفظ الشخص في سجل الأشخاص."
-                : error;
             if (personId is int pid)
-                return RedirectToPage("/People/Details", new { id = pid });
+            {
+                var person = await db.People.AsNoTracking().FirstOrDefaultAsync(p => p.Id == pid);
+                if (person is not null && (incomplete || !string.IsNullOrWhiteSpace(person.Phone)))
+                {
+                    TempData["WhatsAppReminders"] = JsonSerializer.Serialize(new[]
+                    {
+                        new ApprovalService.MigrateReminder(person.Id, person.FullName, person.Phone, incomplete)
+                    });
+                }
+
+                TempData["Flash"] = incomplete
+                    ? "تم الحفظ في السجل (بيانات غير مكتملة). أرسل تنبيه واتساب لإكمال البيانات."
+                    : (string.IsNullOrWhiteSpace(error) ? "تم حفظ الشخص في سجل الأشخاص." : error);
+                return RedirectToPage(new { filter = "approved" });
+            }
         }
         catch (Exception ex)
         {

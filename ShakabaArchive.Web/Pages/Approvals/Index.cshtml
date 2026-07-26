@@ -70,8 +70,8 @@
             <div>
                 <h2 class="h6 mb-1">ترحيل المعتمدة إلى سجل الأشخاص</h2>
                 <p class="muted small mb-0">
-                    ينقل طلبات <strong>إضافة شخص</strong> المعتمدة إلى سجل الأشخاص.
-                    موافقة «حساب مستخدم» لا تُنشئ سجل شخص — يجب إضافة بياناتي أولاً.
+                    يرحّل طلبات <strong>إضافة شخص</strong> و<strong>تسجيل الحساب</strong> المعتمدة إلى سجل الأشخاص
+                    حتى لو كانت البيانات ناقصة، ثم يمكنك إرسال واتساب لإكمالها.
                     @if (Model.MissingInRegistryCount > 0)
                     {
                         <span class="text-danger fw-semibold">(@Model.MissingInRegistryCount بانتظار الترحيل)</span>
@@ -81,7 +81,7 @@
             <form method="post" asp-page-handler="MigrateApproved">
                 <input type="hidden" name="filter" value="approved" />
                 <button type="submit" class="btn btn-accent"
-                        onclick="return confirm('ترحيل كل طلبات إضافة الأشخاص المعتمدة إلى سجل الأشخاص؟');">
+                        onclick="return confirm('ترحيل كل المعتمدة إلى سجل الأشخاص (حتى الناقصة)؟');">
                     ترحيل المعتمدة إلى السجل
                     @if (Model.MissingInRegistryCount > 0)
                     {
@@ -91,6 +91,28 @@
             </form>
         </div>
     </div>
+
+    @if (Model.WhatsAppReminders.Count > 0)
+    {
+        <div class="card-panel mb-3 border-success">
+            <h2 class="h6 mb-2">تنبيه واتساب لإكمال البيانات</h2>
+            <p class="muted small mb-3">اضغط لإرسال رسالة واتساب تطلب إكمال البيانات عبر رابط الصفحة.</p>
+            <div class="d-flex flex-wrap gap-2">
+                @foreach (var r in Model.WhatsAppReminders)
+                {
+                    var completeUrl = $"{WhatsAppShare.PublicSiteUrl}/People/Complete/{r.PersonId}";
+                    var wa = WhatsAppShare.CompleteDataReminderUrl(r.Phone, r.Name, completeUrl);
+                    <a class="btn btn-sm btn-whatsapp" href="@wa" target="_blank" rel="noopener">
+                        واتساب — @r.Name
+                        @if (r.Incomplete)
+                        {
+                            <span class="small">(ناقص)</span>
+                        }
+                    </a>
+                }
+            </div>
+        </div>
+    }
 }
 else
 {
@@ -135,8 +157,11 @@ else
                         && item.Action != ChangeAction.Delete
                         && (Model.CanReview || item.SubmittedByUserId == Model.CurrentUserId);
                     var isPersonCreate = item.EntityType == ChangeEntity.Person && item.Action == ChangeAction.Create;
+                    var isUserAccount = item.EntityType == ChangeEntity.UserAccount && item.Action == ChangeAction.Create;
                     var inRegistry = item.EntityId is int eid && Model.PersonIdsInRegistry.Contains(eid);
-                    var needsMigrate = Model.CanReview && isPersonCreate && item.Status == ChangeStatus.Approved && !inRegistry;
+                    var needsMigrate = Model.CanReview
+                        && item.Status == ChangeStatus.Approved
+                        && ((isPersonCreate && !inRegistry) || isUserAccount);
                     <tr class="@(item.Status == ChangeStatus.Pending ? "" : "table-secondary")">
                         <td>@item.Id</td>
                         <td>@EntityAr(item.EntityType)</td>

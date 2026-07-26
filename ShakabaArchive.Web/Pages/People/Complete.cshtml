@@ -1,0 +1,32 @@
+@page "{id:int}"
+@model ShakabaArchive.Web.Pages.People.CompleteModel
+@{
+    ViewData["Title"] = "إكمال البيانات";
+    ViewData["LockHierarchy"] = true;
+    ViewData["RegistryCode"] = Model.RegistryCode;
+    ViewBag.ParentOptions = new List<SelectListItem>();
+}
+
+<div class="card-panel">
+    <h1 class="h4 mb-2">إكمال بيانات السجل</h1>
+    <p class="muted">الكود: <code>@Model.RegistryCode</code> — أكمل الحقول الناقصة ثم احفظ.</p>
+
+    @if (!string.IsNullOrEmpty(Model.Message))
+    {
+        <div class="alert alert-success">@Model.Message</div>
+    }
+    @if (!string.IsNullOrEmpty(Model.Error))
+    {
+        <div class="alert alert-danger">@Model.Error</div>
+    }
+
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-2"></div>
+    <form method="post" enctype="multipart/form-data">
+        <input type="hidden" asp-for="Id" />
+        <partial name="_PersonForm" for="Input" />
+        <div class="d-flex gap-2 mt-3">
+            <button class="btn btn-accent" type="submit">حفظ البيانات</button>
+            <a class="btn btn-soft" asp-page="Details" asp-route-id="@Model.Id">رجوع</a>
+        </div>
+    </form>
+</div>
