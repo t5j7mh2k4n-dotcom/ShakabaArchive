@@ -490,8 +490,32 @@ public static class ApprovalService
         }
     }
 
-    /// <summary>يعيد تطبيق طلبات إضافة أشخاص اعتُمدت لكن لم تُحفظ في السجل.</summary>
-    public static async Task<int> RepairApprovedPersonCreatesAsync(ArchiveDbContext db)
+    public sealed record MigrateResult(int Migrated, int Linked, int AlreadyInRegistry, int Failed);
+
+    /// <summary>عدد طلبات إضافة أشخاص معتمدة وغير موجودة فعلياً في سجل الأشخاص.</summary>
+    public static async Task<int> CountApprovedPersonsMissingFromRegistryAsync(ArchiveDbContext db)
+    {
+        await EnsureSchemaAsync(db);
+        var approved = await db.PendingChanges.AsNoTracking()
+            .Where(x => x.Status == ChangeStatus.Approved
+                        && x.EntityType == ChangeEntity.Person
+                        && x.Action == ChangeAction.Create)
+            .Select(x => new { x.Id, x.EntityId })
+            .ToListAsync();
+
+        var missing = 0;
+        foreach (var row in approved)
+        {
+            if (row.EntityId is int id && await db.People.AsNoTracking().AnyAsync(p => p.Id == id))
+                continue;
+            missing++;
+        }
+
+        return missing;
+    }
+
+    /// <summary>ترحيل طلبات إضافة أشخاص اعتُمدت لكن لم تُحفظ في السجل.</summary>
+    public static async Task<MigrateResult> RepairApprovedPersonCreatesAsync(ArchiveDbContext db)
     {
         await EnsureSchemaAsync(db);
         var stuck = await db.PendingChanges
@@ -501,41 +525,67 @@ public static class ApprovalService
             .OrderBy(x => x.Id)
             .ToListAsync();
 
-        var fixedCount = 0;
+        var migrated = 0;
+        var linked = 0;
+        var already = 0;
+        var failed = 0;
+
         foreach (var item in stuck)
         {
             try
             {
                 if (item.EntityId is int id && await db.People.AnyAsync(p => p.Id == id))
+                {
+                    already++;
                     continue;
+                }
 
                 var dto = DeserializePersonDraft(item.PayloadJson);
                 if (dto is null)
+                {
+                    failed++;
                     continue;
+                }
 
+                // ربط بسجل موجود إن وُجد بنفس الكود أو الاسم + رقم الوثيقة
+                Person? match = null;
                 if (!string.IsNullOrWhiteSpace(dto.RegistryCode))
                 {
-                    var match = await db.People.AsNoTracking()
+                    match = await db.People.AsNoTracking()
                         .FirstOrDefaultAsync(p => p.RegistryCode == dto.RegistryCode.Trim());
-                    if (match is not null)
-                    {
-                        item.EntityId = match.Id;
-                        continue;
-                    }
+                }
+
+                if (match is null && !string.IsNullOrWhiteSpace(dto.FullName))
+                {
+                    var name = dto.FullName.Trim();
+                    var doc = (dto.DocumentNumber ?? dto.NationalId ?? "").Trim();
+                    var q = db.People.AsNoTracking().Where(p => p.FullName == name);
+                    if (!string.IsNullOrWhiteSpace(doc))
+                        q = q.Where(p => p.DocumentNumber == doc || p.NationalId == doc);
+                    match = await q.FirstOrDefaultAsync();
+                }
+
+                if (match is not null)
+                {
+                    item.EntityId = match.Id;
+                    linked++;
+                    continue;
                 }
 
                 await ApplyPersonAsync(db, item);
-                fixedCount++;
+                migrated++;
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine($"Repair person pending #{item.Id}: {ex.Message}");
+                failed++;
+                Console.Error.WriteLine($"Repair person pending #{item.Id}: {ex}");
             }
         }
 
         if (db.ChangeTracker.HasChanges())
             await db.SaveChangesAsync();
-        return fixedCount;
+
+        return new MigrateResult(migrated, linked, already, failed);
     }
 
     private static async Task ApplyLifeEventAsync(ArchiveDbContext db, PendingChange item)

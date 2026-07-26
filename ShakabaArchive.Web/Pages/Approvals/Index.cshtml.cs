@@ -15,6 +15,7 @@ public class IndexModel : PageModel
     public int CurrentUserId { get; private set; }
     public int PendingCount { get; private set; }
     public int TotalCount { get; private set; }
+    public int MissingInRegistryCount { get; private set; }
     public string Filter { get; private set; } = "pending";
     public string? Message { get; private set; }
     public string? Error { get; private set; }
@@ -117,6 +118,46 @@ public class IndexModel : PageModel
         return RedirectToPage(new { filter = filter ?? "pending" });
     }
 
+    /// <summary>ترحيل الطلبات المعتمدة إلى سجل الأشخاص بزر يدوي.</summary>
+    public async Task<IActionResult> OnPostMigrateApprovedAsync(string? filter = null)
+    {
+        var appUser = ResolveAppUser();
+        if (appUser is null || !appUser.CanApprove)
+        {
+            TempData["FlashError"] = "ليست لديك صلاحية ترحيل الطلبات.";
+            return RedirectToPage(new { filter = filter ?? "approved" });
+        }
+
+        try
+        {
+            await using var db = DatabaseService.CreateContext();
+            await ApprovalService.EnsureSchemaAsync(db);
+            var result = await ApprovalService.RepairApprovedPersonCreatesAsync(db);
+
+            if (result.Migrated == 0 && result.Linked == 0)
+            {
+                TempData["Flash"] = result.Failed > 0
+                    ? $"تعذر ترحيل {result.Failed} طلب/طلبات. راجع السجلات أو أعد المحاولة."
+                    : "كل الطلبات المعتمدة موجودة مسبقاً في سجل الأشخاص.";
+            }
+            else
+            {
+                TempData["Flash"] =
+                    $"تم الترحيل: أُضيف {result.Migrated} إلى السجل" +
+                    (result.Linked > 0 ? $"، وربط {result.Linked} بسجلات موجودة" : "") +
+                    (result.Failed > 0 ? $"، وفشل {result.Failed}" : "") +
+                    ".";
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("MigrateApproved: " + ex);
+            TempData["FlashError"] = "تعذر الترحيل الآن: " + ex.GetBaseException().Message;
+        }
+
+        return RedirectToPage(new { filter = filter ?? "approved" });
+    }
+
     private static string NormalizeFilter(string? filter) =>
         filter is "all" or "approved" or "rejected" ? filter : "pending";
 
@@ -136,14 +177,11 @@ public class IndexModel : PageModel
             {
                 await using var db = DatabaseService.CreateContext();
                 await ApprovalService.EnsureSchemaAsync(db);
-                // تحويل الحسابات المسجّلة عبر الموقع إلى طلبات موافقة بأزرار اعتماد/رفض
                 if (CanReview)
                 {
                     await ApprovalService.EnsureUserRegistrationPendingsAsync(db);
-                    // استرداد إضافات أشخاص اعتُمدت سابقاً ولم تُحفظ في السجل
-                    var repaired = await ApprovalService.RepairApprovedPersonCreatesAsync(db);
-                    if (repaired > 0)
-                        Message = $"تمت استعادة {repaired} سجل/سجلات إلى سجل الأشخاص تلقائياً.";
+                    MissingInRegistryCount =
+                        await ApprovalService.CountApprovedPersonsMissingFromRegistryAsync(db);
                 }
 
                 PendingCount = await db.PendingChanges.AsNoTracking()
