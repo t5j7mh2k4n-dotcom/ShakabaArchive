@@ -73,13 +73,19 @@ public class IndexModel(ArchiveDbContext db) : PageModel
             .ThenBy(p => p.FullName)
             .ToListAsync();
 
-        // طلبات الإضافة التي لم تُعتمد بعد — تظهر هنا حتى لا يظن المستخدم أنها ضاعت
+        // طلبات الإضافة التي لم تُعتمد بعد — المدخل يرى طلباته فقط
         if (User.Identity?.IsAuthenticated == true)
         {
-            var pending = await db.PendingChanges.AsNoTracking()
+            var uid = User.CurrentAppUser()?.Id;
+            var canSeeAll = User.IsInRole("Admin") || User.IsInRole("Approver");
+            var pendingQuery = db.PendingChanges.AsNoTracking()
                 .Where(x => x.Status == ChangeStatus.Pending
                             && x.EntityType == ChangeEntity.Person
-                            && x.Action == ChangeAction.Create)
+                            && x.Action == ChangeAction.Create);
+            if (!canSeeAll && uid is > 0)
+                pendingQuery = pendingQuery.Where(x => x.SubmittedByUserId == uid.Value);
+
+            var pending = await pendingQuery
                 .OrderByDescending(x => x.SubmittedAt)
                 .Take(50)
                 .ToListAsync();
@@ -125,7 +131,7 @@ public class IndexModel(ArchiveDbContext db) : PageModel
     public async Task<IActionResult> OnPostDeleteAsync(int id)
     {
         var appUser = User.CurrentAppUser();
-        if (appUser is null)
+        if (appUser is null || !appUser.CanApprove)
             return Forbid();
 
         var person = await db.People.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id);

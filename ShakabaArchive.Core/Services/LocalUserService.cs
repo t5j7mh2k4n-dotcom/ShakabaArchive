@@ -607,6 +607,55 @@ public static class LocalUserService
         return (true, "");
     }
 
+    /// <summary>تسجيل عام مفتوح — دائماً مدخل بيانات فقط بانتظار موافقة الأدمن.</summary>
+    public static (bool Ok, string Error, AppUser? User) RegisterPublic(
+        string email,
+        string phone,
+        string displayName,
+        string password)
+    {
+        email = email.Trim().ToLowerInvariant();
+        phone = phone.Trim();
+        displayName = displayName.Trim();
+
+        if (string.IsNullOrWhiteSpace(email) || !email.Contains('@'))
+            return (false, "أدخل بريداً إلكترونياً صحيحاً.", null);
+        if (string.IsNullOrWhiteSpace(phone) || phone.Length < 8)
+            return (false, "أدخل رقم هاتف صحيحاً.", null);
+        if (string.IsNullOrWhiteSpace(displayName))
+            return (false, "أدخل الاسم الظاهر.", null);
+        if (string.IsNullOrWhiteSpace(password) || password.Length < 6)
+            return (false, "كلمة المرور يجب أن تكون 6 أحرف على الأقل.", null);
+
+        if (WriteBlockedReason() is { } blocked)
+            return (false, blocked, null);
+
+        EnsureReady();
+        if (CountUsers() >= ApprovalService.MaxUsers)
+            return (false, $"تم بلوغ الحد الأقصى للمستخدمين ({ApprovalService.MaxUsers}).", null);
+
+        using var db = CreateContext();
+        if (db.Users.Any(u => u.Email == email))
+            return (false, "هذا البريد مسجّل مسبقاً.", null);
+        if (db.Users.Any(u => u.Phone == phone))
+            return (false, "رقم الهاتف مسجّل مسبقاً.", null);
+
+        var user = new AppUser
+        {
+            Email = email,
+            Phone = phone,
+            DisplayName = displayName,
+            PasswordHash = PasswordHasher.Hash(password),
+            IsAdmin = false,
+            Role = UserRole.Editor,
+            InviteCodeUsed = "PUBLIC",
+            CreatedAt = DateTime.UtcNow
+        };
+        db.Users.Add(user);
+        db.SaveChanges();
+        return (true, "", user);
+    }
+
     public static (bool Ok, string Error, AppUser? User) Register(
         string email,
         string phone,

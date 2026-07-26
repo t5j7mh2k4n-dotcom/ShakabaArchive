@@ -59,18 +59,27 @@ builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo(dpKeysPath))
     .SetApplicationName("ShakabaArchive");
 
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("Staff", p => p.RequireRole("Admin", "Approver"));
+    options.AddPolicy("AdminOnly", p => p.RequireRole("Admin"));
+});
+
 builder.Services.AddRazorPages(options =>
 {
     options.Conventions.AuthorizeFolder("/People");
     options.Conventions.AllowAnonymousToPage("/People/Index");
     options.Conventions.AllowAnonymousToPage("/People/Details");
-    options.Conventions.AuthorizeFolder("/Occasions");
+    // المدخل العادي يضيف فقط — التعديل/الحذف والحذف للمخولين
+    options.Conventions.AuthorizePage("/People/Edit", "Staff");
+    options.Conventions.AuthorizeFolder("/People/Events", "Staff");
+    options.Conventions.AuthorizeFolder("/Occasions", "Staff");
     options.Conventions.AllowAnonymousToPage("/Occasions/Index");
     options.Conventions.AuthorizeFolder("/Approvals");
-    options.Conventions.AuthorizeFolder("/Reports");
-    options.Conventions.AuthorizePage("/Account/Invites");
-    options.Conventions.AuthorizePage("/Account/Users");
-    options.Conventions.AuthorizePage("/Account/UsersReport");
+    options.Conventions.AuthorizeFolder("/Reports", "Staff");
+    options.Conventions.AuthorizePage("/Account/Invites", "AdminOnly");
+    options.Conventions.AuthorizePage("/Account/Users", "AdminOnly");
+    options.Conventions.AuthorizePage("/Account/UsersReport", "AdminOnly");
     options.Conventions.AuthorizePage("/Account/ChangePassword");
 });
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -86,8 +95,6 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
         options.Cookie.SameSite = SameSiteMode.Lax;
     });
-builder.Services.AddAuthorization();
-
 var app = builder.Build();
 
 // جهّز جداول Neon الأساسية مبكراً دون إيقاف التشغيل إن فشلت

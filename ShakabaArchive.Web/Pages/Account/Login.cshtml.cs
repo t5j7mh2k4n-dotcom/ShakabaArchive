@@ -57,7 +57,14 @@ public class LoginModel : PageModel
                 CookieAuthenticationDefaults.AuthenticationScheme,
                 new ClaimsPrincipal(identity));
 
-            return LocalRedirect(string.IsNullOrWhiteSpace(returnUrl) ? "/People" : returnUrl);
+            // المدخل العادي يذهب مباشرة لإضافة بياناته
+            if (user.IsEditorOnly)
+                return RedirectToPage("/People/Create");
+
+            if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+                return LocalRedirect(returnUrl);
+
+            return RedirectToPage("/People/Index");
         }
         catch (Exception ex)
         {

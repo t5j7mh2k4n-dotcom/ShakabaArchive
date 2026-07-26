@@ -9,8 +9,8 @@ public static class ApprovalService
 {
     public const int MaxApprovers = 3;
 
-    /// <summary>الحد الأقصى لإجمالي حسابات المستخدمين (بما فيهم الأدمن).</summary>
-    public const int MaxUsers = 20;
+    /// <summary>الحد الأقصى لإجمالي حسابات المستخدمين (بما فيهم الأدمن) — مرتفع للتسجيل العام.</summary>
+    public const int MaxUsers = 500;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {

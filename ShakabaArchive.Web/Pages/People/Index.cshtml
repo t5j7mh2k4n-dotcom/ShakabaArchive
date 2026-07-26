@@ -2,7 +2,8 @@
 @model ShakabaArchive.Web.Pages.People.IndexModel
 @{
     ViewData["Title"] = "سجل الأشخاص";
-    var canManage = User.Identity?.IsAuthenticated == true;
+    var canManage = User.IsInRole("Admin") || User.IsInRole("Approver");
+    var canAdd = User.Identity?.IsAuthenticated == true;
     string Dash(string? v) => string.IsNullOrWhiteSpace(v) ? "—" : v;
 }
 
@@ -11,9 +12,9 @@
         <h1 class="h3 mb-1">سجل الأشخاص</h1>
         <p class="muted mb-0">يعرض كل بيانات الإضافة — ترميز: 01 ← 01001 ← 01001001</p>
     </div>
-    @if (canManage)
+    @if (canAdd)
     {
-        <a class="btn btn-accent" asp-page="Create">إضافة سجل</a>
+        <a class="btn btn-accent" asp-page="Create">إضافة بياناتي</a>
     }
 </div>
 

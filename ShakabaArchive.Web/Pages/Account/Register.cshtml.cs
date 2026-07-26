@@ -10,32 +10,41 @@ namespace ShakabaArchive.Web.Pages.Account;
 
 public class RegisterModel : PageModel
 {
-    [BindProperty, Required]
-    public string InviteCode { get; set; } = "";
-
-    [BindProperty, Required]
+    [BindProperty, Required(ErrorMessage = "أدخل الاسم")]
     public string DisplayName { get; set; } = "";
 
-    [BindProperty, Required, EmailAddress]
+    [BindProperty, Required(ErrorMessage = "أدخل البريد"), EmailAddress]
     public string Email { get; set; } = "";
 
-    [BindProperty, Required]
+    [BindProperty, Required(ErrorMessage = "أدخل الهاتف")]
     public string Phone { get; set; } = "";
 
-    [BindProperty, Required, MinLength(6)]
+    [BindProperty, Required(ErrorMessage = "أدخل كلمة المرور"), MinLength(6)]
     public string Password { get; set; } = "";
+
+    [BindProperty, Required(ErrorMessage = "أعد إدخال كلمة المرور")]
+    public string ConfirmPassword { get; set; } = "";
 
     public string? ErrorMessage { get; set; }
 
-    public void OnGet()
+    public IActionResult OnGet()
     {
+        if (User.Identity?.IsAuthenticated == true)
+            return RedirectToPage("/People/Create");
+        return Page();
     }
 
     public async Task<IActionResult> OnPostAsync()
     {
+        if (Password != ConfirmPassword)
+        {
+            ErrorMessage = "تأكيد كلمة المرور غير مطابق.";
+            return Page();
+        }
+
         try
         {
-            var (ok, error, user) = LocalUserService.Register(Email, Phone, DisplayName, Password, InviteCode);
+            var (ok, error, user) = LocalUserService.RegisterPublic(Email, Phone, DisplayName, Password);
             if (!ok || user is null)
             {
                 ErrorMessage = error;
@@ -56,10 +65,12 @@ public class RegisterModel : PageModel
                 CookieAuthenticationDefaults.AuthenticationScheme,
                 new ClaimsPrincipal(identity));
 
-            return RedirectToPage("/People/Index");
+            TempData["Flash"] = "تم إنشاء حسابك. أضف بياناتك الآن — ستُرفع لموافقة الأدمن.";
+            return RedirectToPage("/People/Create");
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            Console.Error.WriteLine("Register: " + ex);
             ErrorMessage = "تعذر الاتصال بقاعدة البيانات مؤقتاً. انتظر نصف دقيقة ثم أعد المحاولة.";
             return Page();
         }

@@ -102,7 +102,12 @@ public class IndexModel : PageModel
                 await using var db = DatabaseService.CreateContext();
                 await ApprovalService.EnsureSchemaAsync(db);
 
-                var rows = await db.PendingChanges.AsNoTracking()
+                var query = db.PendingChanges.AsNoTracking().AsQueryable();
+                // المدخل العادي يرى طلباته فقط — الأدمن/الموافق يرى الكل
+                if (!CanReview && CurrentUserId > 0)
+                    query = query.Where(x => x.SubmittedByUserId == CurrentUserId);
+
+                var rows = await query
                     .OrderByDescending(x => x.SubmittedAt)
                     .Take(100)
                     .ToListAsync();
