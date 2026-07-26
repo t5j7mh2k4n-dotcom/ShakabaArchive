@@ -653,6 +653,16 @@ public static class LocalUserService
         };
         db.Users.Add(user);
         db.SaveChanges();
+
+        try
+        {
+            ApprovalService.SubmitUserRegistrationAsync(db, user).GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("SubmitUserRegistration: " + ex.Message);
+        }
+
         return (true, "", user);
     }
 

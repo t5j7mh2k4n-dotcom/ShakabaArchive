@@ -262,6 +262,17 @@ public static class ApprovalService
         if (item.Status != ChangeStatus.Pending)
             return (false, "تمت مراجعة هذا الطلب مسبقاً.");
 
+        // رفض تسجيل حساب = حذف الحساب من النظام
+        if (item.EntityType == ChangeEntity.UserAccount && item.EntityId is int userId)
+        {
+            var account = await db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+            if (account is not null && !account.IsAdmin && account.Role != UserRole.Admin)
+            {
+                db.Users.Remove(account);
+                await db.SaveChangesAsync();
+            }
+        }
+
         item.Status = ChangeStatus.Rejected;
         item.ReviewedByUserId = reviewer.Id;
         item.ReviewedByName = reviewer.DisplayName;
@@ -271,12 +282,112 @@ public static class ApprovalService
         return (true, "");
     }
 
+    /// <summary>ينشئ طلب موافقة لتسجيل حساب عام، ويستكمل الطلبات الناقصة للحسابات الحالية.</summary>
+    public static async Task EnsureUserRegistrationPendingsAsync(ArchiveDbContext db)
+    {
+        await EnsureSchemaAsync(db);
+
+        var publicUsers = await db.Users.AsNoTracking()
+            .Where(u => u.InviteCodeUsed == "PUBLIC" || u.InviteCodeUsed == "PUBLIC-OK")
+            .Select(u => new { u.Id, u.DisplayName, u.Email, u.Phone, u.InviteCodeUsed, u.CreatedAt })
+            .ToListAsync();
+
+        foreach (var u in publicUsers)
+        {
+            var exists = await db.PendingChanges.AnyAsync(p =>
+                p.EntityType == ChangeEntity.UserAccount
+                && p.EntityId == u.Id
+                && p.Action == ChangeAction.Create);
+
+            if (exists)
+                continue;
+
+            var status = u.InviteCodeUsed == "PUBLIC-OK"
+                ? ChangeStatus.Approved
+                : ChangeStatus.Pending;
+
+            db.PendingChanges.Add(new PendingChange
+            {
+                EntityType = ChangeEntity.UserAccount,
+                Action = ChangeAction.Create,
+                EntityId = u.Id,
+                PayloadJson = JsonSerializer.Serialize(new
+                {
+                    u.Email,
+                    u.Phone,
+                    u.DisplayName
+                }, JsonOptions),
+                Summary = $"تسجيل حساب جديد: {u.DisplayName} — {u.Email}",
+                Status = status,
+                SubmittedByUserId = u.Id,
+                SubmittedByName = u.DisplayName,
+                SubmittedAt = u.CreatedAt.Kind == DateTimeKind.Unspecified
+                    ? DateTime.SpecifyKind(u.CreatedAt, DateTimeKind.Utc)
+                    : u.CreatedAt.ToUniversalTime(),
+                ReviewedAt = status == ChangeStatus.Approved ? DateTime.UtcNow : null,
+                ReviewNote = status == ChangeStatus.Approved ? "اعتماد تلقائي لحساب سابق" : ""
+            });
+        }
+
+        if (db.ChangeTracker.HasChanges())
+            await db.SaveChangesAsync();
+    }
+
+    public static async Task SubmitUserRegistrationAsync(ArchiveDbContext db, AppUser user)
+    {
+        await EnsureSchemaAsync(db);
+
+        var exists = await db.PendingChanges.AnyAsync(p =>
+            p.EntityType == ChangeEntity.UserAccount
+            && p.EntityId == user.Id
+            && p.Action == ChangeAction.Create
+            && p.Status == ChangeStatus.Pending);
+
+        if (exists)
+            return;
+
+        db.PendingChanges.Add(new PendingChange
+        {
+            EntityType = ChangeEntity.UserAccount,
+            Action = ChangeAction.Create,
+            EntityId = user.Id,
+            PayloadJson = JsonSerializer.Serialize(new
+            {
+                user.Email,
+                user.Phone,
+                user.DisplayName
+            }, JsonOptions),
+            Summary = $"تسجيل حساب جديد: {user.DisplayName} — {user.Email}",
+            Status = ChangeStatus.Pending,
+            SubmittedByUserId = user.Id,
+            SubmittedByName = user.DisplayName,
+            SubmittedAt = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+    }
+
     private static async Task ApplyAsync(ArchiveDbContext db, PendingChange item)
     {
-        if (item.EntityType == ChangeEntity.Person)
-            await ApplyPersonAsync(db, item);
-        else
-            await ApplyLifeEventAsync(db, item);
+        switch (item.EntityType)
+        {
+            case ChangeEntity.Person:
+                await ApplyPersonAsync(db, item);
+                break;
+            case ChangeEntity.LifeEvent:
+                await ApplyLifeEventAsync(db, item);
+                break;
+            case ChangeEntity.UserAccount:
+                if (item.EntityId is int uid)
+                {
+                    var account = await db.Users.FirstOrDefaultAsync(u => u.Id == uid);
+                    if (account is not null && account.InviteCodeUsed == "PUBLIC")
+                    {
+                        account.InviteCodeUsed = "PUBLIC-OK";
+                        await db.SaveChangesAsync();
+                    }
+                }
+                break;
+        }
     }
 
     private static async Task ApplyPersonAsync(ArchiveDbContext db, PendingChange item)

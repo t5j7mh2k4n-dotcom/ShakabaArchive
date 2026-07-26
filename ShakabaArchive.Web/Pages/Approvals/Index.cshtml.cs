@@ -11,7 +11,6 @@ namespace ShakabaArchive.Web.Pages.Approvals;
 public class IndexModel : PageModel
 {
     public List<PendingChange> Items { get; private set; } = [];
-    public List<AppUser> RecentPublicUsers { get; private set; } = [];
     public bool CanReview { get; private set; }
     public int CurrentUserId { get; private set; }
     public int PendingCount { get; private set; }
@@ -31,8 +30,6 @@ public class IndexModel : PageModel
         try
         {
             await LoadItemsAsync();
-            if (CanReview)
-                LoadRecentPublicUsers();
         }
         catch (Exception ex)
         {
@@ -120,23 +117,6 @@ public class IndexModel : PageModel
         return User.CurrentAppUser()?.CanApprove == true;
     }
 
-    private void LoadRecentPublicUsers()
-    {
-        try
-        {
-            RecentPublicUsers = LocalUserService.ListUsers()
-                .Where(u => string.Equals(u.InviteCodeUsed, "PUBLIC", StringComparison.OrdinalIgnoreCase))
-                .OrderByDescending(u => u.CreatedAt)
-                .Take(50)
-                .ToList();
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine("RecentPublicUsers: " + ex.Message);
-            RecentPublicUsers = [];
-        }
-    }
-
     private async Task LoadItemsAsync()
     {
         Exception? last = null;
@@ -146,6 +126,9 @@ public class IndexModel : PageModel
             {
                 await using var db = DatabaseService.CreateContext();
                 await ApprovalService.EnsureSchemaAsync(db);
+                // تحويل الحسابات المسجّلة عبر الموقع إلى طلبات موافقة بأزرار اعتماد/رفض
+                if (CanReview)
+                    await ApprovalService.EnsureUserRegistrationPendingsAsync(db);
 
                 PendingCount = await db.PendingChanges.AsNoTracking()
                     .CountAsync(x => x.Status == ChangeStatus.Pending);
