@@ -328,8 +328,14 @@ html, body {
 }
 
 .person-barcode {
+    display: block;
     max-width: 100%;
-    height: auto;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+}
+
+.person-barcode-wrap:not(.person-barcode-wrap--compact) .person-barcode {
+    min-width: 260px;
 }
 
 .person-barcode-code {
@@ -474,6 +480,24 @@ html, body {
         width: 100%;
         padding: 1.5rem;
         background: #fff !important;
+    }
+
+    body.printing-person-codes .person-barcode {
+        min-width: 320px !important;
+        max-width: none !important;
+    }
+
+    body.printing-person-codes .person-qr img,
+    body.printing-person-codes .person-qr canvas {
+        width: 240px !important;
+        height: 240px !important;
+    }
+
+    body.printing-person-codes .person-barcode,
+    body.printing-person-codes .person-qr img,
+    body.printing-person-codes .person-qr canvas {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
     }
 
     body {

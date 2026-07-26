@@ -5,10 +5,10 @@
     {
         <div class="person-barcode-title">@Model.Title</div>
     }
-    <svg class="person-barcode"
-         data-barcode="@Model.Value"
-         data-compact="@(Model.Compact ? "1" : "0")"
-         role="img"
-         aria-label="باركود @Model.Value"></svg>
+    <canvas class="person-barcode"
+            data-barcode="@Model.Value"
+            data-compact="@(Model.Compact ? "1" : "0")"
+            role="img"
+            aria-label="باركود @Model.Value"></canvas>
     <div class="person-barcode-code"><code>@Model.Value</code></div>
 </div>
