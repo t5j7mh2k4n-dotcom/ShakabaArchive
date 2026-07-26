@@ -117,6 +117,8 @@
                 <th>المهنة</th>
                 <th>الإقامة</th>
                 <th>الحي</th>
+                <th>دولة المهجر</th>
+                <th>مدينة المهجر</th>
                 <th>الهاتف</th>
                 <th>نوع الوثيقة</th>
                 <th>رقم الوثيقة</th>
@@ -155,6 +157,8 @@
                     <td>@Dash(p.Profession)</td>
                     <td>@Dash(p.Residence)</td>
                     <td>@Dash(p.Neighborhood)</td>
+                    <td>@(p.IsMigrant ? Dash(p.MigrationCountry) : "—")</td>
+                    <td>@(p.IsMigrant ? Dash(p.MigrationCity) : "—")</td>
                     <td>@Dash(p.Phone)</td>
                     <td>@Dash(string.IsNullOrWhiteSpace(p.DocumentType) ? DocumentTypes.NationalId : p.DocumentType)</td>
                     <td>@Dash(string.IsNullOrWhiteSpace(p.DocumentNumber) ? p.NationalId : p.DocumentNumber)</td>
