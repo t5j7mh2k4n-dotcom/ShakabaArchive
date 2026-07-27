@@ -5,10 +5,11 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using ShakabaArchive.Services;
+using ShakabaArchive.Web.Services;
 
 namespace ShakabaArchive.Web.Pages.Account;
 
-public class LoginModel : PageModel
+public class LoginModel(FirebaseAuthService firebase) : PageModel
 {
     [BindProperty, Required(ErrorMessage = "أدخل البريد أو الهاتف")]
     public string Login { get; set; } = "";
@@ -18,8 +19,11 @@ public class LoginModel : PageModel
 
     public string? ErrorMessage { get; set; }
 
-    public void OnGet()
+    public string? ReturnUrl { get; set; }
+
+    public void OnGet(string? returnUrl = null)
     {
+        ReturnUrl = returnUrl;
         // لا نرمي أخطاء هنا — صفحة الدخول يجب أن تظهر دائماً
         try
         {
@@ -34,18 +38,44 @@ public class LoginModel : PageModel
 
     public async Task<IActionResult> OnPostAsync(string? returnUrl = null)
     {
+        ReturnUrl = returnUrl;
         try
         {
-            var user = LocalUserService.FindByLogin(Login);
-            if (user is null || !PasswordHasher.Verify(Password, user.PasswordHash))
+            var login = Login.Trim();
+            var user = LocalUserService.FindByLogin(login);
+
+            var authenticated = false;
+
+            // دخول بالبريد عبر Firebase إن كان مفعّلاً
+            if (firebase.IsEnabled && login.Contains('@', StringComparison.Ordinal))
             {
-                ErrorMessage = "البريد/الهاتف أو كلمة المرور غير صحيحة.";
-                return Page();
+                var (fbOk, _, _) = await firebase.SignInAsync(login, Password);
+                if (fbOk)
+                {
+                    user ??= LocalUserService.FindByLogin(login);
+                    if (user is not null)
+                        authenticated = true;
+                    else
+                    {
+                        ErrorMessage = "الحساب موجود في Firebase لكن غير مربوط بالأرشيف. سجّل من صفحة إنشاء حساب أو راجع الأدمن.";
+                        return Page();
+                    }
+                }
+            }
+
+            // احتياطي: التحقق المحلي (هاتف أو مستخدمون قديمون)
+            if (!authenticated)
+            {
+                if (user is null || !PasswordHasher.Verify(Password, user.PasswordHash))
+                {
+                    ErrorMessage = "البريد/الهاتف أو كلمة المرور غير صحيحة.";
+                    return Page();
+                }
             }
 
             var claims = new List<Claim>
             {
-                new(ClaimTypes.Name, user.DisplayName),
+                new(ClaimTypes.Name, user!.DisplayName),
                 new(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new(ClaimTypes.Email, user.Email),
                 new("phone", user.Phone)
@@ -57,14 +87,13 @@ public class LoginModel : PageModel
                 CookieAuthenticationDefaults.AuthenticationScheme,
                 new ClaimsPrincipal(identity));
 
-            // المدخل العادي يذهب مباشرة لإضافة بياناته
-            if (user.IsEditorOnly)
-                return RedirectToPage("/People/Create");
-
             if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
                 return LocalRedirect(returnUrl);
 
-            return RedirectToPage("/People/Index");
+            if (user.IsAdmin || user.Role == Models.UserRole.Admin)
+                return RedirectToPage("/People/Index");
+
+            return RedirectToPage("/Family/Index");
         }
         catch (Exception ex)
         {

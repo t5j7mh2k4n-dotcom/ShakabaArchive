@@ -10,12 +10,12 @@
 
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
     <div>
-        <h1 class="h3 mb-1">سجل الأشخاص</h1>
-        <p class="muted mb-0">يعرض كل بيانات الإضافة — ترميز: 01 ← 01001 ← 01001001</p>
+        <h1 class="h3 mb-1">السجل العام — الشكابة شاع الدين</h1>
+        <p class="muted mb-0">يظهر للأدمن فقط — البيانات المُصدَّرة من سجلات الأسر. ترميز: 01 ← 01001 ← 01001001</p>
     </div>
     @if (canAdd)
     {
-        <a class="btn btn-accent" asp-page="Create">إضافة بياناتي</a>
+        <a class="btn btn-accent" asp-page="Create">إضافة للسجل العام</a>
     }
 </div>
 
@@ -168,11 +168,19 @@
                     @if (canAdd)
                     {
                         var canEditThis = User.CanEditPerson(p);
+                        var canCompleteThis = User.CanCompletePerson(p);
+                        var incomplete = AuthExtensions.IsPersonIncomplete(p);
                         <td class="text-nowrap">
                             <a class="btn btn-sm btn-soft" asp-page="/Occasions/Create" asp-route-personId="@p.Id">مناسبة</a>
                             @if (canEditThis)
                             {
                                 <a class="btn btn-sm btn-soft" asp-page="Edit" asp-route-id="@p.Id">تعديل بياناتي</a>
+                            }
+                            @if (canCompleteThis)
+                            {
+                                <a class="btn btn-sm @(incomplete ? "btn-accent" : "btn-soft")" asp-page="Complete" asp-route-id="@p.Id">
+                                    @(incomplete ? "إكمال البيانات" : "تحديث")
+                                </a>
                             }
                             @if (canManage)
                             {

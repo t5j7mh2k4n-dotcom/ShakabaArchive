@@ -68,6 +68,14 @@ public class Person
     /// <summary>معرف المستخدم المالك — يعدّل بياناته فقط (الأدمن/الموافق يستثنون).</summary>
     public int? OwnerUserId { get; set; }
 
+    /// <summary>معرف سجل الأسرة الخاص (إن وُجد).</summary>
+    public int? FamilyId { get; set; }
+
+    public Family? Family { get; set; }
+
+    /// <summary>هل نُشر في السجل العام (يظهر للأدمن فقط في سجل الأشخاص)؟</summary>
+    public bool IsInGeneralRegistry { get; set; }
+
     public List<LifeEvent> Events { get; set; } = [];
 
     public static string ComposeFullName(string first, string father, string grandfather, string family)

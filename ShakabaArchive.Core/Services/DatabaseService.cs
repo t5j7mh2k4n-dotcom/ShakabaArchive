@@ -588,9 +588,15 @@ public static class DatabaseService
         TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "MigrationCity" varchar(120) NOT NULL DEFAULT ''""");
         TryAlter(db, "ALTER TABLE People ADD COLUMN OwnerUserId INTEGER NULL");
         TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "OwnerUserId" integer NULL""");
+        TryAlter(db, "ALTER TABLE People ADD COLUMN FamilyId INTEGER NULL");
+        TryAlter(db, "ALTER TABLE People ADD COLUMN IsInGeneralRegistry INTEGER NOT NULL DEFAULT 1");
+        TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "FamilyId" integer NULL""");
+        TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "IsInGeneralRegistry" boolean NOT NULL DEFAULT true""");
 
         BackfillPersonRegistryFields(db);
         BackfillPersonOwners(db);
+        try { FamilyRegistryService.EnsureSchemaAsync(db).GetAwaiter().GetResult(); }
+        catch (Exception ex) { Console.Error.WriteLine("Family schema: " + ex.Message); }
 
         TryAlter(db, "ALTER TABLE LifeEvents ADD COLUMN Mood INTEGER NOT NULL DEFAULT 0");
         TryAlter(db, "ALTER TABLE \"LifeEvents\" ADD COLUMN \"Mood\" integer NOT NULL DEFAULT 0");
@@ -732,7 +738,8 @@ public static class DatabaseService
                 Tribe = "",
                 Profession = "",
                 Neighborhood = "—",
-                Notes = "هذا سجل توضيحي فقط."
+                Notes = "هذا سجل توضيحي فقط.",
+                IsInGeneralRegistry = true
             };
             sample.RefreshFullName();
             db.People.Add(sample);

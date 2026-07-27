@@ -47,6 +47,8 @@ else
             <a class="btn btn-soft" asp-page="Index">رجوع لسجل الأشخاص</a>
             @{
                 var detailsUrl = $"{WhatsAppShare.PublicSiteUrl}/People/Details/{p.Id}";
+                var incomplete = AuthExtensions.IsPersonIncomplete(p);
+                var completeReturnUrl = $"/People/Complete/{p.Id}";
             }
             <a class="btn btn-whatsapp"
                href="@WhatsAppShare.PersonShareUrl(p.FullName, detailsUrl)"
@@ -56,9 +58,22 @@ else
                 @if (User.CanEditPerson(p))
                 {
                     <a class="btn btn-accent" asp-page="Edit" asp-route-id="@p.Id">تعديل بياناتي</a>
-                    <a class="btn btn-soft" asp-page="Complete" asp-route-id="@p.Id">إكمال البيانات</a>
+                }
+                @if (User.CanCompletePerson(p))
+                {
+                    <a class="btn @(User.CanEditPerson(p) ? "btn-soft" : "btn-accent")" asp-page="Complete" asp-route-id="@p.Id">
+                        @(incomplete ? "إكمال البيانات" : "تحديث البيانات")
+                    </a>
                 }
                 <a class="btn btn-soft" asp-page="/Occasions/Create" asp-route-personId="@p.Id">إضافة مناسبة</a>
+            }
+            else if (incomplete)
+            {
+                <a class="btn btn-accent" asp-page="/Account/Login" asp-route-returnUrl="@completeReturnUrl">دخول لإكمال البيانات</a>
+            }
+            else
+            {
+                <a class="btn btn-accent" asp-page="/Account/Login" asp-route-returnUrl="@($"/People/Edit/{p.Id}")">دخول لتعديل بياناتي</a>
             }
         </div>
     </div>

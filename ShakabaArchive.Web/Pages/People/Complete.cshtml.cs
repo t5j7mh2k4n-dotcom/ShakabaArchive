@@ -7,7 +7,7 @@ using ShakabaArchive.Services;
 
 namespace ShakabaArchive.Web.Pages.People;
 
-/// <summary>إكمال/تعديل بيانات السجل — للمالك فقط (أو أدمن/موافق).</summary>
+/// <summary>إكمال/تعديل بيانات السجل الناقصة — مع حفظ مباشر في سجل الأشخاص.</summary>
 public class CompleteModel(ArchiveDbContext db) : PageModel
 {
     [BindProperty]
@@ -15,6 +15,12 @@ public class CompleteModel(ArchiveDbContext db) : PageModel
 
     [BindProperty]
     public PersonInput Input { get; set; } = new();
+
+    [BindProperty]
+    public IFormFile? Photo { get; set; }
+
+    [BindProperty]
+    public IFormFile? Document { get; set; }
 
     public string RegistryCode { get; private set; } = "";
     public string? Message { get; private set; }
@@ -26,13 +32,12 @@ public class CompleteModel(ArchiveDbContext db) : PageModel
         if (person is null)
             return NotFound();
 
-        if (!User.CanEditPerson(person))
+        if (!User.CanCompletePerson(person))
         {
-            TempData["FlashError"] = "يمكنك تعديل بياناتك فقط، وليس بيانات أشخاص آخرين.";
+            TempData["FlashError"] = "يمكنك إكمال أو تعديل بياناتك فقط، وليس بيانات أشخاص مكتملة لآخرين.";
             return RedirectToPage("/People/Details", new { id });
         }
 
-        // اربط الملكية إن كانت فارغة وتطابق الهاتف
         await EnsureOwnershipAsync(person);
 
         Id = id;
@@ -48,13 +53,19 @@ public class CompleteModel(ArchiveDbContext db) : PageModel
         if (person is null)
             return NotFound();
 
-        if (!User.CanEditPerson(person))
+        if (!User.CanCompletePerson(person))
         {
-            TempData["FlashError"] = "يمكنك تعديل بياناتك فقط، وليس بيانات أشخاص آخرين.";
+            TempData["FlashError"] = "يمكنك إكمال أو تعديل بياناتك فقط، وليس بيانات أشخاص مكتملة لآخرين.";
             return RedirectToPage("/People/Details", new { id = Id });
         }
 
         RegistryCode = person.RegistryCode;
+
+        // إكمال تدريجي: الاسم الأول كافٍ للحفظ؛ بقية الحقول تُكمَّل لاحقاً
+        ModelState.Remove("Input.FatherName");
+        ModelState.Remove("Input.FamilyName");
+        if (string.IsNullOrWhiteSpace(Input.FirstName))
+            ModelState.AddModelError("Input.FirstName", "أدخل الاسم الأول.");
 
         if (!ModelState.IsValid)
             return Page();
@@ -63,11 +74,25 @@ public class CompleteModel(ArchiveDbContext db) : PageModel
         draft.RegistryCode = person.RegistryCode;
         draft.HierarchyLevel = person.HierarchyLevel;
         draft.ParentPersonId = person.ParentPersonId;
+        draft.PhotoPath = person.PhotoPath;
+        draft.DocumentImagePath = person.DocumentImagePath;
+
+        if (Photo is { Length: > 0 })
+        {
+            await using var stream = Photo.OpenReadStream();
+            draft.PhotoPath = DatabaseService.SaveDocumentImage(stream, Photo.FileName);
+        }
+
+        if (Document is { Length: > 0 })
+        {
+            await using var stream = Document.OpenReadStream();
+            draft.DocumentImagePath = DatabaseService.SaveDocumentImage(stream, Document.FileName);
+        }
+
         draft.ApplyTo(person);
 
         var appUser = User.CurrentAppUser();
-        if (person.OwnerUserId is null && appUser is not null && !appUser.CanApprove)
-            person.OwnerUserId = appUser.Id;
+        ClaimOwnershipIfAppropriate(person, appUser);
 
         var incomplete = IsStillIncomplete(person);
         var marker = ApprovalService.IncompleteProfileMarker;
@@ -89,8 +114,8 @@ public class CompleteModel(ArchiveDbContext db) : PageModel
         await db.SaveChangesAsync();
 
         TempData["Flash"] = incomplete
-            ? "تم الحفظ. ما زالت بعض البيانات ناقصة — يمكنك إكمالها لاحقاً."
-            : "تم حفظ بياناتك في السجل.";
+            ? "تم حفظ التعديل في سجل الأشخاص. ما زالت بعض البيانات ناقصة — يمكنك إكمالها لاحقاً."
+            : "تم حفظ التعديل في سجل الأشخاص.";
         return RedirectToPage("/People/Details", new { id = Id });
     }
 
@@ -110,6 +135,23 @@ public class CompleteModel(ArchiveDbContext db) : PageModel
         tracked.OwnerUserId = appUser.Id;
         await db.SaveChangesAsync();
         person.OwnerUserId = appUser.Id;
+    }
+
+    private static void ClaimOwnershipIfAppropriate(Person person, AppUser? appUser)
+    {
+        if (appUser is null || appUser.CanApprove)
+            return;
+
+        if (!string.IsNullOrWhiteSpace(appUser.Phone)
+            && !string.IsNullOrWhiteSpace(person.Phone)
+            && string.Equals(appUser.Phone.Trim(), person.Phone.Trim(), StringComparison.Ordinal))
+        {
+            person.OwnerUserId = appUser.Id;
+            return;
+        }
+
+        if (person.OwnerUserId is null)
+            person.OwnerUserId = appUser.Id;
     }
 
     private static bool IsStillIncomplete(Person p) =>

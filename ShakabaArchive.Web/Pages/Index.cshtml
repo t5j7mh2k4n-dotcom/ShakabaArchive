@@ -1,98 +1,67 @@
 ﻿@page
 @model IndexModel
 @{
-    ViewData["Title"] = "الرئيسية";
+    ViewData["Title"] = "أرشيف الشكابة شاع الدين";
+    ViewData["AppShell"] = true;
+    var authed = User.Identity?.IsAuthenticated == true;
+    var dbUser = authed ? User.CurrentAppUser() : null;
+    var isAdmin = User.IsInRole("Admin") || dbUser?.IsAdmin == true || dbUser?.Role == UserRole.Admin;
 }
 
-<section class="hero">
-    <div class="hero-title-frame">
-        <h1>أرشيف الشكابة شاع الدين</h1>
-    </div>
-    @{
-        const string dedication = "أرشيف الشكابة شاع الدين — إهداء إلى روح المرحوم — عبدالمحمود محمد علي — تصميم عمر عبدالمحمود";
+<section class="app-launcher">
+    <div class="app-launcher-icon" aria-hidden="true">ش</div>
+    <h1 class="app-launcher-title">أرشيف الشكابة شاع الدين</h1>
+    <p class="app-launcher-sub">تطبيق السجل الأسري — انضم أو ادخل لإدارة بيانات أسرتك</p>
+
+    @if (!authed)
+    {
+        <div class="app-launcher-actions">
+            <a class="btn btn-accent btn-lg app-open-btn" asp-page="/Account/Register">
+                الانضمام إلى سجل أرشيف الشكابة شاع الدين
+            </a>
+            <a class="btn btn-soft btn-lg" asp-page="/Account/Login">
+                دخول — إذا كان لديك حساب
+            </a>
+        </div>
+        <p class="muted small mt-3 mb-0">بعد الدخول يفتح موديول <strong>سجل الأسرة</strong> لتسجيل أفراد أسرتك ثم تصديرهم للسجل العام.</p>
     }
-    <div class="dedication-marquee" aria-label="@dedication">
-        <div class="dedication-track dedication-track-a" aria-hidden="true">
-            <span>@dedication</span>
-            <span>@dedication</span>
-            <span>@dedication</span>
-            <span>@dedication</span>
+    else
+    {
+        <div class="app-launcher-actions">
+            <a class="btn btn-accent btn-lg app-open-btn" asp-page="/Family/Index">
+                فتح سجل الأسرة
+            </a>
+            @if (isAdmin)
+            {
+                <a class="btn btn-soft btn-lg" asp-page="/People/Index">
+                    السجل العام (أدمن)
+                </a>
+            }
         </div>
-        <div class="dedication-track dedication-track-b" aria-hidden="true">
-            <span>@dedication</span>
-            <span>@dedication</span>
-            <span>@dedication</span>
-            <span>@dedication</span>
-        </div>
-        <p class="visually-hidden">@dedication</p>
-    </div>
-    <form method="get" action="/People" class="row g-2 search-bar">
-        <div class="col-md-8">
-            <input class="form-control form-control-lg" name="q" placeholder="رقم وطني، اسم، مكان ميلاد، حي..." />
-        </div>
-        <div class="col-md-4">
-            <button class="btn btn-accent btn-lg w-100" type="submit">بحث في الأرشيف</button>
-        </div>
-    </form>
-    <div class="mt-3">
+        <p class="muted small mt-3 mb-0">مرحباً @User.Identity?.Name</p>
+    }
+
+    <div class="mt-4">
         <a class="btn btn-whatsapp" href="@WhatsAppShare.SiteShareUrl()" target="_blank" rel="noopener">
-            إرسال رابط الموقع عبر واتساب
+            مشاركة التطبيق عبر واتساب
         </a>
     </div>
 </section>
 
-<div class="row g-3">
-    <div class="col-md-4">
-        <div class="card-panel text-center">
-            <div class="display-6 text-success">@Model.PeopleCount</div>
-            <div class="muted">سجل أشخاص</div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card-panel text-center">
-            <div class="display-6 text-success">@Model.EventsCount</div>
-            <div class="muted">مناسبة مؤرشفة</div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card-panel text-center">
-            <div class="display-6 text-success">@Model.BirthPlacesCount</div>
-            <div class="muted">مكان ميلاد</div>
-        </div>
-    </div>
-</div>
-
-<div class="card-panel mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2 class="h5 mb-0">أحدث سجل الأشخاص</h2>
-        <a asp-page="/People/Index">عرض سجل الأشخاص</a>
-    </div>
-    @if (Model.Recent.Count == 0)
-    {
-        <p class="muted mb-0">لا توجد سجلات بعد.</p>
+<div class="dedication-marquee mt-4" aria-label="إهداء">
+    @{
+        const string dedication = "أرشيف الشكابة شاع الدين — إهداء إلى روح المرحوم — عبدالمحمود محمد علي — تصميم عمر عبدالمحمود";
     }
-    else
-    {
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead>
-                <tr>
-                    <th>الكود</th>
-                    <th>الاسم</th>
-                    <th>مكان الميلاد</th>
-                </tr>
-                </thead>
-                <tbody>
-                @foreach (var p in Model.Recent)
-                {
-                    <tr>
-                        <td><code>@p.RegistryCode</code></td>
-                        <td><a asp-page="/People/Details" asp-route-id="@p.Id">@p.FullName</a></td>
-                        <td>@p.BirthPlace</td>
-                    </tr>
-                }
-                </tbody>
-            </table>
-        </div>
-    }
+    <div class="dedication-track dedication-track-a" aria-hidden="true">
+        <span>@dedication</span>
+        <span>@dedication</span>
+        <span>@dedication</span>
+        <span>@dedication</span>
+    </div>
+    <div class="dedication-track dedication-track-b" aria-hidden="true">
+        <span>@dedication</span>
+        <span>@dedication</span>
+        <span>@dedication</span>
+        <span>@dedication</span>
+    </div>
 </div>

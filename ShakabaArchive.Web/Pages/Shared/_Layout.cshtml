@@ -19,24 +19,23 @@
         <a class="brand" asp-page="/Index">أرشيف الشكابة شاع الدين</a>
         <nav class="d-flex flex-wrap gap-3 align-items-center">
             <a asp-page="/Index">الرئيسية</a>
-            <a asp-page="/People/Index">سجل الأشخاص</a>
-            <a asp-page="/Occasions/Index">المناسبات</a>
-            @if (isApprover)
+            @if (User.Identity?.IsAuthenticated == true)
             {
+                <a asp-page="/Family/Index">سجل الأسرة</a>
+            }
+            @if (isAdmin)
+            {
+                <a asp-page="/People/Index">السجل العام</a>
+                <a asp-page="/Occasions/Index">المناسبات</a>
                 <a asp-page="/Reports/MigrantsReport">تقرير المغتربين</a>
             }
             <a class="btn-whatsapp-nav" href="@WhatsAppShare.SiteShareUrl()" target="_blank" rel="noopener">واتساب</a>
             @if (User.Identity?.IsAuthenticated == true)
             {
-                <a asp-page="/People/Create">إضافة بياناتي</a>
-                <a asp-page="/Occasions/Create">إضافة مناسبة</a>
+                <a asp-page="/Family/Create">إضافة فرد للأسرة</a>
                 @if (isApprover)
                 {
                     <a asp-page="/Approvals/Index">الموافقة على البيانات</a>
-                }
-                else
-                {
-                    <a asp-page="/Approvals/Index">طلباتي بانتظار الموافقة</a>
                 }
                 @if (isAdmin)
                 {
@@ -50,7 +49,7 @@
             }
             else
             {
-                <a asp-page="/Account/Register">تسجيل حساب جديد</a>
+                <a asp-page="/Account/Register">الانضمام للأرشيف</a>
                 <a class="btn-login" asp-page="/Account/Login">دخول</a>
             }
         </nav>
@@ -61,7 +60,7 @@
     @if (isEditorOnly)
     {
         <div class="alert alert-info py-2 small">
-            حسابك لإدخال بياناتك والمناسبات. يمكنك تعديل سجلك فقط بعد اعتماده — وليس بيانات الآخرين.
+            حسابك لـ <strong>سجل الأسرة</strong>: أضف أفراد أسرتك وعدّلهم، ثم صدّرهم إلى السجل العام. السجل العام يظهر للأدمن فقط.
         </div>
     }
     @RenderBody()

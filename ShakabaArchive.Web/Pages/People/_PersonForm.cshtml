@@ -2,6 +2,7 @@
 @{
     var showParent = Model.HierarchyLevel is 2 or 3;
     var isEdit = ViewData["IsEdit"] as bool? == true;
+    var allowPartial = ViewData["AllowPartial"] as bool? == true;
     var registryCode = ViewData["RegistryCode"] as string;
     var lockHierarchy = ViewData["LockHierarchy"] as bool? == true || isEdit;
 }
@@ -58,7 +59,14 @@
     </div>
     <div class="col-md-3">
         <label class="form-label">اسم الأب</label>
-        <input class="form-control" asp-for="FatherName" required />
+        @if (allowPartial)
+        {
+            <input class="form-control" asp-for="FatherName" />
+        }
+        else
+        {
+            <input class="form-control" asp-for="FatherName" required />
+        }
     </div>
     <div class="col-md-3">
         <label class="form-label">اسم الجد</label>
@@ -66,7 +74,14 @@
     </div>
     <div class="col-md-3">
         <label class="form-label">اسم العائلة</label>
-        <input class="form-control" asp-for="FamilyName" required />
+        @if (allowPartial)
+        {
+            <input class="form-control" asp-for="FamilyName" />
+        }
+        else
+        {
+            <input class="form-control" asp-for="FamilyName" required />
+        }
     </div>
 
     <div class="col-md-6">

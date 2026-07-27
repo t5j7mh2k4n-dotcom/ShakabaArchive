@@ -1,0 +1,104 @@
+@page
+@model ShakabaArchive.Web.Pages.Family.IndexModel
+@{
+    ViewData["Title"] = "سجل الأسرة";
+    string Dash(string? v) => string.IsNullOrWhiteSpace(v) ? "—" : v;
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+    <div>
+        <h1 class="h3 mb-1">سجل الأسرة</h1>
+        <p class="muted mb-0">@Model.Family.Name — أضف أفراد أسرتك فرداً فرداً، ثم صدّرهم إلى السجل العام.</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-accent" asp-page="Create">إضافة فرد للأسرة</a>
+        <form method="post" asp-page-handler="Export" class="d-inline"
+              onsubmit="return confirm('تصدير الأفراد الجدد إلى السجل العام للشكابة شاع الدين؟');">
+            <button class="btn btn-soft" type="submit" @(Model.PendingExportCount == 0 ? "disabled" : null)>
+                حفظ وتصدير للسجل العام
+                @if (Model.PendingExportCount > 0)
+                {
+                    <span class="badge bg-warning text-dark">@Model.PendingExportCount</span>
+                }
+            </button>
+        </form>
+    </div>
+</div>
+
+@if (TempData["Flash"] is string flash && !string.IsNullOrEmpty(flash))
+{
+    <div class="alert alert-success">@flash</div>
+}
+@if (TempData["FlashError"] is string err && !string.IsNullOrEmpty(err))
+{
+    <div class="alert alert-danger">@err</div>
+}
+
+<div class="card-panel mb-3">
+    <form method="post" asp-page-handler="Rename" class="row g-2 align-items-end">
+        <div class="col-md-8">
+            <label class="form-label small mb-1">اسم سجل الأسرة</label>
+            <input class="form-control" name="familyName" value="@Model.Family.Name" maxlength="160" required />
+        </div>
+        <div class="col-md-4">
+            <button class="btn btn-soft w-100" type="submit">تحديث الاسم</button>
+        </div>
+    </form>
+</div>
+
+<form method="get" class="card-panel mb-3">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-9">
+            <label class="form-label small mb-1">بحث في أفراد الأسرة فقط</label>
+            <input class="form-control" name="q" value="@Model.Q"
+                   placeholder="اسم، هاتف، رقم وثيقة، كود..." />
+        </div>
+        <div class="col-md-3">
+            <button class="btn btn-accent w-100" type="submit">بحث</button>
+        </div>
+    </div>
+    <p class="muted small mb-0 mt-2">البحث يجلب بيانات أفراد أسرتك من قاعدة السجل (بما فيهم من صُدّروا للسجل العام).</p>
+</form>
+
+<div class="card-panel">
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead>
+            <tr>
+                <th>الكود</th>
+                <th>الاسم</th>
+                <th>الهاتف</th>
+                <th>الحالة</th>
+                <th></th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var p in Model.Members)
+            {
+                <tr>
+                    <td><code>@p.RegistryCode</code></td>
+                    <td>@p.FullName</td>
+                    <td>@Dash(p.Phone)</td>
+                    <td>
+                        @if (p.IsInGeneralRegistry)
+                        {
+                            <span class="badge bg-success">في السجل العام</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-secondary">مسودة أسرة</span>
+                        }
+                    </td>
+                    <td class="text-nowrap">
+                        <a class="btn btn-sm btn-soft" asp-page="Edit" asp-route-id="@p.Id">تعديل</a>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+    @if (Model.Members.Count == 0)
+    {
+        <p class="muted mt-3 mb-0">لا يوجد أفراد بعد. اضغط «إضافة فرد للأسرة» للبدء.</p>
+    }
+</div>

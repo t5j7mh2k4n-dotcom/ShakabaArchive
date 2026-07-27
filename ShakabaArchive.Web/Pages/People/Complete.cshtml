@@ -3,13 +3,14 @@
 @{
     ViewData["Title"] = "إكمال البيانات";
     ViewData["LockHierarchy"] = true;
+    ViewData["AllowPartial"] = true;
     ViewData["RegistryCode"] = Model.RegistryCode;
     ViewBag.ParentOptions = new List<SelectListItem>();
 }
 
 <div class="card-panel">
-    <h1 class="h4 mb-2">إكمال بيانات السجل</h1>
-    <p class="muted">الكود: <code>@Model.RegistryCode</code> — أكمل الحقول الناقصة ثم احفظ.</p>
+    <h1 class="h4 mb-2">إكمال / تعديل بيانات السجل</h1>
+    <p class="muted">الكود: <code>@Model.RegistryCode</code> — أكمل الحقول الناقصة ثم اضغط حفظ ليُحدَّث سجل الأشخاص مباشرة.</p>
 
     @if (!string.IsNullOrEmpty(Model.Message))
     {
@@ -25,7 +26,7 @@
         <input type="hidden" asp-for="Id" />
         <partial name="_PersonForm" for="Input" />
         <div class="d-flex gap-2 mt-3">
-            <button class="btn btn-accent" type="submit">حفظ البيانات</button>
+            <button class="btn btn-accent" type="submit">حفظ التعديل في السجل</button>
             <a class="btn btn-soft" asp-page="Details" asp-route-id="@Model.Id">رجوع</a>
         </div>
     </form>

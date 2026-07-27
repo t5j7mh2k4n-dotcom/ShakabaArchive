@@ -7,10 +7,14 @@
 <div class="row justify-content-center">
     <div class="col-md-6">
         <div class="card-panel">
-            <h1 class="h4 mb-3">إنشاء حساب جديد</h1>
+            <h1 class="h4 mb-3">الانضمام إلى أرشيف الشكابة شاع الدين</h1>
             <p class="muted">
-                سجّل باسمك وبريدك وكلمة مرور خاصة بك، ثم أضف بياناتك في سجل الأشخاص.
-                الحفظ النهائي يتم بعد موافقة الأدمن أو أحد الموافقين.
+                أنشئ حساباً ثم افتح <strong>سجل الأسرة</strong> لإضافة أفراد أسرتك فرداً فرداً.
+                بعد الحفظ يمكنك تصديرهم إلى السجل العام (يظهر للأدمن).
+                @if (Model.FirebaseEnabled)
+                {
+                    <text> التسجيل يتم عبر <strong>Firebase Authentication</strong>.</text>
+                }
             </p>
             @if (!string.IsNullOrEmpty(Model.ErrorMessage))
             {

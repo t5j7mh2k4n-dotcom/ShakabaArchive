@@ -78,6 +78,16 @@ public class EditModel(ArchiveDbContext db) : PageModel
             draft.DocumentImagePath = DatabaseService.SaveDocumentImage(stream, Document.FileName);
         }
 
+        // المالك يحفظ مباشرة في السجل؛ الموافق/الأدمن عبر مسار الاعتماد (يُطبَّق فوراً لهم)
+        if (!appUser.CanApprove)
+        {
+            draft.ApplyTo(person);
+            person.UpdatedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+            TempData["Flash"] = "تم حفظ التعديل في سجل الأشخاص.";
+            return RedirectToPage("/People/Details", new { id = Id });
+        }
+
         var (_, applied) = await ApprovalService.SubmitAsync(
             db,
             appUser,
@@ -104,6 +114,12 @@ public class EditModel(ArchiveDbContext db) : PageModel
 
         var person = await db.People.AsNoTracking().FirstOrDefaultAsync(p => p.Id == Id);
         if (person is null) return NotFound();
+
+        if (!User.CanEditPerson(person))
+        {
+            TempData["FlashError"] = "يمكنك تعديل بياناتك فقط، وليس بيانات أشخاص آخرين.";
+            return RedirectToPage("/People/Details", new { id = Id });
+        }
 
         var hasChildren = await db.People.AnyAsync(p => p.ParentPersonId == Id);
         if (hasChildren)

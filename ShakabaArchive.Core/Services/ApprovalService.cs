@@ -580,6 +580,7 @@ public static class ApprovalService
         person.HierarchyLevel = 1;
         person.ParentPersonId = null;
         person.OwnerUserId = ownerUserId is > 0 ? ownerUserId : null;
+        person.IsInGeneralRegistry = true;
 
         person.RegistryCode = await PersonRegistryService.AllocateCodeAsync(db, 1, null);
 

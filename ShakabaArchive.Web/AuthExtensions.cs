@@ -53,4 +53,28 @@ public static class AuthExtensions
 
         return false;
     }
+
+    /// <summary>سجل ناقص يحتاج إكمال حقول أساسية.</summary>
+    public static bool IsPersonIncomplete(Person person) =>
+        (!string.IsNullOrEmpty(person.Notes)
+         && person.Notes.Contains(ApprovalService.IncompleteProfileMarker, StringComparison.Ordinal))
+        || string.IsNullOrWhiteSpace(person.FatherName)
+        || string.IsNullOrWhiteSpace(person.FamilyName)
+        || (string.IsNullOrWhiteSpace(person.DocumentNumber) && string.IsNullOrWhiteSpace(person.NationalId))
+        || string.IsNullOrWhiteSpace(person.Phone);
+
+    /// <summary>
+    /// إكمال البيانات: المالك/الموافق، أو أي مستخدم مسجّل لسجل ناقص
+    /// (مثل الروابط المرسلة واتساب بعد الترحيل).
+    /// </summary>
+    public static bool CanCompletePerson(this ClaimsPrincipal user, Person person)
+    {
+        if (user.Identity?.IsAuthenticated != true)
+            return false;
+
+        if (user.CanEditPerson(person))
+            return true;
+
+        return IsPersonIncomplete(person);
+    }
 }

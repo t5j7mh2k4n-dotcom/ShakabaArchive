@@ -68,16 +68,11 @@ builder.Services.AddAuthorization(options =>
 
 builder.Services.AddRazorPages(options =>
 {
-    options.Conventions.AuthorizeFolder("/People");
-    options.Conventions.AllowAnonymousToPage("/People/Index");
-    options.Conventions.AllowAnonymousToPage("/People/Details");
-    // التعديل: أي مستخدم مسجّل — الصفحة تتحقق أنه يعدّل سجله فقط (أو أدمن/موافق)
-    options.Conventions.AuthorizePage("/People/Edit");
-    options.Conventions.AuthorizePage("/People/Complete");
+    options.Conventions.AuthorizeFolder("/Family");
+    options.Conventions.AuthorizeFolder("/People", "AdminOnly");
     options.Conventions.AuthorizeFolder("/People/Events", "Staff");
-    // المناسبات: العرض للجميع، الإضافة لأي مستخدم مسجّل (تنتظر موافقة إن لم يكن مخوّلاً)
-    options.Conventions.AuthorizeFolder("/Occasions");
-    options.Conventions.AllowAnonymousToPage("/Occasions/Index");
+    // المناسبات: العرض للجميع كان عاماً — أصبحت للأدمن/الموافقين مع السجل العام
+    options.Conventions.AuthorizeFolder("/Occasions", "Staff");
     options.Conventions.AuthorizeFolder("/Approvals");
     options.Conventions.AuthorizeFolder("/Reports", "Staff");
     options.Conventions.AuthorizePage("/Account/Invites", "AdminOnly");
@@ -98,6 +93,55 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
         options.Cookie.SameSite = SameSiteMode.Lax;
     });
+
+builder.Services.Configure<ShakabaArchive.Web.Services.FirebaseOptions>(opt =>
+{
+    builder.Configuration.GetSection(ShakabaArchive.Web.Services.FirebaseOptions.SectionName).Bind(opt);
+
+    static string Pick(params string?[] values)
+    {
+        foreach (var v in values)
+        {
+            if (!string.IsNullOrWhiteSpace(v))
+                return v.Trim();
+        }
+        return "";
+    }
+
+    opt.ApiKey = Pick(
+        Environment.GetEnvironmentVariable("FIREBASE_API_KEY"),
+        Environment.GetEnvironmentVariable("Firebase__ApiKey"),
+        opt.ApiKey);
+    opt.AuthDomain = Pick(
+        Environment.GetEnvironmentVariable("FIREBASE_AUTH_DOMAIN"),
+        Environment.GetEnvironmentVariable("Firebase__AuthDomain"),
+        opt.AuthDomain);
+    opt.ProjectId = Pick(
+        Environment.GetEnvironmentVariable("FIREBASE_PROJECT_ID"),
+        Environment.GetEnvironmentVariable("Firebase__ProjectId"),
+        opt.ProjectId);
+    opt.StorageBucket = Pick(
+        Environment.GetEnvironmentVariable("FIREBASE_STORAGE_BUCKET"),
+        Environment.GetEnvironmentVariable("Firebase__StorageBucket"),
+        opt.StorageBucket);
+    opt.MessagingSenderId = Pick(
+        Environment.GetEnvironmentVariable("FIREBASE_MESSAGING_SENDER_ID"),
+        Environment.GetEnvironmentVariable("Firebase__MessagingSenderId"),
+        opt.MessagingSenderId);
+    opt.AppId = Pick(
+        Environment.GetEnvironmentVariable("FIREBASE_APP_ID"),
+        Environment.GetEnvironmentVariable("Firebase__AppId"),
+        opt.AppId);
+    opt.MeasurementId = Pick(
+        Environment.GetEnvironmentVariable("FIREBASE_MEASUREMENT_ID"),
+        Environment.GetEnvironmentVariable("Firebase__MeasurementId"),
+        opt.MeasurementId);
+
+    if (string.IsNullOrWhiteSpace(opt.AuthDomain) && !string.IsNullOrWhiteSpace(opt.ProjectId))
+        opt.AuthDomain = $"{opt.ProjectId}.firebaseapp.com";
+});
+builder.Services.AddHttpClient<ShakabaArchive.Web.Services.FirebaseAuthService>();
+
 var app = builder.Build();
 
 // جهّز جداول Neon الأساسية مبكراً دون إيقاف التشغيل إن فشلت
@@ -109,6 +153,7 @@ try
     {
         DatabaseService.EnsureDataProtectionKeysTable(warmDb);
         ApprovalService.EnsureSchemaAsync(warmDb).GetAwaiter().GetResult();
+        FamilyRegistryService.EnsureSchemaAsync(warmDb).GetAwaiter().GetResult();
     }
 }
 catch (Exception ex)

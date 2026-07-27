@@ -43,6 +43,7 @@ public class IndexModel(ArchiveDbContext db) : PageModel
         }
 
         var places = await db.People.AsNoTracking()
+            .Where(p => p.IsInGeneralRegistry)
             .Select(p => p.BirthPlace)
             .Where(n => n != "")
             .Distinct()
@@ -57,7 +58,9 @@ public class IndexModel(ArchiveDbContext db) : PageModel
             .Select(f => new SelectListItem(f.Label, f.Value, f.Value == (Field ?? PersonSearchQuery.FieldAll)))
             .ToList();
 
-        IQueryable<Person> query = db.People.AsNoTracking().Include(p => p.Events);
+        IQueryable<Person> query = db.People.AsNoTracking()
+            .Include(p => p.Events)
+            .Where(p => p.IsInGeneralRegistry);
 
         if (Level is >= 1 and <= 3)
             query = query.Where(p => p.HierarchyLevel == Level);
