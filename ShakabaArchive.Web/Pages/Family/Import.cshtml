@@ -1,0 +1,100 @@
+@page
+@model ShakabaArchive.Web.Pages.Family.ImportModel
+@{
+    ViewData["Title"] = "تحويل إلى سجل الأسرة";
+    string Dash(string? v) => string.IsNullOrWhiteSpace(v) ? "—" : v;
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+    <div>
+        <h1 class="h3 mb-1">تحويل أشخاص إلى سجل الأسرة</h1>
+        <p class="muted mb-0">
+            ابحث في السجل (المعتمد أو غيره) وحوّل الفرد إلى <strong>@Model.Family.Name</strong> —
+            الحفظ فوري بدون موافقة.
+        </p>
+    </div>
+    <a class="btn btn-soft" asp-page="Index">رجوع لسجل الأسرة</a>
+</div>
+
+@if (TempData["Flash"] is string flash && !string.IsNullOrEmpty(flash))
+{
+    <div class="alert alert-success">@flash</div>
+}
+@if (TempData["FlashError"] is string err && !string.IsNullOrEmpty(err))
+{
+    <div class="alert alert-danger">@err</div>
+}
+
+<form method="get" class="card-panel mb-3">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-9">
+            <label class="form-label small mb-1">بحث في السجل</label>
+            <input class="form-control" name="q" value="@Model.Q" required
+                   placeholder="اسم، هاتف، رقم وثيقة، كود..." />
+        </div>
+        <div class="col-md-3">
+            <button class="btn btn-accent w-100" type="submit">بحث</button>
+        </div>
+    </div>
+</form>
+
+@if (!string.IsNullOrWhiteSpace(Model.Q))
+{
+    <div class="card-panel">
+        <h2 class="h6 mb-3">نتائج البحث (@Model.Results.Count)</h2>
+        @if (Model.Results.Count == 0)
+        {
+            <p class="muted mb-0">لا توجد نتائج قابلة للتحويل.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead>
+                    <tr>
+                        <th>الكود</th>
+                        <th>الاسم</th>
+                        <th>الهاتف</th>
+                        <th>الحالة</th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var p in Model.Results)
+                    {
+                        <tr>
+                            <td><code>@p.RegistryCode</code></td>
+                            <td>@p.FullName</td>
+                            <td>@Dash(p.Phone)</td>
+                            <td>
+                                @if (p.IsInGeneralRegistry)
+                                {
+                                    <span class="badge bg-success">سجل عام</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">غير منشور</span>
+                                }
+                                @if (p.FamilyId is not null)
+                                {
+                                    <span class="badge bg-warning text-dark">لأسرة أخرى</span>
+                                }
+                            </td>
+                            <td>
+                                <form method="post" asp-page-handler="Attach" class="d-inline">
+                                    <input type="hidden" name="personId" value="@p.Id" />
+                                    <input type="hidden" name="q" value="@Model.Q" />
+                                    <button class="btn btn-sm btn-accent" type="submit"
+                                            onclick="return confirm('تحويل هذا الفرد إلى سجل أسرتك؟');">
+                                        تحويل لأسرتى
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+}

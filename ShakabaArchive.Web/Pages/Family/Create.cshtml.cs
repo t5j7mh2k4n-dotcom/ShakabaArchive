@@ -84,7 +84,8 @@ public class CreateModel(ArchiveDbContext db) : PageModel
         var person = draft.ToPerson();
         person.FamilyId = Family.Id;
         person.OwnerUserId = user.Id;
-        person.IsInGeneralRegistry = false;
+        // حفظ فوري في الأسرة والسجل العام — بدون موافقة الثلاثة أو الأدمن
+        person.IsInGeneralRegistry = true;
         person.CreatedAt = DateTime.UtcNow;
         person.UpdatedAt = DateTime.UtcNow;
 
@@ -92,14 +93,15 @@ public class CreateModel(ArchiveDbContext db) : PageModel
         Family.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
 
-        TempData["Flash"] = $"تم حفظ {person.FullName} في سجل الأسرة. يمكنك إضافة المزيد ثم التصدير للسجل العام.";
+        TempData["Flash"] = $"تم حفظ «{person.FullName}» مباشرة في سجل الأسرة والسجل العام (بدون انتظار موافقة).";
         return RedirectToPage("Index");
     }
 
-    private async Task LoadParentsAsync()
+    private Task LoadParentsAsync()
     {
         ParentOptions = [];
         ViewData["LockHierarchy"] = true;
         ViewData["AllowPartial"] = true;
+        return Task.CompletedTask;
     }
 }

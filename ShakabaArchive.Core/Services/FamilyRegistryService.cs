@@ -76,6 +76,38 @@ public static class FamilyRegistryService
     public static IQueryable<Person> MembersQuery(ArchiveDbContext db, int familyId) =>
         db.People.Where(p => p.FamilyId == familyId);
 
+    public static async Task<(bool Ok, string Message)> AttachToFamilyAsync(
+        ArchiveDbContext db,
+        int familyId,
+        int personId,
+        AppUser user,
+        bool isAdmin)
+    {
+        var person = await db.People.FirstOrDefaultAsync(p => p.Id == personId);
+        if (person is null)
+            return (false, "السجل غير موجود.");
+
+        if (person.FamilyId == familyId)
+            return (false, "هذا الفرد موجود مسبقاً في سجل أسرتك.");
+
+        if (person.FamilyId is int otherFamily && otherFamily != familyId && !isAdmin)
+            return (false, "هذا الفرد مرتبط بسجل أسرة آخر. راجع الأدمن إن لزم.");
+
+        person.FamilyId = familyId;
+        if (person.OwnerUserId is null || isAdmin)
+            person.OwnerUserId = user.Id;
+        // التحويل من السجل يحفظ مباشرة في الأسرة والسجل العام — بلا موافقة
+        person.IsInGeneralRegistry = true;
+        person.UpdatedAt = DateTime.UtcNow;
+
+        var family = await db.Families.FirstOrDefaultAsync(f => f.Id == familyId);
+        if (family is not null)
+            family.UpdatedAt = DateTime.UtcNow;
+
+        await db.SaveChangesAsync();
+        return (true, $"تم تحويل «{person.FullName}» إلى سجل أسرتك وحُفظ مباشرة.");
+    }
+
     public static async Task<(int Exported, string Message)> ExportToGeneralAsync(
         ArchiveDbContext db,
         int familyId)
@@ -85,7 +117,7 @@ public static class FamilyRegistryService
             .ToListAsync();
 
         if (pending.Count == 0)
-            return (0, "لا توجد أفراد جدد بانتظار التصدير — كل أفراد الأسرة في السجل العام مسبقاً.");
+            return (0, "كل أفراد الأسرة محفوظون في السجل العام مسبقاً.");
 
         foreach (var p in pending)
         {
@@ -98,7 +130,7 @@ public static class FamilyRegistryService
             family.UpdatedAt = DateTime.UtcNow;
 
         await db.SaveChangesAsync();
-        return (pending.Count, $"تم تصدير {pending.Count} فرداً إلى السجل العام للشكابة شاع الدين.");
+        return (pending.Count, $"تم حفظ {pending.Count} فرداً في السجل العام مباشرة (بدون موافقة).");
     }
 
     private static void TryAlter(ArchiveDbContext db, string sql)

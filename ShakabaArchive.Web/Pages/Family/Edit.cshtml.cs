@@ -88,12 +88,12 @@ public class EditModel(ArchiveDbContext db) : PageModel
         draft.ApplyTo(person);
         person.FamilyId = Family.Id;
         person.OwnerUserId = user.Id;
-        // التعديل على فرد مُصدَّر يبقيه في السجل العام؛ المسودة تبقى مسودة حتى التصدير
+        person.IsInGeneralRegistry = true;
         person.UpdatedAt = DateTime.UtcNow;
         Family.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
 
-        TempData["Flash"] = "تم حفظ التعديل في سجل الأسرة.";
+        TempData["Flash"] = "تم حفظ التعديل مباشرة في سجل الأسرة (بدون موافقة).";
         return RedirectToPage("Index");
     }
 }

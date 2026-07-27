@@ -33,12 +33,10 @@
             @if (User.Identity?.IsAuthenticated == true)
             {
                 <a asp-page="/Family/Create">إضافة فرد للأسرة</a>
-                @if (isApprover)
-                {
-                    <a asp-page="/Approvals/Index">الموافقة على البيانات</a>
-                }
+                <a asp-page="/Family/Import">تحويل من السجل</a>
                 @if (isAdmin)
                 {
+                    <a asp-page="/Approvals/Index">الموافقة (أدمن)</a>
                     <a asp-page="/Account/Users">المستخدمون</a>
                     <a asp-page="/Account/UsersReport">تقرير المستخدمين</a>
                     <a asp-page="/Account/Invites">أرقام الدعوة</a>
@@ -60,7 +58,7 @@
     @if (isEditorOnly)
     {
         <div class="alert alert-info py-2 small">
-            حسابك لـ <strong>سجل الأسرة</strong>: أضف أفراد أسرتك وعدّلهم، ثم صدّرهم إلى السجل العام. السجل العام يظهر للأدمن فقط.
+            <strong>سجل الأسرة:</strong> أضف أفراداً أو حوّلهم من السجل — الحفظ فوري بدون موافقة الثلاثة أو الأدمن.
         </div>
     }
     @RenderBody()

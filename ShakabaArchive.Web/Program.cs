@@ -71,9 +71,9 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AuthorizeFolder("/Family");
     options.Conventions.AuthorizeFolder("/People", "AdminOnly");
     options.Conventions.AuthorizeFolder("/People/Events", "Staff");
-    // المناسبات: العرض للجميع كان عاماً — أصبحت للأدمن/الموافقين مع السجل العام
     options.Conventions.AuthorizeFolder("/Occasions", "Staff");
-    options.Conventions.AuthorizeFolder("/Approvals");
+    // طلبات الموافقة القديمة — للأدمن فقط (سجل الأسرة لم يعد ينتظر موافقة)
+    options.Conventions.AuthorizeFolder("/Approvals", "AdminOnly");
     options.Conventions.AuthorizeFolder("/Reports", "Staff");
     options.Conventions.AuthorizePage("/Account/Invites", "AdminOnly");
     options.Conventions.AuthorizePage("/Account/Users", "AdminOnly");

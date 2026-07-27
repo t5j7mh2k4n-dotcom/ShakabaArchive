@@ -8,20 +8,21 @@
 <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
     <div>
         <h1 class="h3 mb-1">سجل الأسرة</h1>
-        <p class="muted mb-0">@Model.Family.Name — أضف أفراد أسرتك فرداً فرداً، ثم صدّرهم إلى السجل العام.</p>
+        <p class="muted mb-0">@Model.Family.Name — أضف أو حوّل أفراد أسرتك. الحفظ فوري بدون موافقة.</p>
     </div>
     <div class="d-flex flex-wrap gap-2">
         <a class="btn btn-accent" asp-page="Create">إضافة فرد للأسرة</a>
-        <form method="post" asp-page-handler="Export" class="d-inline"
-              onsubmit="return confirm('تصدير الأفراد الجدد إلى السجل العام للشكابة شاع الدين؟');">
-            <button class="btn btn-soft" type="submit" @(Model.PendingExportCount == 0 ? "disabled" : null)>
-                حفظ وتصدير للسجل العام
-                @if (Model.PendingExportCount > 0)
-                {
+        <a class="btn btn-soft" asp-page="Import">تحويل من السجل</a>
+        @if (Model.PendingExportCount > 0)
+        {
+            <form method="post" asp-page-handler="Export" class="d-inline"
+                  onsubmit="return confirm('حفظ الأفراد المتبقين في السجل العام مباشرة؟');">
+                <button class="btn btn-soft" type="submit">
+                    حفظ المتبقي في السجل العام
                     <span class="badge bg-warning text-dark">@Model.PendingExportCount</span>
-                }
-            </button>
-        </form>
+                </button>
+            </form>
+        }
     </div>
 </div>
 
@@ -57,7 +58,6 @@
             <button class="btn btn-accent w-100" type="submit">بحث</button>
         </div>
     </div>
-    <p class="muted small mb-0 mt-2">البحث يجلب بيانات أفراد أسرتك من قاعدة السجل (بما فيهم من صُدّروا للسجل العام).</p>
 </form>
 
 <div class="card-panel">
@@ -82,11 +82,11 @@
                     <td>
                         @if (p.IsInGeneralRegistry)
                         {
-                            <span class="badge bg-success">في السجل العام</span>
+                            <span class="badge bg-success">محفوظ</span>
                         }
                         else
                         {
-                            <span class="badge bg-secondary">مسودة أسرة</span>
+                            <span class="badge bg-warning text-dark">بانتظار الحفظ العام</span>
                         }
                     </td>
                     <td class="text-nowrap">
@@ -99,6 +99,11 @@
     </div>
     @if (Model.Members.Count == 0)
     {
-        <p class="muted mt-3 mb-0">لا يوجد أفراد بعد. اضغط «إضافة فرد للأسرة» للبدء.</p>
+        <p class="muted mt-3 mb-0">
+            لا يوجد أفراد بعد.
+            <a asp-page="Create">أضف فرداً جديداً</a>
+            أو
+            <a asp-page="Import">حوّل من السجل الموجود</a>.
+        </p>
     }
 </div>
