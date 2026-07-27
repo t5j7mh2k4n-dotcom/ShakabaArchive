@@ -23,6 +23,15 @@ public class EditModel(ArchiveDbContext db) : PageModel
     [BindProperty]
     public IFormFile? Document { get; set; }
 
+    /// <summary>رمز أمان أسرة صاحب السجل — يعدّله الأدمن فقط.</summary>
+    [BindProperty]
+    public string? FamilySecurityCode { get; set; }
+
+    public string FamilyOwnerName { get; private set; } = "";
+    public string FamilyName { get; private set; } = "";
+    public int? FamilyId { get; private set; }
+    public bool IsAdminEditor { get; private set; }
+
     public async Task<IActionResult> OnGetAsync(int id)
     {
         var person = await db.People.FindAsync(id);
@@ -36,6 +45,7 @@ public class EditModel(ArchiveDbContext db) : PageModel
         Id = id;
         RegistryCode = person.RegistryCode;
         Input = PersonInput.From(person);
+        await LoadFamilyInfoAsync(person);
         return Page();
     }
 
@@ -50,11 +60,46 @@ public class EditModel(ArchiveDbContext db) : PageModel
         }
 
         RegistryCode = person.RegistryCode;
+        await LoadFamilyInfoAsync(person);
 
         if (!ModelState.IsValid) return Page();
 
         var appUser = User.CurrentAppUser();
         if (appUser is null) return Challenge();
+
+        IsAdminEditor = User.IsInRole("Admin") || appUser.IsAdmin || appUser.Role == UserRole.Admin;
+
+        if (IsAdminEditor && !string.IsNullOrWhiteSpace(FamilySecurityCode))
+        {
+            var ownerName = FamilyOwnerName;
+            if (string.IsNullOrWhiteSpace(ownerName) && person.OwnerUserId is int oid)
+            {
+                var owner = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == oid);
+                ownerName = owner?.DisplayName ?? "";
+            }
+
+            var (family, famErr) = await FamilyRegistryService.EnsureFamilyForPersonAsync(
+                db, person, ownerName);
+            if (family is null)
+            {
+                ModelState.AddModelError(nameof(FamilySecurityCode), famErr);
+                await LoadFamilyInfoAsync(person);
+                return Page();
+            }
+
+            var (codeOk, codeErr) = await FamilyRegistryService.SetSecurityCodeAsync(
+                db, family.Id, FamilySecurityCode);
+            if (!codeOk)
+            {
+                ModelState.AddModelError(nameof(FamilySecurityCode), codeErr);
+                await LoadFamilyInfoAsync(person);
+                return Page();
+            }
+
+            FamilyId = family.Id;
+            FamilyName = family.Name;
+            FamilySecurityCode = family.SecurityCode;
+        }
 
         if (person.OwnerUserId is null && !appUser.CanApprove)
             person.OwnerUserId = appUser.Id;
@@ -99,7 +144,10 @@ public class EditModel(ArchiveDbContext db) : PageModel
 
         if (applied)
         {
-            TempData["Flash"] = "تم حفظ التعديل في سجل الأشخاص.";
+            TempData["Flash"] = "تم حفظ التعديل في سجل الأشخاص" +
+                                (IsAdminEditor && !string.IsNullOrWhiteSpace(FamilySecurityCode)
+                                    ? $" ورمز أمان الأسرة ({FamilySecurityCode})."
+                                    : ".");
             return RedirectToPage("/People/Details", new { id = Id });
         }
 
@@ -145,5 +193,36 @@ public class EditModel(ArchiveDbContext db) : PageModel
 
         TempData["Flash"] = "تم إرسال طلب الحذف بانتظار موافقة أحد الثلاثة على صحة البيانات.";
         return RedirectToPage("/Approvals/Index");
+    }
+
+    private async Task LoadFamilyInfoAsync(Person person)
+    {
+        var appUser = User.CurrentAppUser();
+        IsAdminEditor = User.IsInRole("Admin") || appUser?.IsAdmin == true || appUser?.Role == UserRole.Admin;
+
+        ShakabaArchive.Models.Family? family = null;
+        if (person.FamilyId is int fid)
+            family = await db.Families.AsNoTracking().FirstOrDefaultAsync(f => f.Id == fid);
+        else if (person.OwnerUserId is int oid)
+            family = await db.Families.AsNoTracking().FirstOrDefaultAsync(f => f.OwnerUserId == oid);
+
+        FamilyId = family?.Id;
+        FamilyName = family?.Name ?? "";
+        FamilySecurityCode = family?.SecurityCode ?? FamilySecurityCode ?? "";
+
+        if (family is not null && family.OwnerUserId > 0)
+        {
+            var owner = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == family.OwnerUserId);
+            FamilyOwnerName = owner?.DisplayName ?? "";
+        }
+        else if (person.OwnerUserId is int ownerId)
+        {
+            var owner = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == ownerId);
+            FamilyOwnerName = owner?.DisplayName ?? "";
+        }
+        else
+        {
+            FamilyOwnerName = "";
+        }
     }
 }

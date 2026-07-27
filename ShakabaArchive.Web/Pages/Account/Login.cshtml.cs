@@ -18,13 +18,16 @@ public class LoginModel(FirebaseAuthService firebase) : PageModel
     public string Password { get; set; } = "";
 
     public string? ErrorMessage { get; set; }
-
+    public string? SuccessMessage { get; set; }
     public string? ReturnUrl { get; set; }
+
+    /// <summary>يظهر زر إعادة إرسال رابط التأكيد عندما يكون البريد غير مؤكد.</summary>
+    public bool NeedsEmailVerification { get; set; }
 
     public void OnGet(string? returnUrl = null)
     {
         ReturnUrl = returnUrl;
-        // لا نرمي أخطاء هنا — صفحة الدخول يجب أن تظهر دائماً
+        SuccessMessage = TempData["Flash"] as string;
         try
         {
             if (LocalUserService.UsesCloud)
@@ -49,9 +52,17 @@ public class LoginModel(FirebaseAuthService firebase) : PageModel
             // دخول بالبريد عبر Firebase إن كان مفعّلاً
             if (firebase.IsEnabled && login.Contains('@', StringComparison.Ordinal))
             {
-                var (fbOk, _, _) = await firebase.SignInAsync(login, Password);
+                var (fbOk, _, _, _, verified) = await firebase.SignInAsync(login, Password);
                 if (fbOk)
                 {
+                    if (!verified)
+                    {
+                        NeedsEmailVerification = true;
+                        ErrorMessage =
+                            "لم يتم تأكيد بريدك بعد. افتح الإيميل واضغط رابط التأكيد، أو أعد إرسال الرابط من الزر أدناه.";
+                        return Page();
+                    }
+
                     user ??= LocalUserService.FindByLogin(login);
                     if (user is not null)
                         authenticated = true;
@@ -61,9 +72,10 @@ public class LoginModel(FirebaseAuthService firebase) : PageModel
                         return Page();
                     }
                 }
+                // إن فشل Firebase (مثلاً حساب قديم محلي فقط) نتابع التحقق المحلي أدناه
             }
 
-            // احتياطي: التحقق المحلي (هاتف أو مستخدمون قديمون)
+            // احتياطي: التحقق المحلي (هاتف أو مستخدمون قديمون بدون Firebase)
             if (!authenticated)
             {
                 if (user is null || !PasswordHasher.Verify(Password, user.PasswordHash))
@@ -106,5 +118,52 @@ public class LoginModel(FirebaseAuthService firebase) : PageModel
                 : "قاعدة البيانات غير مربوطة. من Render → Environment ضع DATABASE_URL من Neon ثم Save and deploy.";
             return Page();
         }
+    }
+
+    public async Task<IActionResult> OnPostResendVerificationAsync()
+    {
+        ReturnUrl = null;
+        Login = (Login ?? "").Trim();
+        if (!firebase.IsEnabled || !Login.Contains('@', StringComparison.Ordinal))
+        {
+            ErrorMessage = "إعادة إرسال رابط التأكيد متاحة للبريد الإلكتروني فقط.";
+            return Page();
+        }
+
+        if (string.IsNullOrWhiteSpace(Password))
+        {
+            ErrorMessage = "أدخل كلمة المرور ثم اضغط إعادة إرسال رابط التأكيد.";
+            NeedsEmailVerification = true;
+            return Page();
+        }
+
+        var (ok, error, _, idToken, verified) = await firebase.SignInAsync(Login, Password);
+        if (!ok || string.IsNullOrEmpty(idToken))
+        {
+            ErrorMessage = string.IsNullOrWhiteSpace(error)
+                ? "تعذر التحقق من الحساب لإعادة إرسال الرابط."
+                : error;
+            NeedsEmailVerification = true;
+            return Page();
+        }
+
+        if (verified)
+        {
+            SuccessMessage = "بريدك مؤكد بالفعل. يمكنك تسجيل الدخول الآن.";
+            return Page();
+        }
+
+        var continueUrl = Url.Page("/Account/Login", null, null, Request.Scheme);
+        var (sent, sendError) = await firebase.SendEmailVerificationAsync(idToken, continueUrl);
+        if (!sent)
+        {
+            ErrorMessage = sendError;
+            NeedsEmailVerification = true;
+            return Page();
+        }
+
+        SuccessMessage = "أُرسل رابط تأكيد جديد إلى بريدك. افتحه ثم سجّل الدخول.";
+        NeedsEmailVerification = true;
+        return Page();
     }
 }

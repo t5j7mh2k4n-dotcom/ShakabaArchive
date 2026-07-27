@@ -4,6 +4,7 @@
     ViewData["Title"] = "سجل الأشخاص";
     var idxUser = User.Identity?.IsAuthenticated == true ? User.CurrentAppUser() : null;
     var canManage = User.IsInRole("Admin") || User.IsInRole("Approver") || idxUser?.CanApprove == true;
+    var isAdmin = User.IsInRole("Admin") || idxUser?.IsAdmin == true || idxUser?.Role == UserRole.Admin;
     var canAdd = User.Identity?.IsAuthenticated == true;
     string Dash(string? v) => string.IsNullOrWhiteSpace(v) ? "—" : v;
 }
@@ -122,6 +123,11 @@
                 <th>دولة المهجر</th>
                 <th>مدينة المهجر</th>
                 <th>الهاتف</th>
+                @if (isAdmin)
+                {
+                    <th>صاحب الأسرة</th>
+                    <th>رمز أمان الأسرة</th>
+                }
                 <th>نوع الوثيقة</th>
                 <th>رقم الوثيقة</th>
                 <th>ملاحظات</th>
@@ -162,6 +168,24 @@
                     <td>@(p.IsMigrant ? Dash(p.MigrationCountry) : "—")</td>
                     <td>@(p.IsMigrant ? Dash(p.MigrationCity) : "—")</td>
                     <td>@Dash(p.Phone)</td>
+                    @if (isAdmin)
+                    {
+                        Model.FamilyInfoByPersonId.TryGetValue(p.Id, out var fam);
+                        <td>@Dash(fam?.OwnerName)</td>
+                        <td>
+                            <form method="post" asp-page-handler="SetFamilySecurity" class="d-flex flex-wrap gap-1 align-items-center">
+                                <input type="hidden" name="personId" value="@p.Id" />
+                                <input type="hidden" name="q" value="@Model.Q" />
+                                <input type="hidden" name="field" value="@Model.Field" />
+                                <input type="hidden" name="birthPlace" value="@Model.BirthPlace" />
+                                <input type="hidden" name="level" value="@Model.Level" />
+                                <input class="form-control form-control-sm" style="min-width:7rem;max-width:9rem"
+                                       name="securityCode" value="@(fam?.SecurityCode ?? "")"
+                                       placeholder="رمز" required autocomplete="off" />
+                                <button class="btn btn-sm btn-soft" type="submit">حفظ</button>
+                            </form>
+                        </td>
+                    }
                     <td>@Dash(string.IsNullOrWhiteSpace(p.DocumentType) ? DocumentTypes.NationalId : p.DocumentType)</td>
                     <td>@Dash(string.IsNullOrWhiteSpace(p.DocumentNumber) ? p.NationalId : p.DocumentNumber)</td>
                     <td class="notes-cell">@Dash(p.Notes)</td>
@@ -174,7 +198,9 @@
                             <a class="btn btn-sm btn-soft" asp-page="/Occasions/Create" asp-route-personId="@p.Id">مناسبة</a>
                             @if (canEditThis)
                             {
-                                <a class="btn btn-sm btn-soft" asp-page="Edit" asp-route-id="@p.Id">تعديل بياناتي</a>
+                                <a class="btn btn-sm btn-soft" asp-page="Edit" asp-route-id="@p.Id">
+                                    @(isAdmin ? "تعديل" : "تعديل بياناتي")
+                                </a>
                             }
                             @if (canCompleteThis)
                             {

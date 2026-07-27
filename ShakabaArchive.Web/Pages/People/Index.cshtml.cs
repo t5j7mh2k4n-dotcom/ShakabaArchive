@@ -17,6 +17,9 @@ public class IndexModel(ArchiveDbContext db) : PageModel
     public List<SelectListItem> BirthPlaceOptions { get; private set; } = [];
     public List<SelectListItem> SearchFieldOptions { get; private set; } = [];
 
+    /// <summary>مفتاح = Person.Id — معلومات أسرة صاحب السجل للأدمن.</summary>
+    public Dictionary<int, FamilySecurityInfo> FamilyInfoByPersonId { get; private set; } = new();
+
     [BindProperty(SupportsGet = true)]
     public string? Q { get; set; }
 
@@ -35,6 +38,7 @@ public class IndexModel(ArchiveDbContext db) : PageModel
         {
             DatabaseService.EnsureReady();
             await ApprovalService.EnsureSchemaAsync(db);
+            await FamilyRegistryService.EnsureSchemaAsync(db);
         }
         catch (Exception ex)
         {
@@ -76,6 +80,8 @@ public class IndexModel(ArchiveDbContext db) : PageModel
             .ThenBy(p => p.FullName)
             .ToListAsync();
 
+        await LoadFamilySecurityInfoAsync();
+
         // طلبات الإضافة التي لم تُعتمد بعد — المدخل يرى طلباته فقط
         if (User.Identity?.IsAuthenticated == true)
         {
@@ -113,6 +119,88 @@ public class IndexModel(ArchiveDbContext db) : PageModel
                     DocumentNumber = draft?.DocumentNumber ?? draft?.NationalId ?? "—"
                 });
             }
+        }
+    }
+
+    public async Task<IActionResult> OnPostSetFamilySecurityAsync(int personId, string securityCode)
+    {
+        var appUser = User.CurrentAppUser();
+        if (appUser is null || !(User.IsInRole("Admin") || appUser.IsAdmin || appUser.Role == UserRole.Admin))
+            return Forbid();
+
+        var person = await db.People.FirstOrDefaultAsync(p => p.Id == personId);
+        if (person is null)
+        {
+            TempData["Flash"] = "السجل غير موجود.";
+            return RedirectToPage(new { q = Q, field = Field, birthPlace = BirthPlace, level = Level });
+        }
+
+        string? ownerName = null;
+        if (person.OwnerUserId is int oid)
+        {
+            var owner = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == oid);
+            ownerName = owner?.DisplayName;
+        }
+
+        var (family, famErr) = await FamilyRegistryService.EnsureFamilyForPersonAsync(db, person, ownerName);
+        if (family is null)
+        {
+            TempData["Flash"] = famErr;
+            return RedirectToPage(new { q = Q, field = Field, birthPlace = BirthPlace, level = Level });
+        }
+
+        var (ok, error) = await FamilyRegistryService.SetSecurityCodeAsync(db, family.Id, securityCode);
+        TempData["Flash"] = ok
+            ? $"تم حفظ رمز أمان أسرة «{(string.IsNullOrWhiteSpace(ownerName) ? family.Name : ownerName)}»: {FamilyRegistryService.NormalizeSecurityCode(securityCode)}"
+            : error;
+
+        return RedirectToPage(new { q = Q, field = Field, birthPlace = BirthPlace, level = Level });
+    }
+
+    private async Task LoadFamilySecurityInfoAsync()
+    {
+        if (People.Count == 0) return;
+
+        var familyIds = People.Where(p => p.FamilyId.HasValue).Select(p => p.FamilyId!.Value).Distinct().ToList();
+        var ownerIds = People.Where(p => p.OwnerUserId.HasValue).Select(p => p.OwnerUserId!.Value).Distinct().ToList();
+
+        var families = await db.Families.AsNoTracking()
+            .Where(f => familyIds.Contains(f.Id) || ownerIds.Contains(f.OwnerUserId))
+            .ToListAsync();
+        var byId = families.ToDictionary(f => f.Id);
+        var byOwner = families.Where(f => f.OwnerUserId > 0)
+            .GroupBy(f => f.OwnerUserId)
+            .ToDictionary(g => g.Key, g => g.First());
+
+        var allOwnerIds = families.Select(f => f.OwnerUserId).Where(id => id > 0)
+            .Concat(ownerIds)
+            .Distinct()
+            .ToList();
+        var owners = await db.Users.AsNoTracking()
+            .Where(u => allOwnerIds.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, u => u.DisplayName);
+
+        foreach (var p in People)
+        {
+            ShakabaArchive.Models.Family? family = null;
+            if (p.FamilyId is int fid && byId.TryGetValue(fid, out var f1))
+                family = f1;
+            else if (p.OwnerUserId is int oid && byOwner.TryGetValue(oid, out var f2))
+                family = f2;
+
+            var ownerName = "";
+            if (family is not null && family.OwnerUserId > 0 && owners.TryGetValue(family.OwnerUserId, out var n1))
+                ownerName = n1;
+            else if (p.OwnerUserId is int oid2 && owners.TryGetValue(oid2, out var n2))
+                ownerName = n2;
+
+            FamilyInfoByPersonId[p.Id] = new FamilySecurityInfo
+            {
+                FamilyId = family?.Id,
+                FamilyName = family?.Name ?? "",
+                SecurityCode = family?.SecurityCode ?? "",
+                OwnerName = ownerName
+            };
         }
     }
 
@@ -165,6 +253,14 @@ public class IndexModel(ArchiveDbContext db) : PageModel
 
         TempData["Flash"] = "تم إرسال طلب الحذف بانتظار موافقة أحد الثلاثة على صحة البيانات.";
         return RedirectToPage("/Approvals/Index");
+    }
+
+    public class FamilySecurityInfo
+    {
+        public int? FamilyId { get; set; }
+        public string FamilyName { get; set; } = "";
+        public string SecurityCode { get; set; } = "";
+        public string OwnerName { get; set; } = "";
     }
 
     public class PendingPersonRow

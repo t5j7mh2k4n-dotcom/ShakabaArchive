@@ -9,11 +9,11 @@
         <div class="card-panel">
             <h1 class="h4 mb-3">الانضمام إلى أرشيف الشكابة شاع الدين</h1>
             <p class="muted">
-                أنشئ حساباً ثم افتح <strong>سجل الأسرة</strong> لإضافة أفراد أسرتك فرداً فرداً.
-                بعد الحفظ يمكنك تصديرهم إلى السجل العام (يظهر للأدمن).
+                أنشئ حساباً ثم أكّد بريدك من الرابط الذي يصلك بالإيميل.
+                بعد التأكيد سجّل الدخول وافتح <strong>سجل الأسرة</strong> لإضافة أفراد أسرتك.
                 @if (Model.FirebaseEnabled)
                 {
-                    <text> التسجيل يتم عبر <strong>Firebase Authentication</strong>.</text>
+                    <text> الحساب يُحفظ عبر <strong>Firebase Authentication</strong>.</text>
                 }
             </p>
             @if (!string.IsNullOrEmpty(Model.ErrorMessage))
@@ -42,7 +42,7 @@
                     <label class="form-label">تأكيد كلمة المرور</label>
                     <input class="form-control" asp-for="ConfirmPassword" type="password" required minlength="6" autocomplete="new-password" />
                 </div>
-                <button class="btn btn-accent w-100" type="submit">إنشاء الحساب والدخول</button>
+                <button class="btn btn-accent w-100" type="submit">إنشاء الحساب وإرسال رابط التأكيد</button>
             </form>
             <p class="mt-3 mb-0"><a asp-page="/Account/Login">لديك حساب؟ تسجيل الدخول</a></p>
         </div>

@@ -8,11 +8,11 @@
 <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
     <div>
         <h1 class="h3 mb-1">سجل الأسرة</h1>
-        <p class="muted mb-0">@Model.Family.Name — أضف أو حوّل أفراد أسرتك. الحفظ فوري بدون موافقة.</p>
+        <p class="muted mb-0">@Model.Family.Name — هذا سجلك الخاص فقط. السجل العام يظهر للأدمن وحده.</p>
     </div>
     <div class="d-flex flex-wrap gap-2">
         <a class="btn btn-accent" asp-page="Create">إضافة فرد للأسرة</a>
-        <a class="btn btn-soft" asp-page="Import">تحويل من السجل</a>
+        <a class="btn btn-soft" asp-page="Import">تحويل من السجل العام</a>
         @if (Model.PendingExportCount > 0)
         {
             <form method="post" asp-page-handler="Export" class="d-inline"
@@ -34,6 +34,16 @@
 {
     <div class="alert alert-danger">@err</div>
 }
+
+<div class="card-panel mb-3 border-start border-4" style="border-color: var(--accent, #0d6efd) !important;">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div>
+            <div class="small muted mb-1">رمز أمان الأسرة (ثابت)</div>
+            <code class="fs-5 user-select-all">@Model.Family.SecurityCode</code>
+            <p class="small muted mb-0 mt-1">مطلوب عند الإضافة أو البحث والنقل من السجل العام. احفظه ولا تشاركه إلا مع أفراد أسرتك.</p>
+        </div>
+    </div>
+</div>
 
 <div class="card-panel mb-3">
     <form method="post" asp-page-handler="Rename" class="row g-2 align-items-end">
@@ -103,7 +113,7 @@
             لا يوجد أفراد بعد.
             <a asp-page="Create">أضف فرداً جديداً</a>
             أو
-            <a asp-page="Import">حوّل من السجل الموجود</a>.
+            <a asp-page="Import">حوّل من السجل العام</a>.
         </p>
     }
 </div>

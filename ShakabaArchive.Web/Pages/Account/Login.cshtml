@@ -8,7 +8,11 @@
     <div class="col-md-5">
         <div class="card-panel">
             <h1 class="h4 mb-3">دخول المستخدم</h1>
-            <p class="muted small">الدخول بالبريد الإلكتروني أو رقم الهاتف.</p>
+            <p class="muted small">الدخول بالبريد الإلكتروني أو رقم الهاتف. بعد إنشاء الحساب يجب تأكيد البريد من الرابط في الإيميل.</p>
+            @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+            {
+                <div class="alert alert-success">@Model.SuccessMessage</div>
+            }
             @if (!string.IsNullOrEmpty(Model.ErrorMessage))
             {
                 <div class="alert alert-danger">@Model.ErrorMessage</div>
@@ -25,6 +29,14 @@
                 </div>
                 <button class="btn btn-accent w-100" type="submit">دخول</button>
             </form>
+            @if (Model.NeedsEmailVerification)
+            {
+                <form method="post" asp-page-handler="ResendVerification" class="mt-2">
+                    <input type="hidden" asp-for="Login" />
+                    <input type="hidden" asp-for="Password" />
+                    <button class="btn btn-soft w-100" type="submit">إعادة إرسال رابط التأكيد</button>
+                </form>
+            }
             <p class="mt-3 mb-0">
                 ليس لديك حساب؟
                 <a asp-page="/Account/Register">سجّل مجاناً وأضف بياناتك</a>

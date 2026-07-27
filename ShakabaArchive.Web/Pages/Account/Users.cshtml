@@ -42,6 +42,8 @@ else
         — الأدمن الرئيسي منفصل عنهم.
         <br />
         تخزين الحسابات: <strong>@Model.StorageLabel</strong>
+        <br />
+        <strong>رمز أمان الأسرة</strong> يظهر في الجدول أدناه أمام كل مستخدم (عمود «رمز الأمان»). يُنشأ تلقائياً إن لم يكن موجوداً.
     </div>
 
     @if (!Model.CanPersistUsers)
@@ -102,6 +104,12 @@ else
                     <option value="@((int)UserRole.Admin)">أدمن رئيسي</option>
                 </select>
             </div>
+            <div class="col-md-2">
+                <label class="form-label">رمز أمان الأسرة</label>
+                <input class="form-control" asp-for="Form.SecurityCode" autocomplete="off"
+                       placeholder="@(isEditing ? "اتركه فارغاً للإبقاء" : "اختياري — يُولَّد تلقائياً")" />
+                <div class="form-text">ثابت للأسرة — يظهر مع اسم صاحب الأسرة.</div>
+            </div>
             <div class="col-12 d-flex flex-wrap gap-2 mt-2">
                 <button class="btn btn-accent" type="submit">
                     @(isEditing ? "حفظ التعديل" : "إضافة المستخدم")
@@ -120,9 +128,11 @@ else
             <table class="table align-middle mb-0">
                 <thead>
                 <tr>
-                    <th>الاسم</th>
+                    <th>صاحب الأسرة</th>
                     <th>البريد</th>
                     <th>الهاتف</th>
+                    <th>اسم الأسرة</th>
+                    <th>رمز الأمان</th>
                     <th>الدور</th>
                     <th>الصلاحيات</th>
                     <th style="width:160px">إجراءات</th>
@@ -143,6 +153,26 @@ else
                         </td>
                         <td>@u.Email</td>
                         <td>@u.Phone</td>
+                        <td>@(string.IsNullOrWhiteSpace(u.FamilyName) ? "—" : u.FamilyName)</td>
+                        <td style="min-width:12rem">
+                            @if (!string.IsNullOrWhiteSpace(u.SecurityCode))
+                            {
+                                <div class="mb-1">
+                                    <code class="fs-6 user-select-all">@u.SecurityCode</code>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="text-danger small mb-1">لا يوجد رمز — سيُولَّد عند الحفظ</div>
+                            }
+                            <form method="post" asp-page-handler="SetSecurityCode" class="d-flex flex-wrap gap-1 align-items-center">
+                                <input type="hidden" name="userId" value="@u.Id" />
+                                <input class="form-control form-control-sm" style="min-width:7rem;max-width:9rem"
+                                       name="securityCode" value="@u.SecurityCode" required autocomplete="off"
+                                       placeholder="رمز الأمان" />
+                                <button class="btn btn-sm btn-accent" type="submit">حفظ الرمز</button>
+                            </form>
+                        </td>
                         <td>@RoleClaims.ToArabic(isAdmin ? UserRole.Admin : u.Role)</td>
                         <td>
                             <form method="post" asp-page-handler="SetPermissions" class="perm-checks">

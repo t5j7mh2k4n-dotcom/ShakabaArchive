@@ -13,6 +13,11 @@ public class ImportModel(ArchiveDbContext db) : PageModel
     public List<Person> Results { get; private set; } = [];
     public string Q { get; private set; } = "";
 
+    [BindProperty(SupportsGet = true)]
+    public string SecurityCode { get; set; } = "";
+
+    public string? ErrorMessage { get; private set; }
+
     public async Task<IActionResult> OnGetAsync(string? q = null)
     {
         var user = User.CurrentAppUser();
@@ -22,6 +27,12 @@ public class ImportModel(ArchiveDbContext db) : PageModel
         Q = (q ?? "").Trim();
         if (string.IsNullOrWhiteSpace(Q))
             return Page();
+
+        if (!FamilyRegistryService.VerifySecurityCode(Family, SecurityCode))
+        {
+            ErrorMessage = "أدخل رمز أمان الأسرة الصحيح للبحث في السجل العام.";
+            return Page();
+        }
 
         Results = await SearchAsync(Family.Id, Q);
         return Page();
@@ -33,6 +44,13 @@ public class ImportModel(ArchiveDbContext db) : PageModel
         if (user is null) return Challenge();
 
         Family = await FamilyRegistryService.GetOrCreateAsync(db, user);
+
+        if (!FamilyRegistryService.VerifySecurityCode(Family, SecurityCode))
+        {
+            TempData["FlashError"] = "رمز أمان الأسرة غير صحيح. لا يمكن النقل بدون الرمز.";
+            return RedirectToPage(new { q, SecurityCode });
+        }
+
         var isAdmin = User.IsInRole("Admin") || user.IsAdmin || user.Role == UserRole.Admin;
 
         var (ok, message) = await FamilyRegistryService.AttachToFamilyAsync(
@@ -41,7 +59,7 @@ public class ImportModel(ArchiveDbContext db) : PageModel
         if (ok) TempData["Flash"] = message;
         else TempData["FlashError"] = message;
 
-        return RedirectToPage(new { q });
+        return RedirectToPage(new { q, SecurityCode });
     }
 
     private async Task<List<Person>> SearchAsync(int familyId, string q)
@@ -51,8 +69,9 @@ public class ImportModel(ArchiveDbContext db) : PageModel
                       || User.CurrentAppUser()?.IsAdmin == true
                       || User.CurrentAppUser()?.Role == UserRole.Admin;
 
-        // غير المرتبطين بأسرة، أو (للأدمن) أي شخص خارج هذه الأسرة
-        var query = db.People.AsNoTracking().Where(p => p.FamilyId != familyId);
+        // من السجل العام فقط — غير المرتبطين بأسرة أخرى (إلا للأدمن)
+        var query = db.People.AsNoTracking()
+            .Where(p => p.FamilyId != familyId && p.IsInGeneralRegistry);
         if (!isAdmin)
             query = query.Where(p => p.FamilyId == null);
 

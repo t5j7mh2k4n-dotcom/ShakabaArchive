@@ -19,6 +19,9 @@ public class CreateModel(ArchiveDbContext db) : PageModel
     [BindProperty]
     public IFormFile? Document { get; set; }
 
+    [BindProperty]
+    public string SecurityCode { get; set; } = "";
+
     public Models.Family Family { get; private set; } = null!;
     public List<SelectListItem> ParentOptions { get; private set; } = [];
 
@@ -44,6 +47,12 @@ public class CreateModel(ArchiveDbContext db) : PageModel
         Input.HierarchyLevel = 1;
         Input.ParentPersonId = null;
         await LoadParentsAsync();
+
+        if (!FamilyRegistryService.VerifySecurityCode(Family, SecurityCode))
+        {
+            ModelState.AddModelError(nameof(SecurityCode), "رمز أمان الأسرة غير صحيح.");
+            return Page();
+        }
 
         ModelState.Remove("Input.FatherName");
         ModelState.Remove("Input.FamilyName");

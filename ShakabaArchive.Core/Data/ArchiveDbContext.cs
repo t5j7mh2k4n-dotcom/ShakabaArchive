@@ -25,7 +25,9 @@ public class ArchiveDbContext : DbContext, IDataProtectionKeyContext
         {
             e.ToTable("Families");
             e.HasIndex(f => f.OwnerUserId).IsUnique();
+            e.HasIndex(f => f.SecurityCode).IsUnique();
             e.Property(f => f.Name).HasMaxLength(160).IsRequired();
+            e.Property(f => f.SecurityCode).HasMaxLength(16).IsRequired();
         });
 
         modelBuilder.Entity<Person>(e =>
