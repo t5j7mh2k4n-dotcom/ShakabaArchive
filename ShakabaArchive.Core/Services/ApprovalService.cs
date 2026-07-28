@@ -314,6 +314,10 @@ public static class ApprovalService
         if (item.EntityId is not int updateId) return;
         var existing = await db.People.FindAsync(updateId)
                        ?? throw new InvalidOperationException("السجل غير موجود.");
+        if (string.IsNullOrWhiteSpace(dto.PhotoPath))
+            dto.PhotoPath = existing.PhotoPath;
+        if (string.IsNullOrWhiteSpace(dto.DocumentImagePath))
+            dto.DocumentImagePath = existing.DocumentImagePath;
         var keepCode = existing.RegistryCode;
         var keepLevel = existing.HierarchyLevel;
         var keepParent = existing.ParentPersonId;

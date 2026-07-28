@@ -170,16 +170,19 @@ public static class DatabaseService
 
             if (!CanQueryPeople(db))
                 EnsureTables(db);
-            else
-                UpgradeSchema(db);
+
+            UpgradeSchema(db);
 
             if (CanQueryPeople(db))
             {
                 RemoveRetiredOccasionTypes(db);
                 SeedIfEmpty(db);
+                _initialized = true;
             }
-
-            _initialized = true;
+            else
+            {
+                Console.Error.WriteLine("People table still not queryable after schema upgrade.");
+            }
         }
     }
 
@@ -212,6 +215,8 @@ public static class DatabaseService
         if (!_initialized)
             Initialize();
     }
+
+    public static void UpgradeSchema(ArchiveDbContext db) => UpgradeSchemaCore(db);
 
     public static void ResetInitialization()
     {
@@ -318,7 +323,7 @@ public static class DatabaseService
         {
             Console.Error.WriteLine("EnsureTables CreateTables: " + ex.Message);
             // إن وُجدت الجداول مسبقاً نكتفي بالترقية
-            try { UpgradeSchema(db); }
+            try { UpgradeSchemaCore(db); }
             catch (Exception upEx)
             {
                 Console.Error.WriteLine("EnsureTables UpgradeSchema: " + upEx.Message);
@@ -359,10 +364,45 @@ public static class DatabaseService
             ext = ".jpg";
 
         var name = $"{Guid.NewGuid():N}{ext.ToLowerInvariant()}";
+        using var ms = new MemoryStream();
+        content.CopyTo(ms);
+        var bytes = ms.ToArray();
+
         var full = Path.Combine(UploadsFolder, name);
-        using (var fs = File.Create(full))
-            content.CopyTo(fs);
+        File.WriteAllBytes(full, bytes);
+        PersistStoredFile(name, bytes, ContentTypeForExtension(ext));
         return name;
+    }
+
+    public static string ContentTypeForExtension(string ext) =>
+        ext.ToLowerInvariant() switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".webp" => "image/webp",
+            ".gif" => "image/gif",
+            ".pdf" => "application/pdf",
+            _ => "application/octet-stream"
+        };
+
+    private static void PersistStoredFile(string fileName, byte[] content, string contentType)
+    {
+        try
+        {
+            using var db = CreateContext();
+            db.StoredFiles.Add(new StoredFile
+            {
+                FileName = fileName,
+                Content = content,
+                ContentType = contentType,
+                CreatedAt = DateTime.UtcNow
+            });
+            db.SaveChanges();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("PersistStoredFile failed: " + ex.Message);
+        }
     }
 
     public static string NormalizeConnectionString(string value) => NormalizePostgresUrl(value);
@@ -435,7 +475,7 @@ public static class DatabaseService
         }
     }
 
-    private static void UpgradeSchema(ArchiveDbContext db)
+    private static void UpgradeSchemaCore(ArchiveDbContext db)
     {
         TryAlter(db, "ALTER TABLE People ADD COLUMN Tribe TEXT NOT NULL DEFAULT ''");
         TryAlter(db, "ALTER TABLE People ADD COLUMN Neighborhood TEXT NOT NULL DEFAULT ''");
@@ -468,6 +508,23 @@ public static class DatabaseService
         TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "IsMigrant" boolean NOT NULL DEFAULT false""");
         TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "MigrationCountry" varchar(120) NOT NULL DEFAULT ''""");
         TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "MigrationCity" varchar(120) NOT NULL DEFAULT ''""");
+
+        TryAlter(db, """
+            CREATE TABLE IF NOT EXISTS StoredFiles (
+              FileName TEXT PRIMARY KEY,
+              ContentType TEXT NOT NULL DEFAULT 'application/octet-stream',
+              Content BLOB NOT NULL,
+              CreatedAt TEXT NOT NULL
+            );
+            """);
+        TryAlter(db, """
+            CREATE TABLE IF NOT EXISTS "StoredFiles" (
+              "FileName" varchar(64) PRIMARY KEY,
+              "ContentType" varchar(100) NOT NULL DEFAULT 'application/octet-stream',
+              "Content" bytea NOT NULL,
+              "CreatedAt" timestamp with time zone NOT NULL DEFAULT NOW()
+            );
+            """);
 
         BackfillPersonRegistryFields(db);
 

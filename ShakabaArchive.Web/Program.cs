@@ -98,6 +98,7 @@ try
     if (warmDb.Database.CanConnect())
     {
         DatabaseService.EnsureDataProtectionKeysTable(warmDb);
+        DatabaseService.UpgradeSchema(warmDb);
         ApprovalService.EnsureSchemaAsync(warmDb).GetAwaiter().GetResult();
     }
 }
@@ -117,6 +118,31 @@ app.UseStaticFiles();
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
+
+static bool IsSafeUploadFileName(string? fileName) =>
+    !string.IsNullOrWhiteSpace(fileName)
+    && fileName.IndexOfAny(['/', '\\']) < 0
+    && !fileName.Contains("..", StringComparison.Ordinal);
+
+app.MapGet("/uploads/{fileName}", async (string fileName, ArchiveDbContext db) =>
+{
+    if (!IsSafeUploadFileName(fileName))
+        return Results.BadRequest();
+
+    var diskPath = Path.Combine(uploads, fileName);
+    if (File.Exists(diskPath))
+    {
+        var ext = Path.GetExtension(fileName);
+        return Results.File(diskPath, DatabaseService.ContentTypeForExtension(ext));
+    }
+
+    var stored = await db.StoredFiles.AsNoTracking()
+        .FirstOrDefaultAsync(f => f.FileName == fileName);
+    if (stored is null)
+        return Results.NotFound();
+
+    return Results.File(stored.Content, stored.ContentType);
+});
 
 // صحة سريعة لـ Render قبل اكتمال تهيئة قاعدة البيانات
 app.MapGet("/health", () => Results.Ok("ok"));

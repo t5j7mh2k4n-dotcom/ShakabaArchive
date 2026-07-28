@@ -59,6 +59,18 @@ public class EditPendingModel(ArchiveDbContext db) : PageModel
 
         var draft = Input.ToDraft();
 
+        var (_, _, existingDraft) = await ApprovalService.GetPendingPersonDraftAsync(db, appUser, Id);
+        if (existingDraft is not null)
+        {
+            draft.RegistryCode = existingDraft.RegistryCode;
+            draft.HierarchyLevel = existingDraft.HierarchyLevel;
+            draft.ParentPersonId = existingDraft.ParentPersonId;
+            if (string.IsNullOrWhiteSpace(draft.PhotoPath))
+                draft.PhotoPath = existingDraft.PhotoPath;
+            if (string.IsNullOrWhiteSpace(draft.DocumentImagePath))
+                draft.DocumentImagePath = existingDraft.DocumentImagePath;
+        }
+
         if (Photo is { Length: > 0 })
         {
             await using var stream = Photo.OpenReadStream();

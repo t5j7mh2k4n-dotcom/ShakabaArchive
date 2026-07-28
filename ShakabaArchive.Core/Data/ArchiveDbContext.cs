@@ -15,6 +15,7 @@ public class ArchiveDbContext : DbContext, IDataProtectionKeyContext
     public DbSet<PendingChange> PendingChanges => Set<PendingChange>();
     public DbSet<AppUser> Users => Set<AppUser>();
     public DbSet<InviteCode> InviteCodes => Set<InviteCode>();
+    public DbSet<StoredFile> StoredFiles => Set<StoredFile>();
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -116,6 +117,13 @@ public class ArchiveDbContext : DbContext, IDataProtectionKeyContext
             e.HasIndex(c => c.Code).IsUnique();
             e.Property(c => c.Code).HasMaxLength(40).IsRequired();
             e.Property(c => c.Note).HasMaxLength(200);
+        });
+
+        modelBuilder.Entity<StoredFile>(e =>
+        {
+            e.HasKey(f => f.FileName);
+            e.Property(f => f.FileName).HasMaxLength(64).IsRequired();
+            e.Property(f => f.ContentType).HasMaxLength(100).IsRequired();
         });
     }
 }
