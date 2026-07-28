@@ -526,6 +526,29 @@ public static class DatabaseService
             );
             """);
 
+        TryAlter(db, """
+            CREATE TABLE IF NOT EXISTS PasswordResetTokens (
+              Id INTEGER PRIMARY KEY AUTOINCREMENT,
+              UserId INTEGER NOT NULL,
+              Token TEXT NOT NULL,
+              ExpiresAt TEXT NOT NULL,
+              CreatedAt TEXT NOT NULL,
+              Used INTEGER NOT NULL DEFAULT 0
+            );
+            """);
+        TryAlter(db, """
+            CREATE TABLE IF NOT EXISTS "PasswordResetTokens" (
+              "Id" SERIAL PRIMARY KEY,
+              "UserId" integer NOT NULL,
+              "Token" varchar(128) NOT NULL,
+              "ExpiresAt" timestamp with time zone NOT NULL,
+              "CreatedAt" timestamp with time zone NOT NULL DEFAULT NOW(),
+              "Used" boolean NOT NULL DEFAULT false
+            );
+            """);
+        TryAlter(db, """CREATE UNIQUE INDEX IF NOT EXISTS "IX_PasswordResetTokens_Token" ON "PasswordResetTokens" ("Token");""");
+        TryAlter(db, """CREATE INDEX IF NOT EXISTS "IX_PasswordResetTokens_UserId" ON "PasswordResetTokens" ("UserId");""");
+
         BackfillPersonRegistryFields(db);
 
         TryAlter(db, "ALTER TABLE LifeEvents ADD COLUMN Mood INTEGER NOT NULL DEFAULT 0");

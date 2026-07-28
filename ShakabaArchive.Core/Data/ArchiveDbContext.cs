@@ -16,6 +16,7 @@ public class ArchiveDbContext : DbContext, IDataProtectionKeyContext
     public DbSet<AppUser> Users => Set<AppUser>();
     public DbSet<InviteCode> InviteCodes => Set<InviteCode>();
     public DbSet<StoredFile> StoredFiles => Set<StoredFile>();
+    public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -124,6 +125,14 @@ public class ArchiveDbContext : DbContext, IDataProtectionKeyContext
             e.HasKey(f => f.FileName);
             e.Property(f => f.FileName).HasMaxLength(64).IsRequired();
             e.Property(f => f.ContentType).HasMaxLength(100).IsRequired();
+        });
+
+        modelBuilder.Entity<PasswordResetToken>(e =>
+        {
+            e.HasIndex(t => t.Token).IsUnique();
+            e.HasIndex(t => t.UserId);
+            e.HasIndex(t => t.ExpiresAt);
+            e.Property(t => t.Token).HasMaxLength(128).IsRequired();
         });
     }
 }

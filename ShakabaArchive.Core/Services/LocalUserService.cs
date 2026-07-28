@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -559,6 +560,95 @@ public static class LocalUserService
         db.SaveChanges();
         return (true, "");
     }
+
+    /// <summary>طلب استعادة كلمة المرور بالتحقق من البريد والهاتف المسجّلين.</summary>
+    public static (bool Ok, string Error, string? Token) RequestPasswordReset(string email, string phone)
+    {
+        email = email.Trim().ToLowerInvariant();
+        phone = phone.Trim();
+
+        if (string.IsNullOrWhiteSpace(email) || !email.Contains('@'))
+            return (false, "أدخل بريداً إلكترونياً صحيحاً.", null);
+        if (string.IsNullOrWhiteSpace(phone) || phone.Length < 8)
+            return (false, "أدخل رقم هاتف صحيحاً.", null);
+
+        if (WriteBlockedReason() is { } blocked)
+            return (false, blocked, null);
+
+        EnsureReady();
+        using var db = CreateContext();
+        var normalizedInputPhone = NormalizePhoneDigits(phone);
+        var user = db.Users.AsEnumerable()
+            .FirstOrDefault(u =>
+                string.Equals(u.Email, email, StringComparison.OrdinalIgnoreCase)
+                && (string.Equals(u.Phone.Trim(), phone, StringComparison.OrdinalIgnoreCase)
+                    || NormalizePhoneDigits(u.Phone) == normalizedInputPhone));
+
+        if (user is null)
+            return (false, "البريد الإلكتروني ورقم الهاتف غير متطابقين مع أي حساب مسجّل.", null);
+
+        var now = DateTime.UtcNow;
+        var stale = db.PasswordResetTokens
+            .Where(t => t.UserId == user.Id && (!t.Used || t.ExpiresAt < now))
+            .ToList();
+        if (stale.Count > 0)
+        {
+            db.PasswordResetTokens.RemoveRange(stale);
+            db.SaveChanges();
+        }
+
+        var token = GenerateResetToken();
+        db.PasswordResetTokens.Add(new PasswordResetToken
+        {
+            UserId = user.Id,
+            Token = token,
+            ExpiresAt = now.AddHours(1),
+            CreatedAt = now,
+            Used = false
+        });
+        db.SaveChanges();
+        return (true, "", token);
+    }
+
+    /// <summary>تعيين كلمة مرور جديدة برمز الاستعادة.</summary>
+    public static (bool Ok, string Error) ResetPasswordWithToken(string token, string newPassword)
+    {
+        token = token.Trim();
+        if (string.IsNullOrWhiteSpace(token))
+            return (false, "رمز الاستعادة غير صالح.");
+        if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 6)
+            return (false, "كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل.");
+
+        if (WriteBlockedReason() is { } blocked)
+            return (false, blocked);
+
+        EnsureReady();
+        using var db = CreateContext();
+        var row = db.PasswordResetTokens.FirstOrDefault(t => t.Token == token);
+        if (row is null || row.Used || row.ExpiresAt < DateTime.UtcNow)
+            return (false, "انتهت صلاحية رابط الاستعادة أو أنه غير صالح. اطلب رابطاً جديداً.");
+
+        var user = db.Users.FirstOrDefault(u => u.Id == row.UserId);
+        if (user is null)
+            return (false, "الحساب غير موجود.");
+
+        user.PasswordHash = PasswordHasher.Hash(newPassword);
+        row.Used = true;
+        db.SaveChanges();
+        return (true, "");
+    }
+
+    private static string GenerateResetToken()
+    {
+        var bytes = RandomNumberGenerator.GetBytes(32);
+        return Convert.ToBase64String(bytes)
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
+    }
+
+    private static string NormalizePhoneDigits(string phone) =>
+        new string(phone.Where(char.IsDigit).ToArray());
 
     public static (bool Ok, string Error) DeleteUser(int userId, int? currentAdminId = null)
     {
