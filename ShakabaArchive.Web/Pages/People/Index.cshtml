@@ -2,18 +2,21 @@
 @model ShakabaArchive.Web.Pages.People.IndexModel
 @{
     ViewData["Title"] = "سجل الأشخاص";
-    var canManage = User.Identity?.IsAuthenticated == true;
+    var idxUser = User.Identity?.IsAuthenticated == true ? User.CurrentAppUser() : null;
+    var canManage = User.IsInRole("Admin") || User.IsInRole("Approver") || idxUser?.CanApprove == true;
+    var isAdmin = User.IsInRole("Admin") || idxUser?.IsAdmin == true || idxUser?.Role == UserRole.Admin;
+    var canAdd = User.Identity?.IsAuthenticated == true;
     string Dash(string? v) => string.IsNullOrWhiteSpace(v) ? "—" : v;
 }
 
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
     <div>
-        <h1 class="h3 mb-1">سجل الأشخاص</h1>
-        <p class="muted mb-0">يعرض كل بيانات الإضافة — ترميز: 01 ← 01001 ← 01001001</p>
+        <h1 class="h3 mb-1">السجل العام — الشكابة شاع الدين</h1>
+        <p class="muted mb-0">يظهر للأدمن فقط — البيانات المُصدَّرة من سجلات الأسر. ترميز: 01 ← 01001 ← 01001001</p>
     </div>
-    @if (canManage)
+    @if (canAdd)
     {
-        <a class="btn btn-accent" asp-page="Create">إضافة سجل</a>
+        <a class="btn btn-accent" asp-page="Create">إضافة للسجل العام</a>
     }
 </div>
 
@@ -120,10 +123,15 @@
                 <th>دولة المهجر</th>
                 <th>مدينة المهجر</th>
                 <th>الهاتف</th>
+                @if (isAdmin)
+                {
+                    <th>صاحب الأسرة</th>
+                    <th>رمز أمان الأسرة</th>
+                }
                 <th>نوع الوثيقة</th>
                 <th>رقم الوثيقة</th>
                 <th>ملاحظات</th>
-                @if (canManage)
+                @if (canAdd)
                 {
                     <th>إجراءات</th>
                 }
@@ -160,19 +168,54 @@
                     <td>@(p.IsMigrant ? Dash(p.MigrationCountry) : "—")</td>
                     <td>@(p.IsMigrant ? Dash(p.MigrationCity) : "—")</td>
                     <td>@Dash(p.Phone)</td>
+                    @if (isAdmin)
+                    {
+                        Model.FamilyInfoByPersonId.TryGetValue(p.Id, out var fam);
+                        <td>@Dash(fam?.OwnerName)</td>
+                        <td>
+                            <form method="post" asp-page-handler="SetFamilySecurity" class="d-flex flex-wrap gap-1 align-items-center">
+                                <input type="hidden" name="personId" value="@p.Id" />
+                                <input type="hidden" name="q" value="@Model.Q" />
+                                <input type="hidden" name="field" value="@Model.Field" />
+                                <input type="hidden" name="birthPlace" value="@Model.BirthPlace" />
+                                <input type="hidden" name="level" value="@Model.Level" />
+                                <input class="form-control form-control-sm" style="min-width:7rem;max-width:9rem"
+                                       name="securityCode" value="@(fam?.SecurityCode ?? "")"
+                                       placeholder="رمز" required autocomplete="off" />
+                                <button class="btn btn-sm btn-soft" type="submit">حفظ</button>
+                            </form>
+                        </td>
+                    }
                     <td>@Dash(string.IsNullOrWhiteSpace(p.DocumentType) ? DocumentTypes.NationalId : p.DocumentType)</td>
                     <td>@Dash(string.IsNullOrWhiteSpace(p.DocumentNumber) ? p.NationalId : p.DocumentNumber)</td>
                     <td class="notes-cell">@Dash(p.Notes)</td>
-                    @if (canManage)
+                    @if (canAdd)
                     {
+                        var canEditThis = User.CanEditPerson(p);
+                        var canCompleteThis = User.CanCompletePerson(p);
+                        var incomplete = AuthExtensions.IsPersonIncomplete(p);
                         <td class="text-nowrap">
                             <a class="btn btn-sm btn-soft" asp-page="/Occasions/Create" asp-route-personId="@p.Id">مناسبة</a>
-                            <a class="btn btn-sm btn-soft" asp-page="Edit" asp-route-id="@p.Id">تعديل</a>
-                            <form method="post" asp-page-handler="Delete" class="d-inline"
-                                  onsubmit="return confirm('إرسال طلب حذف هذا السجل؟');">
-                                <input type="hidden" name="id" value="@p.Id" />
-                                <button type="submit" class="btn btn-sm btn-danger-soft">طلب حذف</button>
-                            </form>
+                            @if (canEditThis)
+                            {
+                                <a class="btn btn-sm btn-soft" asp-page="Edit" asp-route-id="@p.Id">
+                                    @(isAdmin ? "تعديل" : "تعديل بياناتي")
+                                </a>
+                            }
+                            @if (canCompleteThis)
+                            {
+                                <a class="btn btn-sm @(incomplete ? "btn-accent" : "btn-soft")" asp-page="Complete" asp-route-id="@p.Id">
+                                    @(incomplete ? "إكمال البيانات" : "تحديث")
+                                </a>
+                            }
+                            @if (canManage)
+                            {
+                                <form method="post" asp-page-handler="Delete" class="d-inline"
+                                      onsubmit="return confirm('إرسال طلب حذف هذا السجل؟');">
+                                    <input type="hidden" name="id" value="@p.Id" />
+                                    <button type="submit" class="btn btn-sm btn-danger-soft">طلب حذف</button>
+                                </form>
+                            }
                         </td>
                     }
                 </tr>

@@ -14,6 +14,27 @@
     }
     <form method="post" enctype="multipart/form-data">
         <input type="hidden" asp-for="Id" />
+
+        @if (Model.IsAdminEditor)
+        {
+            <div class="card-panel mb-3 bg-light">
+                <h2 class="h6 mb-2">رمز أمان الأسرة (أدمن)</h2>
+                <p class="muted small mb-2">
+                    صاحب الأسرة:
+                    <strong>@(string.IsNullOrWhiteSpace(Model.FamilyOwnerName) ? "—" : Model.FamilyOwnerName)</strong>
+                    —
+                    @(string.IsNullOrWhiteSpace(Model.FamilyName) ? "بلا أسرة مرتبطة بعد" : Model.FamilyName)
+                </p>
+                <div class="mb-0">
+                    <label class="form-label" asp-for="FamilySecurityCode">رمز الأمان</label>
+                    <input class="form-control" asp-for="FamilySecurityCode" autocomplete="off"
+                           placeholder="أدخل أو عدّل رمز أمان أسرة هذا الشخص" />
+                    <span asp-validation-for="FamilySecurityCode" class="text-danger"></span>
+                    <div class="form-text">نفس الرمز يستخدمه صاحب الأسرة عند الإضافة أو النقل من السجل العام.</div>
+                </div>
+            </div>
+        }
+
         <partial name="_PersonForm" for="Input" />
         <div class="d-flex gap-2 mt-3">
             <button class="btn btn-accent" type="submit">حفظ التعديل</button>

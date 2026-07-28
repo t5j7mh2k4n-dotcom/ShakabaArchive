@@ -45,13 +45,13 @@ public class Person
     public string Neighborhood { get; set; } = string.Empty;
     public string Phone { get; set; } = string.Empty;
 
-    /// <summary>هل الشخص مقترب (مقيم خارج البلد)؟</summary>
+    /// <summary>هل الشخص مغترب (مقيم خارج البلد)؟</summary>
     public bool IsMigrant { get; set; }
 
-    /// <summary>دولة المهجر للمقترب.</summary>
+    /// <summary>دولة المهجر للمغترب.</summary>
     public string MigrationCountry { get; set; } = string.Empty;
 
-    /// <summary>مدينة المهجر للمقترب.</summary>
+    /// <summary>مدينة المهجر للمغترب.</summary>
     public string MigrationCity { get; set; } = string.Empty;
 
     public string Notes { get; set; } = string.Empty;
@@ -64,6 +64,17 @@ public class Person
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    /// <summary>معرف المستخدم المالك — يعدّل بياناته فقط (الأدمن/الموافق يستثنون).</summary>
+    public int? OwnerUserId { get; set; }
+
+    /// <summary>معرف سجل الأسرة الخاص (إن وُجد).</summary>
+    public int? FamilyId { get; set; }
+
+    public Family? Family { get; set; }
+
+    /// <summary>هل نُشر في السجل العام (يظهر للأدمن فقط في سجل الأشخاص)؟</summary>
+    public bool IsInGeneralRegistry { get; set; }
 
     public List<LifeEvent> Events { get; set; } = [];
 

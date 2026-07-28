@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
@@ -13,15 +14,31 @@ public class IndexModel : PageModel
     public List<PendingChange> Items { get; private set; } = [];
     public bool CanReview { get; private set; }
     public int CurrentUserId { get; private set; }
+    public int PendingCount { get; private set; }
+    public int TotalCount { get; private set; }
+    public int MissingInRegistryCount { get; private set; }
+    public HashSet<int> PersonIdsInRegistry { get; private set; } = [];
+    public List<ApprovalService.MigrateReminder> WhatsAppReminders { get; private set; } = [];
+    public string Filter { get; private set; } = "pending";
     public string? Message { get; private set; }
     public string? Error { get; private set; }
 
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(string? filter = null)
     {
         Message = TempData["Flash"] as string;
         Error = TempData["FlashError"] as string;
-        CanReview = User.IsInRole("Admin") || User.IsInRole("Approver");
+        if (TempData["WhatsAppReminders"] is string remindersJson && !string.IsNullOrWhiteSpace(remindersJson))
+        {
+            try
+            {
+                WhatsAppReminders = JsonSerializer.Deserialize<List<ApprovalService.MigrateReminder>>(remindersJson) ?? [];
+            }
+            catch { WhatsAppReminders = []; }
+        }
+
         CurrentUserId = ReadUserId();
+        CanReview = ResolveCanReview();
+        Filter = NormalizeFilter(filter);
 
         try
         {
@@ -30,13 +47,12 @@ public class IndexModel : PageModel
         catch (Exception ex)
         {
             Console.Error.WriteLine("Approvals OnGet: " + ex);
-            // لا نرمي المستخدم للخروج — نعرض الصفحة فارغة مع تنبيه
             Error = "تعذر تحميل الطلبات الآن. افتح /health/db?repair=1 ثم حدّث هذه الصفحة بعد 10 ثوانٍ.";
             Items = [];
         }
     }
 
-    public async Task<IActionResult> OnPostApproveAsync(int id, string? note)
+    public async Task<IActionResult> OnPostApproveAsync(int id, string? note, string? filter = null)
     {
         var appUser = ResolveAppUser();
         if (appUser is null)
@@ -45,15 +61,31 @@ public class IndexModel : PageModel
             return RedirectToPage("/Account/Login");
         }
 
+        if (!appUser.CanApprove)
+        {
+            TempData["FlashError"] = "ليست لديك صلاحية الموافقة.";
+            return RedirectToPage(new { filter });
+        }
+
         try
         {
             await using var db = DatabaseService.CreateContext();
             await ApprovalService.EnsureSchemaAsync(db);
-            var (ok, error) = await ApprovalService.ApproveAsync(db, appUser, id, note);
+            var (ok, error, createdPersonId) = await ApprovalService.ApproveAsync(db, appUser, id, note);
             if (!ok)
+            {
                 TempData["FlashError"] = error;
-            else
-                TempData["Flash"] = "تمت الموافقة على صحة البيانات وحفظها في الأرشيف.";
+                return RedirectToPage(new { filter = filter ?? "pending" });
+            }
+
+            // بعد حفظ الشخص في السجل — فتح صفحة إضافة مناسبة مباشرة
+            if (createdPersonId is int personId)
+            {
+                TempData["Flash"] = "تمت الموافقة وحُفظ الشخص في سجل الأشخاص. يمكنك الآن تسجيل مناسبة له.";
+                return RedirectToPage("/Occasions/Create", new { personId });
+            }
+
+            TempData["Flash"] = "تمت الموافقة وحفظ الطلب بنجاح.";
         }
         catch (Exception ex)
         {
@@ -61,16 +93,22 @@ public class IndexModel : PageModel
             TempData["FlashError"] = "تعذر الاعتماد الآن لأن القاعدة تُجهَّز. انتظر قليلاً ثم أعد المحاولة.";
         }
 
-        return RedirectToPage();
+        return RedirectToPage(new { filter = filter ?? "pending" });
     }
 
-    public async Task<IActionResult> OnPostRejectAsync(int id, string? note)
+    public async Task<IActionResult> OnPostRejectAsync(int id, string? note, string? filter = null)
     {
         var appUser = ResolveAppUser();
         if (appUser is null)
         {
             TempData["FlashError"] = "انتهت الجلسة أو تعذر قراءة الحساب. أعد الدخول ثم حاول مرة أخرى.";
             return RedirectToPage("/Account/Login");
+        }
+
+        if (!appUser.CanApprove)
+        {
+            TempData["FlashError"] = "ليست لديك صلاحية الرفض.";
+            return RedirectToPage(new { filter });
         }
 
         try
@@ -89,7 +127,110 @@ public class IndexModel : PageModel
             TempData["FlashError"] = "تعذر الرفض الآن لأن القاعدة تُجهَّز. انتظر قليلاً ثم أعد المحاولة.";
         }
 
-        return RedirectToPage();
+        return RedirectToPage(new { filter = filter ?? "pending" });
+    }
+
+    /// <summary>ترحيل الطلبات المعتمدة إلى سجل الأشخاص بزر يدوي.</summary>
+    public async Task<IActionResult> OnPostMigrateApprovedAsync(string? filter = null)
+    {
+        var appUser = ResolveAppUser();
+        if (appUser is null || !appUser.CanApprove)
+        {
+            TempData["FlashError"] = "ليست لديك صلاحية ترحيل الطلبات.";
+            return RedirectToPage(new { filter = filter ?? "approved" });
+        }
+
+        try
+        {
+            await using var db = DatabaseService.CreateContext();
+            await ApprovalService.EnsureSchemaAsync(db);
+            var result = await ApprovalService.RepairApprovedPersonCreatesAsync(db);
+
+            if (result.Reminders.Count > 0)
+            {
+                TempData["WhatsAppReminders"] = JsonSerializer.Serialize(
+                    result.Reminders.Where(r => r.Incomplete || !string.IsNullOrWhiteSpace(r.Phone)).Take(40).ToList());
+            }
+
+            if (result.Migrated == 0 && result.Linked == 0 && result.AlreadyInRegistry == 0)
+            {
+                TempData["FlashError"] = result.Failed > 0
+                    ? $"تعذر ترحيل {result.Failed} طلب. " + string.Join(" | ", result.Errors.Take(3))
+                    : "لا توجد طلبات معتمدة قابلة للترحيل.";
+            }
+            else
+            {
+                TempData["Flash"] =
+                    $"تم الترحيل إلى السجل: جديد {result.Migrated}" +
+                    (result.Linked > 0 ? $"، مربوط {result.Linked}" : "") +
+                    (result.AlreadyInRegistry > 0 ? $"، موجود مسبقاً {result.AlreadyInRegistry}" : "") +
+                    (result.Failed > 0 ? $"، فشل {result.Failed}" : "") +
+                    ". أرسل تنبيه واتساب لإكمال البيانات الناقصة من الأزرار بالأسفل.";
+                if (result.Failed > 0 && result.Errors.Count > 0)
+                    TempData["FlashError"] = string.Join(" | ", result.Errors.Take(3));
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("MigrateApproved: " + ex);
+            TempData["FlashError"] = "تعذر الترحيل الآن: " + ex.GetBaseException().Message;
+        }
+
+        return RedirectToPage(new { filter = filter ?? "approved" });
+    }
+
+    public async Task<IActionResult> OnPostMigrateOneAsync(int id, string? filter = null)
+    {
+        var appUser = ResolveAppUser();
+        if (appUser is null || !appUser.CanApprove)
+        {
+            TempData["FlashError"] = "ليست لديك صلاحية الترحيل.";
+            return RedirectToPage(new { filter = filter ?? "approved" });
+        }
+
+        try
+        {
+            await using var db = DatabaseService.CreateContext();
+            var (ok, error, personId, incomplete) = await ApprovalService.MigrateOneApprovedPersonAsync(db, id);
+            if (!ok)
+            {
+                TempData["FlashError"] = error;
+                return RedirectToPage(new { filter = filter ?? "approved" });
+            }
+
+            if (personId is int pid)
+            {
+                var person = await db.People.AsNoTracking().FirstOrDefaultAsync(p => p.Id == pid);
+                if (person is not null && (incomplete || !string.IsNullOrWhiteSpace(person.Phone)))
+                {
+                    TempData["WhatsAppReminders"] = JsonSerializer.Serialize(new[]
+                    {
+                        new ApprovalService.MigrateReminder(person.Id, person.FullName, person.Phone, incomplete)
+                    });
+                }
+
+                TempData["Flash"] = incomplete
+                    ? "تم الحفظ في السجل (بيانات غير مكتملة). أرسل تنبيه واتساب لإكمال البيانات."
+                    : (string.IsNullOrWhiteSpace(error) ? "تم حفظ الشخص في سجل الأشخاص." : error);
+                return RedirectToPage(new { filter = "approved" });
+            }
+        }
+        catch (Exception ex)
+        {
+            TempData["FlashError"] = "تعذر الترحيل: " + ex.GetBaseException().Message;
+        }
+
+        return RedirectToPage(new { filter = filter ?? "approved" });
+    }
+
+    private static string NormalizeFilter(string? filter) =>
+        filter is "all" or "approved" or "rejected" ? filter : "pending";
+
+    private bool ResolveCanReview()
+    {
+        if (User.IsInRole("Admin") || User.IsInRole("Approver"))
+            return true;
+        return User.CurrentAppUser()?.CanApprove == true;
     }
 
     private async Task LoadItemsAsync()
@@ -101,16 +242,58 @@ public class IndexModel : PageModel
             {
                 await using var db = DatabaseService.CreateContext();
                 await ApprovalService.EnsureSchemaAsync(db);
+                if (CanReview)
+                {
+                    await ApprovalService.EnsureUserRegistrationPendingsAsync(db);
+                    MissingInRegistryCount =
+                        await ApprovalService.CountApprovedPersonsMissingFromRegistryAsync(db);
+                }
 
-                var rows = await db.PendingChanges.AsNoTracking()
+                PendingCount = await db.PendingChanges.AsNoTracking()
+                    .CountAsync(x => x.Status == ChangeStatus.Pending);
+                TotalCount = await db.PendingChanges.AsNoTracking().CountAsync();
+
+                IQueryable<PendingChange> query = db.PendingChanges.AsNoTracking();
+
+                if (!CanReview)
+                {
+                    if (CurrentUserId <= 0)
+                    {
+                        Items = [];
+                        return;
+                    }
+
+                    query = query.Where(x => x.SubmittedByUserId == CurrentUserId);
+                }
+
+                query = Filter switch
+                {
+                    "approved" => query.Where(x => x.Status == ChangeStatus.Approved),
+                    "rejected" => query.Where(x => x.Status == ChangeStatus.Rejected),
+                    "all" => query,
+                    _ => query.Where(x => x.Status == ChangeStatus.Pending)
+                };
+
+                Items = await query
                     .OrderByDescending(x => x.SubmittedAt)
-                    .Take(100)
+                    .ThenByDescending(x => x.Id)
+                    .Take(200)
                     .ToListAsync();
 
-                Items = rows
-                    .OrderByDescending(x => x.Status == ChangeStatus.Pending)
-                    .ThenByDescending(x => x.SubmittedAt)
+                var entityIds = Items
+                    .Where(x => x.EntityType == ChangeEntity.Person && x.EntityId is > 0)
+                    .Select(x => x.EntityId!.Value)
+                    .Distinct()
                     .ToList();
+                if (entityIds.Count > 0)
+                {
+                    PersonIdsInRegistry = (await db.People.AsNoTracking()
+                            .Where(p => entityIds.Contains(p.Id))
+                            .Select(p => p.Id)
+                            .ToListAsync())
+                        .ToHashSet();
+                }
+
                 return;
             }
             catch (Exception ex)
@@ -127,7 +310,6 @@ public class IndexModel : PageModel
     private int ReadUserId() =>
         int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : 0;
 
-    /// <summary>يبني المستخدم من الجلسة إن تعذر قراءة Neon مؤقتاً — حتى لا يُطرد للخروج.</summary>
     private AppUser? ResolveAppUser()
     {
         var fromDb = User.CurrentAppUser();

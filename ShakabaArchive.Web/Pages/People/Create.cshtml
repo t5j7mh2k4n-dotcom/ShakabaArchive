@@ -3,10 +3,19 @@
 @{
     ViewData["Title"] = "إضافة إلى سجل الأشخاص";
     ViewBag.ParentOptions = Model.ParentOptions;
+    var editorOnly = User.CurrentAppUser()?.IsEditorOnly == true;
+    if (editorOnly)
+        ViewData["LockHierarchy"] = true;
 }
 
 <div class="card-panel">
     <h1 class="h4 mb-3">إضافة سجل في سجل الأشخاص</h1>
+    @if (editorOnly)
+    {
+        <div class="alert alert-info small">
+            بعد الحفظ يُرفع طلبك لموافقة الأدمن. لن يظهر في الأرشيف النهائي إلا بعد الاعتماد.
+        </div>
+    }
     <div asp-validation-summary="ModelOnly" class="text-danger mb-2"></div>
     <form method="post" enctype="multipart/form-data">
         <partial name="_PersonForm" for="Input" />

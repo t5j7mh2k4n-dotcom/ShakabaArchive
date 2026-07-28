@@ -8,25 +8,35 @@
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
 <body>
+@{
+    var dbUser = User.Identity?.IsAuthenticated == true ? User.CurrentAppUser() : null;
+    var isAdmin = User.IsInRole("Admin") || dbUser?.IsAdmin == true || dbUser?.Role == UserRole.Admin;
+    var isApprover = isAdmin || User.IsInRole("Approver") || dbUser?.CanApprove == true;
+    var isEditorOnly = User.Identity?.IsAuthenticated == true && !isApprover;
+}
 <header class="site-header">
     <div class="container py-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
         <a class="brand" asp-page="/Index">أرشيف الشكابة شاع الدين</a>
         <nav class="d-flex flex-wrap gap-3 align-items-center">
             <a asp-page="/Index">الرئيسية</a>
-            <a asp-page="/People/Index">سجل الأشخاص</a>
             @if (User.Identity?.IsAuthenticated == true)
             {
-                <a asp-page="/Reports/MigrantsReport">تقرير المقتربين</a>
+                <a asp-page="/Family/Index">سجل الأسرة</a>
             }
-            <a asp-page="/Occasions/Index">المناسبات</a>
+            @if (isAdmin)
+            {
+                <a asp-page="/People/Index">السجل العام</a>
+                <a asp-page="/Occasions/Index">المناسبات</a>
+                <a asp-page="/Reports/MigrantsReport">تقرير المغتربين</a>
+            }
             <a class="btn-whatsapp-nav" href="@WhatsAppShare.SiteShareUrl()" target="_blank" rel="noopener">واتساب</a>
             @if (User.Identity?.IsAuthenticated == true)
             {
-                <a asp-page="/People/Create">إضافة لسجل الأشخاص</a>
-                <a asp-page="/Occasions/Create">إضافة مناسبة</a>
-                <a asp-page="/Approvals/Index">الموافقة على البيانات</a>
-                @if (User.IsInRole("Admin"))
+                <a asp-page="/Family/Create">إضافة فرد للأسرة</a>
+                <a asp-page="/Family/Import">تحويل من السجل العام</a>
+                @if (isAdmin)
                 {
+                    <a asp-page="/Approvals/Index">الموافقة (أدمن)</a>
                     <a asp-page="/Account/Users">المستخدمون</a>
                     <a asp-page="/Account/UsersReport">تقرير المستخدمين</a>
                     <a asp-page="/Account/Invites">أرقام الدعوة</a>
@@ -37,7 +47,7 @@
             }
             else
             {
-                <a asp-page="/Account/Register">تسجيل</a>
+                <a asp-page="/Account/Register">الانضمام للأرشيف</a>
                 <a class="btn-login" asp-page="/Account/Login">دخول</a>
             }
         </nav>
@@ -45,6 +55,12 @@
 </header>
 
 <main class="container py-4">
+    @if (isEditorOnly)
+    {
+        <div class="alert alert-info py-2 small">
+            <strong>سجل الأسرة فقط:</strong> لا يظهر لك السجل العام. استخدم رمز أمان أسرتك عند الإضافة أو التحويل من السجل.
+        </div>
+    }
     @RenderBody()
 </main>
 

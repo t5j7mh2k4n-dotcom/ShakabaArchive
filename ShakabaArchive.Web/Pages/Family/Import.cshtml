@@ -1,0 +1,104 @@
+@page
+@model ShakabaArchive.Web.Pages.Family.ImportModel
+@{
+    ViewData["Title"] = "تحويل إلى سجل الأسرة";
+    string Dash(string? v) => string.IsNullOrWhiteSpace(v) ? "—" : v;
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+    <div>
+        <h1 class="h3 mb-1">تحويل أشخاص إلى سجل الأسرة</h1>
+        <p class="muted mb-0">
+            أدخل <strong>رمز أمان أسرتك</strong> ثم ابحث في السجل العام وحوّل الفرد إلى
+            <strong>@Model.Family.Name</strong>.
+        </p>
+    </div>
+    <a class="btn btn-soft" asp-page="Index">رجوع لسجل الأسرة</a>
+</div>
+
+@if (TempData["Flash"] is string flash && !string.IsNullOrEmpty(flash))
+{
+    <div class="alert alert-success">@flash</div>
+}
+@if (TempData["FlashError"] is string err && !string.IsNullOrEmpty(err))
+{
+    <div class="alert alert-danger">@err</div>
+}
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
+}
+
+<form method="get" class="card-panel mb-3">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-4">
+            <label class="form-label small mb-1">رمز أمان الأسرة</label>
+            <input class="form-control" name="SecurityCode" value="@Model.SecurityCode" required
+                   autocomplete="off" placeholder="رمز أسرتك الثابت" />
+        </div>
+        <div class="col-md-5">
+            <label class="form-label small mb-1">بحث في السجل العام</label>
+            <input class="form-control" name="q" value="@Model.Q" required
+                   placeholder="اسم، هاتف، رقم وثيقة، كود..." />
+        </div>
+        <div class="col-md-3">
+            <button class="btn btn-accent w-100" type="submit">بحث</button>
+        </div>
+    </div>
+    <p class="form-text mb-0 mt-2">الرمز يظهر في صفحة سجل الأسرة وهو ثابت لا يتغير.</p>
+</form>
+
+@if (!string.IsNullOrWhiteSpace(Model.Q) && string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="card-panel">
+        <h2 class="h6 mb-3">نتائج البحث (@Model.Results.Count)</h2>
+        @if (Model.Results.Count == 0)
+        {
+            <p class="muted mb-0">لا توجد نتائج قابلة للتحويل من السجل العام.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead>
+                    <tr>
+                        <th>الكود</th>
+                        <th>الاسم</th>
+                        <th>الهاتف</th>
+                        <th>الحالة</th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var p in Model.Results)
+                    {
+                        <tr>
+                            <td><code>@p.RegistryCode</code></td>
+                            <td>@p.FullName</td>
+                            <td>@Dash(p.Phone)</td>
+                            <td>
+                                <span class="badge bg-success">سجل عام</span>
+                                @if (p.FamilyId is not null)
+                                {
+                                    <span class="badge bg-warning text-dark">لأسرة أخرى</span>
+                                }
+                            </td>
+                            <td>
+                                <form method="post" asp-page-handler="Attach" class="d-inline">
+                                    <input type="hidden" name="personId" value="@p.Id" />
+                                    <input type="hidden" name="q" value="@Model.Q" />
+                                    <input type="hidden" name="SecurityCode" value="@Model.SecurityCode" />
+                                    <button class="btn btn-sm btn-accent" type="submit"
+                                            onclick="return confirm('تحويل هذا الفرد إلى سجل أسرتك؟');">
+                                        تحويل لأسرتى
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+}

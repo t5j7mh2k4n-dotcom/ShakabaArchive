@@ -1,0 +1,24 @@
+@page "{id:int}"
+@model ShakabaArchive.Web.Pages.Family.EditModel
+@{
+    ViewData["Title"] = "تعديل فرد في الأسرة";
+    ViewData["LockHierarchy"] = true;
+    ViewData["AllowPartial"] = true;
+    ViewData["IsEdit"] = true;
+    ViewData["RegistryCode"] = Model.RegistryCode;
+    ViewBag.ParentOptions = new List<SelectListItem>();
+}
+
+<div class="card-panel">
+    <h1 class="h4 mb-2">تعديل فرد — @Model.Family.Name</h1>
+    <p class="muted">الكود: <code>@Model.RegistryCode</code></p>
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-2"></div>
+    <form method="post" enctype="multipart/form-data">
+        <input type="hidden" asp-for="Id" />
+        <partial name="~/Pages/People/_PersonForm.cshtml" for="Input" />
+        <div class="d-flex gap-2 mt-3">
+            <button class="btn btn-accent" type="submit">حفظ التعديل</button>
+            <a class="btn btn-soft" asp-page="Index">رجوع</a>
+        </div>
+    </form>
+</div>

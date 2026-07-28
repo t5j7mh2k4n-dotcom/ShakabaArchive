@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using ShakabaArchive.Data;
+using ShakabaArchive.Models;
 using ShakabaArchive.Services;
 
 // Render/Docker: تجنّب crash بسبب حد inotify (FileSystemWatcher)
@@ -64,18 +65,24 @@ if (!string.IsNullOrWhiteSpace(pg))
 else
     dataProtection.PersistKeysToFileSystem(new DirectoryInfo(dpKeysPath));
 
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("Staff", p => p.RequireRole("Admin", "Approver"));
+    options.AddPolicy("AdminOnly", p => p.RequireRole("Admin"));
+});
+
 builder.Services.AddRazorPages(options =>
 {
-    options.Conventions.AuthorizeFolder("/People");
-    options.Conventions.AllowAnonymousToPage("/People/Index");
-    options.Conventions.AllowAnonymousToPage("/People/Details");
-    options.Conventions.AuthorizeFolder("/Occasions");
-    options.Conventions.AllowAnonymousToPage("/Occasions/Index");
-    options.Conventions.AuthorizeFolder("/Approvals");
-    options.Conventions.AuthorizeFolder("/Reports");
-    options.Conventions.AuthorizePage("/Account/Invites");
-    options.Conventions.AuthorizePage("/Account/Users");
-    options.Conventions.AuthorizePage("/Account/UsersReport");
+    options.Conventions.AuthorizeFolder("/Family");
+    options.Conventions.AuthorizeFolder("/People", "AdminOnly");
+    options.Conventions.AuthorizeFolder("/People/Events", "Staff");
+    options.Conventions.AuthorizeFolder("/Occasions", "Staff");
+    // طلبات الموافقة القديمة — للأدمن فقط (سجل الأسرة لم يعد ينتظر موافقة)
+    options.Conventions.AuthorizeFolder("/Approvals", "AdminOnly");
+    options.Conventions.AuthorizeFolder("/Reports", "Staff");
+    options.Conventions.AuthorizePage("/Account/Invites", "AdminOnly");
+    options.Conventions.AuthorizePage("/Account/Users", "AdminOnly");
+    options.Conventions.AuthorizePage("/Account/UsersReport", "AdminOnly");
     options.Conventions.AuthorizePage("/Account/ChangePassword");
 });
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -91,7 +98,54 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
         options.Cookie.SameSite = SameSiteMode.Lax;
     });
-builder.Services.AddAuthorization();
+
+builder.Services.Configure<ShakabaArchive.Web.Services.FirebaseOptions>(opt =>
+{
+    builder.Configuration.GetSection(ShakabaArchive.Web.Services.FirebaseOptions.SectionName).Bind(opt);
+
+    static string Pick(params string?[] values)
+    {
+        foreach (var v in values)
+        {
+            if (!string.IsNullOrWhiteSpace(v))
+                return v.Trim();
+        }
+        return "";
+    }
+
+    opt.ApiKey = Pick(
+        Environment.GetEnvironmentVariable("FIREBASE_API_KEY"),
+        Environment.GetEnvironmentVariable("Firebase__ApiKey"),
+        opt.ApiKey);
+    opt.AuthDomain = Pick(
+        Environment.GetEnvironmentVariable("FIREBASE_AUTH_DOMAIN"),
+        Environment.GetEnvironmentVariable("Firebase__AuthDomain"),
+        opt.AuthDomain);
+    opt.ProjectId = Pick(
+        Environment.GetEnvironmentVariable("FIREBASE_PROJECT_ID"),
+        Environment.GetEnvironmentVariable("Firebase__ProjectId"),
+        opt.ProjectId);
+    opt.StorageBucket = Pick(
+        Environment.GetEnvironmentVariable("FIREBASE_STORAGE_BUCKET"),
+        Environment.GetEnvironmentVariable("Firebase__StorageBucket"),
+        opt.StorageBucket);
+    opt.MessagingSenderId = Pick(
+        Environment.GetEnvironmentVariable("FIREBASE_MESSAGING_SENDER_ID"),
+        Environment.GetEnvironmentVariable("Firebase__MessagingSenderId"),
+        opt.MessagingSenderId);
+    opt.AppId = Pick(
+        Environment.GetEnvironmentVariable("FIREBASE_APP_ID"),
+        Environment.GetEnvironmentVariable("Firebase__AppId"),
+        opt.AppId);
+    opt.MeasurementId = Pick(
+        Environment.GetEnvironmentVariable("FIREBASE_MEASUREMENT_ID"),
+        Environment.GetEnvironmentVariable("Firebase__MeasurementId"),
+        opt.MeasurementId);
+
+    if (string.IsNullOrWhiteSpace(opt.AuthDomain) && !string.IsNullOrWhiteSpace(opt.ProjectId))
+        opt.AuthDomain = $"{opt.ProjectId}.firebaseapp.com";
+});
+builder.Services.AddHttpClient<ShakabaArchive.Web.Services.FirebaseAuthService>();
 
 var app = builder.Build();
 
@@ -105,6 +159,7 @@ try
         DatabaseService.EnsureDataProtectionKeysTable(warmDb);
         DatabaseService.UpgradeSchema(warmDb);
         ApprovalService.EnsureSchemaAsync(warmDb).GetAwaiter().GetResult();
+        FamilyRegistryService.EnsureSchemaAsync(warmDb).GetAwaiter().GetResult();
     }
 }
 catch (Exception ex)
@@ -124,30 +179,46 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
-static bool IsSafeUploadFileName(string? fileName) =>
-    !string.IsNullOrWhiteSpace(fileName)
-    && fileName.IndexOfAny(['/', '\\']) < 0
-    && !fileName.Contains("..", StringComparison.Ordinal);
-
-app.MapGet("/uploads/{fileName}", async (string fileName, ArchiveDbContext db) =>
+// تقديم الصور/الوثائق من Neon إن لم توجد على القرص المؤقت لـ Render
+app.MapGet("/uploads/{fileName}", (string fileName) =>
 {
-    if (!IsSafeUploadFileName(fileName))
+    if (string.IsNullOrWhiteSpace(fileName)
+        || fileName.Contains("..", StringComparison.Ordinal)
+        || fileName.Contains('/')
+        || fileName.Contains('\\'))
         return Results.BadRequest();
 
     var diskPath = Path.Combine(uploads, fileName);
-    if (File.Exists(diskPath))
-    {
-        var ext = Path.GetExtension(fileName);
-        return Results.File(diskPath, DatabaseService.ContentTypeForExtension(ext));
-    }
+    if (System.IO.File.Exists(diskPath))
+        return Results.File(diskPath, contentType: GuessUploadContentType(fileName));
 
-    var stored = await db.StoredFiles.AsNoTracking()
-        .FirstOrDefaultAsync(f => f.FileName == fileName);
-    if (stored is null)
+    var media = DatabaseService.FindMediaFile(fileName);
+    if (media is null || media.Data.Length == 0)
         return Results.NotFound();
 
-    return Results.File(stored.Content, stored.ContentType);
-});
+    try
+    {
+        Directory.CreateDirectory(uploads);
+        System.IO.File.WriteAllBytes(diskPath, media.Data);
+    }
+    catch { /* ignore cache write */ }
+
+    return Results.File(media.Data, media.ContentType);
+}).AllowAnonymous();
+
+static string GuessUploadContentType(string fileName)
+{
+    var ext = Path.GetExtension(fileName).ToLowerInvariant();
+    return ext switch
+    {
+        ".jpg" or ".jpeg" => "image/jpeg",
+        ".png" => "image/png",
+        ".webp" => "image/webp",
+        ".gif" => "image/gif",
+        ".pdf" => "application/pdf",
+        _ => "application/octet-stream"
+    };
+}
 
 // صحة سريعة لـ Render قبل اكتمال تهيئة قاعدة البيانات
 app.MapGet("/health", () => Results.Ok("ok"));
@@ -167,8 +238,9 @@ app.MapGet("/health/db", async (HttpRequest req) =>
         {
             await using var db = DatabaseService.CreateContext();
             await ApprovalService.EnsureSchemaAsync(db);
-            var count = await db.PendingChanges.CountAsync();
-            approvals = $"pendingChanges={count}";
+            var total = await db.PendingChanges.CountAsync();
+            var pending = await db.PendingChanges.CountAsync(x => x.Status == ChangeStatus.Pending);
+            approvals = $"pendingChanges={total};waitingApproval={pending}";
         }
         catch (Exception ex)
         {
@@ -204,6 +276,7 @@ _ = Task.Run(async () =>
             var db = scope.ServiceProvider.GetRequiredService<ArchiveDbContext>();
             await ApprovalService.EnsureSchemaAsync(db);
             DatabaseService.EnsureDataProtectionKeysTable(db);
+            DatabaseService.EnsureMediaFilesTable(db);
         }
         catch (Exception ex)
         {

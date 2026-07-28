@@ -9,7 +9,13 @@
         ChangeAction.Delete => "حذف",
         _ => a.ToString()
     };
-    string EntityAr(ChangeEntity e) => e == ChangeEntity.Person ? "شخص" : "مناسبة";
+    string EntityAr(ChangeEntity e) => e switch
+    {
+        ChangeEntity.Person => "شخص",
+        ChangeEntity.LifeEvent => "مناسبة",
+        ChangeEntity.UserAccount => "حساب مستخدم",
+        _ => e.ToString()
+    };
     string StatusAr(ChangeStatus s) => s switch
     {
         ChangeStatus.Pending => "بانتظار موافقة أحد الثلاثة",
@@ -23,8 +29,16 @@
     <div>
         <h1 class="h4 mb-1">الموافقة على صحة البيانات</h1>
         <p class="muted mb-0">
-            ما يدخله المستخدمون يُحفظ مؤقتاً هنا. أي واحد من الثلاثة الموافقين (أو الأدمن الرئيسي) يعتمد صحة البيانات ليُرفع للأرشيف.
+            تظهر هنا طلبات <strong>تسجيل الحسابات</strong> وطلبات <strong>إضافة بيانات الأشخاص</strong>.
+            استخدم أزرار «موافقة» أو «رفض» بجانب كل طلب بانتظار الاعتماد.
         </p>
+        @if (Model.CanReview)
+        {
+            <p class="mb-0 mt-2">
+                بانتظار الاعتماد: <strong class="text-danger">@Model.PendingCount</strong>
+                — إجمالي السجلات: <strong>@Model.TotalCount</strong>
+            </p>
+        }
     </div>
 </div>
 
@@ -39,21 +53,85 @@
 
 @if (Model.CanReview)
 {
-    <div class="alert alert-success">
-        يمكنك اعتماد أو رفض الطلبات (أدمن / موافق على صحة البيانات).
+    <div class="alert alert-success py-2">
+        يمكنك اعتماد أو رفض طلبات إضافة البيانات (أدمن / موافق على صحة البيانات).
     </div>
+
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        <a class="btn btn-sm @(Model.Filter == "pending" ? "btn-accent" : "btn-soft")" asp-page="./Index" asp-route-filter="pending">بانتظار الاعتماد (@Model.PendingCount)</a>
+        <a class="btn btn-sm @(Model.Filter == "all" ? "btn-accent" : "btn-soft")" asp-page="./Index" asp-route-filter="all">الكل</a>
+        <a class="btn btn-sm @(Model.Filter == "approved" ? "btn-accent" : "btn-soft")" asp-page="./Index" asp-route-filter="approved">المعتمدة</a>
+        <a class="btn btn-sm @(Model.Filter == "rejected" ? "btn-accent" : "btn-soft")" asp-page="./Index" asp-route-filter="rejected">المرفوضة</a>
+        <a class="btn btn-sm btn-soft" asp-page="/Account/Users">المستخدمون المسجّلون</a>
+    </div>
+
+    <div class="card-panel mb-3 border-warning">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div>
+                <h2 class="h6 mb-1">ترحيل المعتمدة إلى سجل الأشخاص</h2>
+                <p class="muted small mb-0">
+                    يرحّل طلبات <strong>إضافة شخص</strong> و<strong>تسجيل الحساب</strong> المعتمدة إلى سجل الأشخاص
+                    حتى لو كانت البيانات ناقصة، ثم يمكنك إرسال واتساب لإكمالها.
+                    @if (Model.MissingInRegistryCount > 0)
+                    {
+                        <span class="text-danger fw-semibold">(@Model.MissingInRegistryCount بانتظار الترحيل)</span>
+                    }
+                </p>
+            </div>
+            <form method="post" asp-page-handler="MigrateApproved">
+                <input type="hidden" name="filter" value="approved" />
+                <button type="submit" class="btn btn-accent"
+                        onclick="return confirm('ترحيل كل المعتمدة إلى سجل الأشخاص (حتى الناقصة)؟');">
+                    ترحيل المعتمدة إلى السجل
+                    @if (Model.MissingInRegistryCount > 0)
+                    {
+                        <text> (@Model.MissingInRegistryCount)</text>
+                    }
+                </button>
+            </form>
+        </div>
+    </div>
+
+    @if (Model.WhatsAppReminders.Count > 0)
+    {
+        <div class="card-panel mb-3 border-success">
+            <h2 class="h6 mb-2">تنبيه واتساب لإكمال البيانات</h2>
+            <p class="muted small mb-3">اضغط لإرسال رسالة واتساب تطلب إكمال البيانات عبر رابط الصفحة.</p>
+            <div class="d-flex flex-wrap gap-2">
+                @foreach (var r in Model.WhatsAppReminders)
+                {
+                    var completeUrl = $"{WhatsAppShare.PublicSiteUrl}/People/Complete/{r.PersonId}";
+                    var wa = WhatsAppShare.CompleteDataReminderUrl(r.Phone, r.Name, completeUrl);
+                    <a class="btn btn-sm btn-whatsapp" href="@wa" target="_blank" rel="noopener">
+                        واتساب — @r.Name
+                        @if (r.Incomplete)
+                        {
+                            <span class="small">(ناقص)</span>
+                        }
+                    </a>
+                }
+            </div>
+        </div>
+    }
 }
 else
 {
     <div class="alert alert-info">
-        أنت مدخل بيانات: يمكنك الإدخال ومتابعة الطلبات. الحفظ النهائي بعد موافقة أحد الثلاثة فقط.
+        أنت مدخل بيانات: أضف بياناتك من «إضافة بياناتي». الحفظ النهائي بعد موافقة الأدمن فقط.
     </div>
 }
 
 <div class="card-panel">
+    <h2 class="h6 mb-3">
+        @if (Model.Filter == "pending") { <text>طلبات بانتظار الاعتماد</text> }
+        else if (Model.Filter == "approved") { <text>الطلبات المعتمدة</text> }
+        else if (Model.Filter == "rejected") { <text>الطلبات المرفوضة</text> }
+        else { <text>كل الطلبات</text> }
+    </h2>
+
     @if (Model.Items.Count == 0)
     {
-        <p class="muted mb-0">لا توجد طلبات بعد.</p>
+        <p class="muted mb-0">لا توجد طلبات في هذا التبويب.</p>
     }
     else
     {
@@ -78,11 +156,30 @@ else
                         && item.EntityType == ChangeEntity.Person
                         && item.Action != ChangeAction.Delete
                         && (Model.CanReview || item.SubmittedByUserId == Model.CurrentUserId);
+                    var isPersonCreate = item.EntityType == ChangeEntity.Person && item.Action == ChangeAction.Create;
+                    var isUserAccount = item.EntityType == ChangeEntity.UserAccount && item.Action == ChangeAction.Create;
+                    var inRegistry = item.EntityId is int eid && Model.PersonIdsInRegistry.Contains(eid);
+                    var needsMigrate = Model.CanReview
+                        && item.Status == ChangeStatus.Approved
+                        && ((isPersonCreate && !inRegistry) || isUserAccount);
                     <tr class="@(item.Status == ChangeStatus.Pending ? "" : "table-secondary")">
                         <td>@item.Id</td>
                         <td>@EntityAr(item.EntityType)</td>
                         <td>@ActionAr(item.Action)</td>
-                        <td>@item.Summary</td>
+                        <td>
+                            @item.Summary
+                            @if (isPersonCreate && item.Status == ChangeStatus.Approved)
+                            {
+                                if (inRegistry)
+                                {
+                                    <div class="small text-success">✓ موجود في سجل الأشخاص</div>
+                                }
+                                else
+                                {
+                                    <div class="small text-danger">✗ غير موجود في السجل — استخدم الترحيل</div>
+                                }
+                            }
+                        </td>
                         <td>@item.SubmittedByName</td>
                         <td>
                             @StatusAr(item.Status)
@@ -101,15 +198,32 @@ else
                             {
                                 <a class="btn btn-sm btn-soft" asp-page="/People/EditPending" asp-route-id="@item.Id">تعديل قبل الاعتماد</a>
                             }
+                            @if (needsMigrate)
+                            {
+                                <form method="post" asp-page-handler="MigrateOne" class="d-inline">
+                                    <input type="hidden" name="id" value="@item.Id" />
+                                    <input type="hidden" name="filter" value="@Model.Filter" />
+                                    <button class="btn btn-sm btn-accent" type="submit">حفظ في السجل</button>
+                                </form>
+                            }
+                            else if (inRegistry && item.EntityId is int personId)
+                            {
+                                <a class="btn btn-sm btn-soft" asp-page="/People/Details" asp-route-id="@personId">عرض في السجل</a>
+                            }
                             @if (Model.CanReview && item.Status == ChangeStatus.Pending)
                             {
                                 <form method="post" asp-page-handler="Approve" class="d-inline">
                                     <input type="hidden" name="id" value="@item.Id" />
-                                    <button class="btn btn-sm btn-accent" type="submit">موافقة على صحة البيانات</button>
+                                    <input type="hidden" name="filter" value="@Model.Filter" />
+                                    <button class="btn btn-sm btn-accent" type="submit">
+                                        @(item.EntityType == ChangeEntity.UserAccount ? "موافقة على الحساب" : "موافقة على صحة البيانات")
+                                    </button>
                                 </form>
-                                <form method="post" asp-page-handler="Reject" class="d-inline">
+                                <form method="post" asp-page-handler="Reject" class="d-inline"
+                                      onsubmit="return confirm('تأكيد الرفض؟');">
                                     <input type="hidden" name="id" value="@item.Id" />
                                     <input type="hidden" name="note" value="مرفوض" />
+                                    <input type="hidden" name="filter" value="@Model.Filter" />
                                     <button class="btn btn-sm btn-outline-danger" type="submit">رفض</button>
                                 </form>
                             }

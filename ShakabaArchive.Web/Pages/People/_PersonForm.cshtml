@@ -2,6 +2,7 @@
 @{
     var showParent = Model.HierarchyLevel is 2 or 3;
     var isEdit = ViewData["IsEdit"] as bool? == true;
+    var allowPartial = ViewData["AllowPartial"] as bool? == true;
     var registryCode = ViewData["RegistryCode"] as string;
     var lockHierarchy = ViewData["LockHierarchy"] as bool? == true || isEdit;
 }
@@ -58,7 +59,14 @@
     </div>
     <div class="col-md-3">
         <label class="form-label">اسم الأب</label>
-        <input class="form-control" asp-for="FatherName" required />
+        @if (allowPartial)
+        {
+            <input class="form-control" asp-for="FatherName" />
+        }
+        else
+        {
+            <input class="form-control" asp-for="FatherName" required />
+        }
     </div>
     <div class="col-md-3">
         <label class="form-label">اسم الجد</label>
@@ -66,7 +74,14 @@
     </div>
     <div class="col-md-3">
         <label class="form-label">اسم العائلة</label>
-        <input class="form-control" asp-for="FamilyName" required />
+        @if (allowPartial)
+        {
+            <input class="form-control" asp-for="FamilyName" />
+        }
+        else
+        {
+            <input class="form-control" asp-for="FamilyName" required />
+        }
     </div>
 
     <div class="col-md-6">
@@ -110,7 +125,7 @@
     <div class="col-12">
         <div class="form-check">
             <input class="form-check-input" type="checkbox" asp-for="IsMigrant" id="isMigrant" />
-            <label class="form-check-label" for="isMigrant">مقترب (مقيم خارج البلد)</label>
+            <label class="form-check-label" for="isMigrant">مغترب (مقيم خارج البلد)</label>
         </div>
     </div>
     <div class="col-md-6" id="migrationCountryWrap">
@@ -155,9 +170,10 @@
     </div>
 
     <div class="col-md-6">
-        <label class="form-label">الصورة الشخصية</label>
+        <label class="form-label">الصورة الشخصية (اختياري)</label>
         <input type="hidden" asp-for="PhotoPath" />
         <input class="form-control" type="file" name="Photo" accept=".jpg,.jpeg,.png,.webp,.gif" />
+        <div class="form-text">يمكنك تخطي رفع الصورة والحفظ بدونها.</div>
         @if (!string.IsNullOrWhiteSpace(Model?.PhotoPath))
         {
             <div class="mt-2">

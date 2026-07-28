@@ -11,16 +11,26 @@ public class ArchiveDbContext : DbContext, IDataProtectionKeyContext
     }
 
     public DbSet<Person> People => Set<Person>();
+    public DbSet<Family> Families => Set<Family>();
     public DbSet<LifeEvent> LifeEvents => Set<LifeEvent>();
     public DbSet<PendingChange> PendingChanges => Set<PendingChange>();
     public DbSet<AppUser> Users => Set<AppUser>();
     public DbSet<InviteCode> InviteCodes => Set<InviteCode>();
-    public DbSet<StoredFile> StoredFiles => Set<StoredFile>();
+    public DbSet<MediaFile> MediaFiles => Set<MediaFile>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<Family>(e =>
+        {
+            e.ToTable("Families");
+            e.HasIndex(f => f.OwnerUserId).IsUnique();
+            e.HasIndex(f => f.SecurityCode).IsUnique();
+            e.Property(f => f.Name).HasMaxLength(160).IsRequired();
+            e.Property(f => f.SecurityCode).HasMaxLength(16).IsRequired();
+        });
+
         modelBuilder.Entity<Person>(e =>
         {
             e.HasIndex(p => p.RegistryCode).IsUnique();
@@ -35,6 +45,9 @@ public class ArchiveDbContext : DbContext, IDataProtectionKeyContext
             e.HasIndex(p => p.IsMigrant);
             e.HasIndex(p => p.MigrationCountry);
             e.HasIndex(p => p.MigrationCity);
+            e.HasIndex(p => p.OwnerUserId);
+            e.HasIndex(p => p.FamilyId);
+            e.HasIndex(p => p.IsInGeneralRegistry);
             e.Property(p => p.RegistryCode).HasMaxLength(32).IsRequired();
             e.Property(p => p.DocumentType).HasMaxLength(40);
             e.Property(p => p.DocumentNumber).HasMaxLength(80);
@@ -62,6 +75,11 @@ public class ArchiveDbContext : DbContext, IDataProtectionKeyContext
                 .WithMany(p => p.Children)
                 .HasForeignKey(p => p.ParentPersonId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasOne(p => p.Family)
+                .WithMany(f => f.Members)
+                .HasForeignKey(p => p.FamilyId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<LifeEvent>(e =>
@@ -120,11 +138,12 @@ public class ArchiveDbContext : DbContext, IDataProtectionKeyContext
             e.Property(c => c.Note).HasMaxLength(200);
         });
 
-        modelBuilder.Entity<StoredFile>(e =>
+        modelBuilder.Entity<MediaFile>(e =>
         {
-            e.HasKey(f => f.FileName);
-            e.Property(f => f.FileName).HasMaxLength(64).IsRequired();
-            e.Property(f => f.ContentType).HasMaxLength(100).IsRequired();
+            e.ToTable("MediaFiles");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasMaxLength(80);
+            e.Property(x => x.ContentType).HasMaxLength(120);
         });
 
         modelBuilder.Entity<PasswordResetToken>(e =>

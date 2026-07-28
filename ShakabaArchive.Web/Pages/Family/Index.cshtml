@@ -1,0 +1,119 @@
+@page
+@model ShakabaArchive.Web.Pages.Family.IndexModel
+@{
+    ViewData["Title"] = "سجل الأسرة";
+    string Dash(string? v) => string.IsNullOrWhiteSpace(v) ? "—" : v;
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+    <div>
+        <h1 class="h3 mb-1">سجل الأسرة</h1>
+        <p class="muted mb-0">@Model.Family.Name — هذا سجلك الخاص فقط. السجل العام يظهر للأدمن وحده.</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-accent" asp-page="Create">إضافة فرد للأسرة</a>
+        <a class="btn btn-soft" asp-page="Import">تحويل من السجل العام</a>
+        @if (Model.PendingExportCount > 0)
+        {
+            <form method="post" asp-page-handler="Export" class="d-inline"
+                  onsubmit="return confirm('حفظ الأفراد المتبقين في السجل العام مباشرة؟');">
+                <button class="btn btn-soft" type="submit">
+                    حفظ المتبقي في السجل العام
+                    <span class="badge bg-warning text-dark">@Model.PendingExportCount</span>
+                </button>
+            </form>
+        }
+    </div>
+</div>
+
+@if (TempData["Flash"] is string flash && !string.IsNullOrEmpty(flash))
+{
+    <div class="alert alert-success">@flash</div>
+}
+@if (TempData["FlashError"] is string err && !string.IsNullOrEmpty(err))
+{
+    <div class="alert alert-danger">@err</div>
+}
+
+<div class="card-panel mb-3 border-start border-4" style="border-color: var(--accent, #0d6efd) !important;">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div>
+            <div class="small muted mb-1">رمز أمان الأسرة (ثابت)</div>
+            <code class="fs-5 user-select-all">@Model.Family.SecurityCode</code>
+            <p class="small muted mb-0 mt-1">مطلوب عند الإضافة أو البحث والنقل من السجل العام. احفظه ولا تشاركه إلا مع أفراد أسرتك.</p>
+        </div>
+    </div>
+</div>
+
+<div class="card-panel mb-3">
+    <form method="post" asp-page-handler="Rename" class="row g-2 align-items-end">
+        <div class="col-md-8">
+            <label class="form-label small mb-1">اسم سجل الأسرة</label>
+            <input class="form-control" name="familyName" value="@Model.Family.Name" maxlength="160" required />
+        </div>
+        <div class="col-md-4">
+            <button class="btn btn-soft w-100" type="submit">تحديث الاسم</button>
+        </div>
+    </form>
+</div>
+
+<form method="get" class="card-panel mb-3">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-9">
+            <label class="form-label small mb-1">بحث في أفراد الأسرة فقط</label>
+            <input class="form-control" name="q" value="@Model.Q"
+                   placeholder="اسم، هاتف، رقم وثيقة، كود..." />
+        </div>
+        <div class="col-md-3">
+            <button class="btn btn-accent w-100" type="submit">بحث</button>
+        </div>
+    </div>
+</form>
+
+<div class="card-panel">
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead>
+            <tr>
+                <th>الكود</th>
+                <th>الاسم</th>
+                <th>الهاتف</th>
+                <th>الحالة</th>
+                <th></th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var p in Model.Members)
+            {
+                <tr>
+                    <td><code>@p.RegistryCode</code></td>
+                    <td>@p.FullName</td>
+                    <td>@Dash(p.Phone)</td>
+                    <td>
+                        @if (p.IsInGeneralRegistry)
+                        {
+                            <span class="badge bg-success">محفوظ</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-warning text-dark">بانتظار الحفظ العام</span>
+                        }
+                    </td>
+                    <td class="text-nowrap">
+                        <a class="btn btn-sm btn-soft" asp-page="Edit" asp-route-id="@p.Id">تعديل</a>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+    @if (Model.Members.Count == 0)
+    {
+        <p class="muted mt-3 mb-0">
+            لا يوجد أفراد بعد.
+            <a asp-page="Create">أضف فرداً جديداً</a>
+            أو
+            <a asp-page="Import">حوّل من السجل العام</a>.
+        </p>
+    }
+</div>

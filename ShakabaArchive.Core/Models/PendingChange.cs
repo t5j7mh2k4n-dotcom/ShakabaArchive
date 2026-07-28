@@ -20,7 +20,9 @@ public enum ChangeAction
 public enum ChangeEntity
 {
     Person = 0,
-    LifeEvent = 1
+    LifeEvent = 1,
+    /// <summary>تسجيل حساب مستخدم جديد عبر الموقع.</summary>
+    UserAccount = 2
 }
 
 public enum ChangeStatus

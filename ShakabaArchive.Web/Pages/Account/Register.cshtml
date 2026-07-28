@@ -7,36 +7,44 @@
 <div class="row justify-content-center">
     <div class="col-md-6">
         <div class="card-panel">
-            <h1 class="h4 mb-3">تسجيل مستخدم جديد</h1>
-            <p class="muted">يلزم <strong>رقم الدعوة</strong> الذي يعطيه أمين الأرشيف، مع البريد ورقم الهاتف.</p>
+            <h1 class="h4 mb-3">الانضمام إلى أرشيف الشكابة شاع الدين</h1>
+            <p class="muted">
+                أنشئ حساباً ثم أكّد بريدك من الرابط الذي يصلك بالإيميل.
+                بعد التأكيد سجّل الدخول وافتح <strong>سجل الأسرة</strong> لإضافة أفراد أسرتك.
+                @if (Model.FirebaseEnabled)
+                {
+                    <text> الحساب يُحفظ عبر <strong>Firebase Authentication</strong>.</text>
+                }
+            </p>
             @if (!string.IsNullOrEmpty(Model.ErrorMessage))
             {
                 <div class="alert alert-danger">@Model.ErrorMessage</div>
             }
-            <form method="post">
-                <div class="mb-3">
-                    <label class="form-label">رقم الدعوة</label>
-                    <input class="form-control" asp-for="InviteCode" placeholder="مثال: 48291357" />
-                </div>
+            <form method="post" autocomplete="off">
                 <div class="mb-3">
                     <label class="form-label">الاسم</label>
-                    <input class="form-control" asp-for="DisplayName" />
+                    <input class="form-control" asp-for="DisplayName" required />
                 </div>
                 <div class="mb-3">
                     <label class="form-label">البريد الإلكتروني</label>
-                    <input class="form-control" asp-for="Email" type="email" />
+                    <input class="form-control" asp-for="Email" type="email" required autocomplete="username" />
                 </div>
                 <div class="mb-3">
                     <label class="form-label">رقم الهاتف</label>
-                    <input class="form-control" asp-for="Phone" />
+                    <input class="form-control" asp-for="Phone" required />
                 </div>
                 <div class="mb-3">
                     <label class="form-label">كلمة المرور</label>
-                    <input class="form-control" asp-for="Password" type="password" />
+                    <input class="form-control" asp-for="Password" type="password" required minlength="6" autocomplete="new-password" />
+                    <div class="form-text">6 أحرف على الأقل — خاصة بك ولا تظهر للآخرين.</div>
                 </div>
-                <button class="btn btn-accent w-100" type="submit">إنشاء الحساب</button>
+                <div class="mb-3">
+                    <label class="form-label">تأكيد كلمة المرور</label>
+                    <input class="form-control" asp-for="ConfirmPassword" type="password" required minlength="6" autocomplete="new-password" />
+                </div>
+                <button class="btn btn-accent w-100" type="submit">إنشاء الحساب وإرسال رابط التأكيد</button>
             </form>
-            <p class="mt-3 mb-0"><a asp-page="/Account/Login">رجوع لتسجيل الدخول</a></p>
+            <p class="mt-3 mb-0"><a asp-page="/Account/Login">لديك حساب؟ تسجيل الدخول</a></p>
         </div>
     </div>
 </div>

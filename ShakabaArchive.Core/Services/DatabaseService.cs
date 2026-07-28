@@ -363,47 +363,130 @@ public static class DatabaseService
         if (!allowed.Contains(ext))
             ext = ".jpg";
 
-        var name = $"{Guid.NewGuid():N}{ext.ToLowerInvariant()}";
         using var ms = new MemoryStream();
         content.CopyTo(ms);
         var bytes = ms.ToArray();
+        if (bytes.Length == 0)
+            throw new InvalidOperationException("الملف فارغ.");
+        if (bytes.Length > 5 * 1024 * 1024)
+            throw new InvalidOperationException("حجم الملف أكبر من 5 ميجابايت.");
 
+        var name = $"{Guid.NewGuid():N}{ext.ToLowerInvariant()}";
+        Directory.CreateDirectory(UploadsFolder);
         var full = Path.Combine(UploadsFolder, name);
         File.WriteAllBytes(full, bytes);
-        PersistStoredFile(name, bytes, ContentTypeForExtension(ext));
+
+        // على Render القرص مؤقت — احفظ أيضاً في Neon ليظهر من أي جهاز
+        TrySaveMediaToDatabase(name, GuessContentType(ext), bytes);
         return name;
     }
 
-    public static string ContentTypeForExtension(string ext) =>
-        ext.ToLowerInvariant() switch
-        {
-            ".jpg" or ".jpeg" => "image/jpeg",
-            ".png" => "image/png",
-            ".webp" => "image/webp",
-            ".gif" => "image/gif",
-            ".pdf" => "application/pdf",
-            _ => "application/octet-stream"
-        };
-
-    private static void PersistStoredFile(string fileName, byte[] content, string contentType)
+    public static MediaFile? FindMediaFile(string fileName)
     {
+        if (string.IsNullOrWhiteSpace(fileName)
+            || fileName.Contains("..")
+            || fileName.Contains('/')
+            || fileName.Contains('\\'))
+            return null;
+
         try
         {
             using var db = CreateContext();
-            db.StoredFiles.Add(new StoredFile
+            EnsureMediaFilesTable(db);
+            return db.MediaFiles.AsNoTracking().FirstOrDefault(x => x.Id == fileName);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("FindMediaFile: " + ex.Message);
+            return null;
+        }
+    }
+
+    public static void EnsureMediaFilesTable(ArchiveDbContext db)
+    {
+        try
+        {
+            _ = db.MediaFiles.Select(x => x.Id).Take(1).ToList();
+            return;
+        }
+        catch
+        {
+            // create below
+        }
+
+        try
+        {
+            var isPostgres = db.Database.ProviderName?.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) == true;
+            if (isPostgres)
             {
-                FileName = fileName,
-                Content = content,
+                using var ddl = CreateContextForSchemaChanges();
+                ddl.Database.ExecuteSqlRaw("""
+                    CREATE TABLE IF NOT EXISTS "MediaFiles" (
+                        "Id" character varying(80) PRIMARY KEY,
+                        "ContentType" character varying(120) NOT NULL DEFAULT 'application/octet-stream',
+                        "Data" bytea NOT NULL,
+                        "CreatedAt" timestamp with time zone NOT NULL DEFAULT NOW()
+                    );
+                    """);
+            }
+            else
+            {
+                db.Database.ExecuteSqlRaw("""
+                    CREATE TABLE IF NOT EXISTS MediaFiles (
+                        Id TEXT PRIMARY KEY,
+                        ContentType TEXT NOT NULL DEFAULT 'application/octet-stream',
+                        Data BLOB NOT NULL,
+                        CreatedAt TEXT NOT NULL
+                    );
+                    """);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("EnsureMediaFilesTable: " + ex.Message);
+        }
+    }
+
+    private static void TrySaveMediaToDatabase(string id, string contentType, byte[] data)
+    {
+        try
+        {
+            var envPg = Environment.GetEnvironmentVariable("DATABASE_URL")
+                        ?? Environment.GetEnvironmentVariable("POSTGRES_CONNECTION");
+            var usePg = !string.IsNullOrWhiteSpace(envPg)
+                        || string.Equals(Settings.Provider, "PostgreSql", StringComparison.OrdinalIgnoreCase);
+            if (!usePg)
+                return;
+
+            using var db = CreateContext();
+            EnsureMediaFilesTable(db);
+            if (db.MediaFiles.Any(x => x.Id == id))
+                return;
+
+            db.MediaFiles.Add(new MediaFile
+            {
+                Id = id,
                 ContentType = contentType,
+                Data = data,
                 CreatedAt = DateTime.UtcNow
             });
             db.SaveChanges();
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine("PersistStoredFile failed: " + ex.Message);
+            Console.Error.WriteLine("TrySaveMediaToDatabase: " + ex.Message);
         }
     }
+
+    private static string GuessContentType(string ext) => ext.ToLowerInvariant() switch
+    {
+        ".jpg" or ".jpeg" => "image/jpeg",
+        ".png" => "image/png",
+        ".webp" => "image/webp",
+        ".gif" => "image/gif",
+        ".pdf" => "application/pdf",
+        _ => "application/octet-stream"
+    };
 
     public static string NormalizeConnectionString(string value) => NormalizePostgresUrl(value);
 
@@ -508,6 +591,12 @@ public static class DatabaseService
         TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "IsMigrant" boolean NOT NULL DEFAULT false""");
         TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "MigrationCountry" varchar(120) NOT NULL DEFAULT ''""");
         TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "MigrationCity" varchar(120) NOT NULL DEFAULT ''""");
+        TryAlter(db, "ALTER TABLE People ADD COLUMN OwnerUserId INTEGER NULL");
+        TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "OwnerUserId" integer NULL""");
+        TryAlter(db, "ALTER TABLE People ADD COLUMN FamilyId INTEGER NULL");
+        TryAlter(db, "ALTER TABLE People ADD COLUMN IsInGeneralRegistry INTEGER NOT NULL DEFAULT 1");
+        TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "FamilyId" integer NULL""");
+        TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "IsInGeneralRegistry" boolean NOT NULL DEFAULT true""");
 
         TryAlter(db, """
             CREATE TABLE IF NOT EXISTS StoredFiles (
@@ -550,6 +639,9 @@ public static class DatabaseService
         TryAlter(db, """CREATE INDEX IF NOT EXISTS "IX_PasswordResetTokens_UserId" ON "PasswordResetTokens" ("UserId");""");
 
         BackfillPersonRegistryFields(db);
+        BackfillPersonOwners(db);
+        try { FamilyRegistryService.EnsureSchemaAsync(db).GetAwaiter().GetResult(); }
+        catch (Exception ex) { Console.Error.WriteLine("Family schema: " + ex.Message); }
 
         TryAlter(db, "ALTER TABLE LifeEvents ADD COLUMN Mood INTEGER NOT NULL DEFAULT 0");
         TryAlter(db, "ALTER TABLE \"LifeEvents\" ADD COLUMN \"Mood\" integer NOT NULL DEFAULT 0");
@@ -621,6 +713,45 @@ public static class DatabaseService
         }
     }
 
+    private static void BackfillPersonOwners(ArchiveDbContext db)
+    {
+        try
+        {
+            // من طلبات الإضافة المعتمدة
+            var links = db.PendingChanges.AsNoTracking()
+                .Where(x => x.EntityType == ChangeEntity.Person
+                            && x.Action == ChangeAction.Create
+                            && x.EntityId != null
+                            && x.SubmittedByUserId > 0)
+                .Select(x => new { PersonId = x.EntityId!.Value, x.SubmittedByUserId })
+                .ToList();
+
+            foreach (var group in links.GroupBy(x => x.PersonId))
+            {
+                var person = db.People.FirstOrDefault(p => p.Id == group.Key && p.OwnerUserId == null);
+                if (person is null) continue;
+                person.OwnerUserId = group.First().SubmittedByUserId;
+            }
+
+            // بالهاتف إن تطابق مع مستخدم
+            var orphans = db.People.Where(p => p.OwnerUserId == null && p.Phone != "").ToList();
+            foreach (var person in orphans)
+            {
+                var user = db.Users.AsNoTracking()
+                    .FirstOrDefault(u => u.Phone == person.Phone);
+                if (user is not null)
+                    person.OwnerUserId = user.Id;
+            }
+
+            if (db.ChangeTracker.HasChanges())
+                db.SaveChanges();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("BackfillPersonOwners failed: " + ex.Message);
+        }
+    }
+
     private static void TryAlter(ArchiveDbContext db, string sql)
     {
         try { db.Database.ExecuteSqlRaw(sql); }
@@ -652,7 +783,8 @@ public static class DatabaseService
                 Tribe = "",
                 Profession = "",
                 Neighborhood = "—",
-                Notes = "هذا سجل توضيحي فقط."
+                Notes = "هذا سجل توضيحي فقط.",
+                IsInGeneralRegistry = true
             };
             sample.RefreshFullName();
             db.People.Add(sample);
