@@ -170,16 +170,19 @@ public static class DatabaseService
 
             if (!CanQueryPeople(db))
                 EnsureTables(db);
-            else
-                UpgradeSchema(db);
+
+            UpgradeSchema(db);
 
             if (CanQueryPeople(db))
             {
                 RemoveRetiredOccasionTypes(db);
                 SeedIfEmpty(db);
+                _initialized = true;
             }
-
-            _initialized = true;
+            else
+            {
+                Console.Error.WriteLine("People table still not queryable after schema upgrade.");
+            }
         }
     }
 
@@ -212,6 +215,8 @@ public static class DatabaseService
         if (!_initialized)
             Initialize();
     }
+
+    public static void UpgradeSchema(ArchiveDbContext db) => UpgradeSchemaCore(db);
 
     public static void ResetInitialization()
     {
@@ -318,7 +323,7 @@ public static class DatabaseService
         {
             Console.Error.WriteLine("EnsureTables CreateTables: " + ex.Message);
             // إن وُجدت الجداول مسبقاً نكتفي بالترقية
-            try { UpgradeSchema(db); }
+            try { UpgradeSchemaCore(db); }
             catch (Exception upEx)
             {
                 Console.Error.WriteLine("EnsureTables UpgradeSchema: " + upEx.Message);
@@ -553,7 +558,7 @@ public static class DatabaseService
         }
     }
 
-    private static void UpgradeSchema(ArchiveDbContext db)
+    private static void UpgradeSchemaCore(ArchiveDbContext db)
     {
         TryAlter(db, "ALTER TABLE People ADD COLUMN Tribe TEXT NOT NULL DEFAULT ''");
         TryAlter(db, "ALTER TABLE People ADD COLUMN Neighborhood TEXT NOT NULL DEFAULT ''");
@@ -594,6 +599,46 @@ public static class DatabaseService
         TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "FamilyId" integer NULL""");
         TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "IsInGeneralRegistry" boolean NOT NULL DEFAULT true""");
         TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "SecurityCode" character varying(16) NOT NULL DEFAULT ''""");
+
+        TryAlter(db, """
+            CREATE TABLE IF NOT EXISTS StoredFiles (
+              FileName TEXT PRIMARY KEY,
+              ContentType TEXT NOT NULL DEFAULT 'application/octet-stream',
+              Content BLOB NOT NULL,
+              CreatedAt TEXT NOT NULL
+            );
+            """);
+        TryAlter(db, """
+            CREATE TABLE IF NOT EXISTS "StoredFiles" (
+              "FileName" varchar(64) PRIMARY KEY,
+              "ContentType" varchar(100) NOT NULL DEFAULT 'application/octet-stream',
+              "Content" bytea NOT NULL,
+              "CreatedAt" timestamp with time zone NOT NULL DEFAULT NOW()
+            );
+            """);
+
+        TryAlter(db, """
+            CREATE TABLE IF NOT EXISTS PasswordResetTokens (
+              Id INTEGER PRIMARY KEY AUTOINCREMENT,
+              UserId INTEGER NOT NULL,
+              Token TEXT NOT NULL,
+              ExpiresAt TEXT NOT NULL,
+              CreatedAt TEXT NOT NULL,
+              Used INTEGER NOT NULL DEFAULT 0
+            );
+            """);
+        TryAlter(db, """
+            CREATE TABLE IF NOT EXISTS "PasswordResetTokens" (
+              "Id" SERIAL PRIMARY KEY,
+              "UserId" integer NOT NULL,
+              "Token" varchar(128) NOT NULL,
+              "ExpiresAt" timestamp with time zone NOT NULL,
+              "CreatedAt" timestamp with time zone NOT NULL DEFAULT NOW(),
+              "Used" boolean NOT NULL DEFAULT false
+            );
+            """);
+        TryAlter(db, """CREATE UNIQUE INDEX IF NOT EXISTS "IX_PasswordResetTokens_Token" ON "PasswordResetTokens" ("Token");""");
+        TryAlter(db, """CREATE INDEX IF NOT EXISTS "IX_PasswordResetTokens_UserId" ON "PasswordResetTokens" ("UserId");""");
 
         BackfillPersonRegistryFields(db);
         BackfillPersonOwners(db);

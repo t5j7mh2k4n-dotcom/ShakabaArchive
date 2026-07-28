@@ -161,6 +161,7 @@
     </div>
     <div class="col-md-4">
         <label class="form-label">صورة الوثيقة (اختياري)</label>
+        <input type="hidden" asp-for="DocumentImagePath" />
         <input class="form-control" type="file" name="Document" accept=".jpg,.jpeg,.png,.webp,.gif,.pdf" />
         @if (!string.IsNullOrWhiteSpace(Model?.DocumentImagePath))
         {
@@ -170,6 +171,7 @@
 
     <div class="col-md-6">
         <label class="form-label">الصورة الشخصية (اختياري)</label>
+        <input type="hidden" asp-for="PhotoPath" />
         <input class="form-control" type="file" name="Photo" accept=".jpg,.jpeg,.png,.webp,.gif" />
         <div class="form-text">يمكنك تخطي رفع الصورة والحفظ بدونها.</div>
         @if (!string.IsNullOrWhiteSpace(Model?.PhotoPath))

@@ -35,9 +35,10 @@ ENV ASPNETCORE_ENVIRONMENT=Production \
     DOTNET_EnableDiagnostics=0 \
     DOTNET_GCServer=0 \
     DOTNET_GCHeapCount=1 \
-    DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
+    DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false \
+    DOTNET_USE_POLLING_FILE_WATCHER=1
 
 EXPOSE 8080
 COPY --from=build /app/publish .
 
-CMD ["sh", "-c", "export ASPNETCORE_URLS=http://0.0.0.0:${PORT:-8080}; exec dotnet ShakabaArchive.Web.dll"]
+CMD ["sh", "-c", "export DOTNET_USE_POLLING_FILE_WATCHER=1; export ASPNETCORE_URLS=http://0.0.0.0:${PORT:-8080}; exec dotnet ShakabaArchive.Web.dll"]

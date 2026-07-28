@@ -6,6 +6,9 @@ using ShakabaArchive.Data;
 using ShakabaArchive.Models;
 using ShakabaArchive.Services;
 
+// Render/Docker: تجنّب crash بسبب حد inotify (FileSystemWatcher)
+Environment.SetEnvironmentVariable("DOTNET_USE_POLLING_FILE_WATCHER", "1");
+
 var builder = WebApplication.CreateBuilder(args);
 
 var dataRoot = Path.Combine(builder.Environment.ContentRootPath, "App_Data");
@@ -52,13 +55,15 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 
 builder.Services.AddDbContext<ArchiveDbContext>(options => DatabaseService.Configure(options));
 
-// مفاتيح الجلسة على قرص الحاوية — تجنب كسر صفحة الدخول إذا Neon نائم
-// (حفظها في Neon كان يرمي خطأ قبل إنشاء الجدول)
+// مفاتيح الجلسة — Neon على Render، ملفات محلياً على SQLite
 var dpKeysPath = Path.Combine(dataRoot, "dp-keys");
 Directory.CreateDirectory(dpKeysPath);
-builder.Services.AddDataProtection()
-    .PersistKeysToFileSystem(new DirectoryInfo(dpKeysPath))
+var dataProtection = builder.Services.AddDataProtection()
     .SetApplicationName("ShakabaArchive");
+if (!string.IsNullOrWhiteSpace(pg))
+    dataProtection.PersistKeysToDbContext<ArchiveDbContext>();
+else
+    dataProtection.PersistKeysToFileSystem(new DirectoryInfo(dpKeysPath));
 
 builder.Services.AddAuthorization(options =>
 {
@@ -152,6 +157,7 @@ try
     if (warmDb.Database.CanConnect())
     {
         DatabaseService.EnsureDataProtectionKeysTable(warmDb);
+        DatabaseService.UpgradeSchema(warmDb);
         ApprovalService.EnsureSchemaAsync(warmDb).GetAwaiter().GetResult();
         FamilyRegistryService.EnsureSchemaAsync(warmDb).GetAwaiter().GetResult();
     }
@@ -190,7 +196,6 @@ app.MapGet("/uploads/{fileName}", (string fileName) =>
     if (media is null || media.Data.Length == 0)
         return Results.NotFound();
 
-    // اكتب نسخة محلية لتسريع الطلبات التالية على نفس الحاوية
     try
     {
         Directory.CreateDirectory(uploads);

@@ -29,6 +29,9 @@
                 </div>
                 <button class="btn btn-accent w-100" type="submit">دخول</button>
             </form>
+            <p class="mt-2 mb-0 text-center">
+                <a asp-page="/Account/ForgotPassword">نسيت كلمة المرور؟</a>
+            </p>
             @if (Model.NeedsEmailVerification)
             {
                 <form method="post" asp-page-handler="ResendVerification" class="mt-2">
