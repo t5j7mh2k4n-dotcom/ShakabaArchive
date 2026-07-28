@@ -35,6 +35,7 @@ else
                 <h1 class="h3 mb-1">@p.FullName</h1>
                 <div class="muted">
                     كود <code>@p.RegistryCode</code> —
+                    رمز أمان <code class="user-select-all">@(string.IsNullOrWhiteSpace(p.SecurityCode) ? "—" : p.SecurityCode)</code> —
                     @PersonRegistryService.LevelLabel(p.HierarchyLevel)
                     @if (!string.IsNullOrWhiteSpace(p.BirthPlace))
                     {

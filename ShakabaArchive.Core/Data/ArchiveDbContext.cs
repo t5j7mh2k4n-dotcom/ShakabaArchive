@@ -47,7 +47,9 @@ public class ArchiveDbContext : DbContext, IDataProtectionKeyContext
             e.HasIndex(p => p.OwnerUserId);
             e.HasIndex(p => p.FamilyId);
             e.HasIndex(p => p.IsInGeneralRegistry);
+            e.HasIndex(p => p.SecurityCode).IsUnique();
             e.Property(p => p.RegistryCode).HasMaxLength(32).IsRequired();
+            e.Property(p => p.SecurityCode).HasMaxLength(16).IsRequired();
             e.Property(p => p.DocumentType).HasMaxLength(40);
             e.Property(p => p.DocumentNumber).HasMaxLength(80);
             e.Property(p => p.NationalId).HasMaxLength(64);

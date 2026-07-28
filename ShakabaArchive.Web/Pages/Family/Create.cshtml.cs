@@ -95,6 +95,7 @@ public class CreateModel(ArchiveDbContext db) : PageModel
         person.OwnerUserId = user.Id;
         // حفظ فوري في الأسرة والسجل العام — بدون موافقة الثلاثة أو الأدمن
         person.IsInGeneralRegistry = true;
+        person.SecurityCode = await PersonRegistryService.AllocateSecurityCodeAsync(db);
         person.CreatedAt = DateTime.UtcNow;
         person.UpdatedAt = DateTime.UtcNow;
 
@@ -102,7 +103,7 @@ public class CreateModel(ArchiveDbContext db) : PageModel
         Family.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
 
-        TempData["Flash"] = $"تم حفظ «{person.FullName}» مباشرة في سجل الأسرة والسجل العام (بدون انتظار موافقة).";
+        TempData["Flash"] = $"تم حفظ «{person.FullName}» — رمز الأمان: {person.SecurityCode}";
         return RedirectToPage("Index");
     }
 

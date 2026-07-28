@@ -11,7 +11,8 @@
 
 <div class="card-panel">
     <h1 class="h4 mb-2">تعديل فرد — @Model.Family.Name</h1>
-    <p class="muted">الكود: <code>@Model.RegistryCode</code></p>
+    <p class="muted mb-1">الكود: <code>@Model.RegistryCode</code></p>
+    <p class="mb-3">رمز أمان الفرد: <code class="fs-6 user-select-all">@Model.SecurityCode</code></p>
     <div asp-validation-summary="ModelOnly" class="text-danger mb-2"></div>
     <form method="post" enctype="multipart/form-data">
         <input type="hidden" asp-for="Id" />

@@ -225,6 +225,7 @@ public static class FamilyRegistryService
             person.OwnerUserId = user.Id;
         // التحويل من السجل يحفظ مباشرة في الأسرة والسجل العام — بلا موافقة
         person.IsInGeneralRegistry = true;
+        await PersonRegistryService.EnsureSecurityCodeAsync(db, person);
         person.UpdatedAt = DateTime.UtcNow;
 
         var family = await db.Families.FirstOrDefaultAsync(f => f.Id == familyId);

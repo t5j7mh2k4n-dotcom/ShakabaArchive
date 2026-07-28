@@ -73,6 +73,9 @@ public class Person
 
     public Family? Family { get; set; }
 
+    /// <summary>رمز أمان فريد لهذا الفرد — لا يتكرر بين الأشخاص.</summary>
+    public string SecurityCode { get; set; } = string.Empty;
+
     /// <summary>هل نُشر في السجل العام (يظهر للأدمن فقط في سجل الأشخاص)؟</summary>
     public bool IsInGeneralRegistry { get; set; }
 

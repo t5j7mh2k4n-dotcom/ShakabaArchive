@@ -583,6 +583,7 @@ public static class ApprovalService
         person.IsInGeneralRegistry = true;
 
         person.RegistryCode = await PersonRegistryService.AllocateCodeAsync(db, 1, null);
+        person.SecurityCode = await PersonRegistryService.AllocateSecurityCodeAsync(db);
 
         if (person.BirthDate is { } bd)
             person.BirthDate = DateTime.SpecifyKind(bd.Date, DateTimeKind.Utc);
@@ -978,6 +979,7 @@ public static class ApprovalService
                     RegistryCode = childCode,
                     HierarchyLevel = childLevel,
                     ParentPersonId = parent.Id,
+                    SecurityCode = await PersonRegistryService.AllocateSecurityCodeAsync(db),
                     NationalId = string.IsNullOrWhiteSpace(dto.ChildNationalId)
                         ? ""
                         : dto.ChildNationalId.Trim(),

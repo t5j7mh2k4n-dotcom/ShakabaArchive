@@ -62,7 +62,7 @@
         <div class="col-md-9">
             <label class="form-label small mb-1">بحث في أفراد الأسرة فقط</label>
             <input class="form-control" name="q" value="@Model.Q"
-                   placeholder="اسم، هاتف، رقم وثيقة، كود..." />
+                   placeholder="اسم، هاتف، رقم وثيقة، كود، رمز أمان..." />
         </div>
         <div class="col-md-3">
             <button class="btn btn-accent w-100" type="submit">بحث</button>
@@ -76,6 +76,7 @@
             <thead>
             <tr>
                 <th>الكود</th>
+                <th>رمز الأمان</th>
                 <th>الاسم</th>
                 <th>الهاتف</th>
                 <th>الحالة</th>
@@ -87,6 +88,7 @@
             {
                 <tr>
                     <td><code>@p.RegistryCode</code></td>
+                    <td><code class="user-select-all">@(string.IsNullOrWhiteSpace(p.SecurityCode) ? "—" : p.SecurityCode)</code></td>
                     <td>@p.FullName</td>
                     <td>@Dash(p.Phone)</td>
                     <td>

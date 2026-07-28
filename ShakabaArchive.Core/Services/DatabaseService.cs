@@ -590,13 +590,17 @@ public static class DatabaseService
         TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "OwnerUserId" integer NULL""");
         TryAlter(db, "ALTER TABLE People ADD COLUMN FamilyId INTEGER NULL");
         TryAlter(db, "ALTER TABLE People ADD COLUMN IsInGeneralRegistry INTEGER NOT NULL DEFAULT 1");
+        TryAlter(db, "ALTER TABLE People ADD COLUMN SecurityCode TEXT NOT NULL DEFAULT ''");
         TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "FamilyId" integer NULL""");
         TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "IsInGeneralRegistry" boolean NOT NULL DEFAULT true""");
+        TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "SecurityCode" character varying(16) NOT NULL DEFAULT ''""");
 
         BackfillPersonRegistryFields(db);
         BackfillPersonOwners(db);
         try { FamilyRegistryService.EnsureSchemaAsync(db).GetAwaiter().GetResult(); }
         catch (Exception ex) { Console.Error.WriteLine("Family schema: " + ex.Message); }
+        try { PersonRegistryService.EnsureSecurityCodeSchemaAsync(db).GetAwaiter().GetResult(); }
+        catch (Exception ex) { Console.Error.WriteLine("Person security codes: " + ex.Message); }
 
         TryAlter(db, "ALTER TABLE LifeEvents ADD COLUMN Mood INTEGER NOT NULL DEFAULT 0");
         TryAlter(db, "ALTER TABLE \"LifeEvents\" ADD COLUMN \"Mood\" integer NOT NULL DEFAULT 0");
@@ -739,7 +743,8 @@ public static class DatabaseService
                 Profession = "",
                 Neighborhood = "—",
                 Notes = "هذا سجل توضيحي فقط.",
-                IsInGeneralRegistry = true
+                IsInGeneralRegistry = true,
+                SecurityCode = "SAMPLECODE1"
             };
             sample.RefreshFullName();
             db.People.Add(sample);

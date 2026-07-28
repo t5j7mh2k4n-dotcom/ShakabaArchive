@@ -23,6 +23,7 @@ public class EditModel(ArchiveDbContext db) : PageModel
     public IFormFile? Document { get; set; }
 
     public string RegistryCode { get; private set; } = "";
+    public string SecurityCode { get; private set; } = "";
     public Models.Family Family { get; private set; } = null!;
 
     public async Task<IActionResult> OnGetAsync(int id)
@@ -38,8 +39,12 @@ public class EditModel(ArchiveDbContext db) : PageModel
             return RedirectToPage("Index");
         }
 
+        await PersonRegistryService.EnsureSecurityCodeAsync(db, person);
+        await db.SaveChangesAsync();
+
         Id = id;
         RegistryCode = person.RegistryCode;
+        SecurityCode = person.SecurityCode;
         Input = PersonInput.From(person);
         return Page();
     }
@@ -58,6 +63,8 @@ public class EditModel(ArchiveDbContext db) : PageModel
         }
 
         RegistryCode = person.RegistryCode;
+        await PersonRegistryService.EnsureSecurityCodeAsync(db, person);
+        SecurityCode = person.SecurityCode;
         ModelState.Remove("Input.FatherName");
         ModelState.Remove("Input.FamilyName");
         if (string.IsNullOrWhiteSpace(Input.FirstName))
@@ -93,7 +100,7 @@ public class EditModel(ArchiveDbContext db) : PageModel
         Family.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
 
-        TempData["Flash"] = "تم حفظ التعديل مباشرة في سجل الأسرة (بدون موافقة).";
+        TempData["Flash"] = $"تم حفظ التعديل — رمز أمان الفرد: {person.SecurityCode}";
         return RedirectToPage("Index");
     }
 }

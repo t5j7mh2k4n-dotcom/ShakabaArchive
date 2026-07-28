@@ -39,6 +39,7 @@ public class IndexModel(ArchiveDbContext db) : PageModel
             DatabaseService.EnsureReady();
             await ApprovalService.EnsureSchemaAsync(db);
             await FamilyRegistryService.EnsureSchemaAsync(db);
+            await PersonRegistryService.EnsureSecurityCodeSchemaAsync(db);
         }
         catch (Exception ex)
         {

@@ -20,6 +20,7 @@ public class IndexModel(ArchiveDbContext db) : PageModel
         if (user is null) return Challenge();
 
         Family = await FamilyRegistryService.GetOrCreateAsync(db, user);
+        await PersonRegistryService.EnsureSecurityCodeSchemaAsync(db);
         Q = (q ?? "").Trim();
 
         var query = FamilyRegistryService.MembersQuery(db, Family.Id).AsNoTracking();
@@ -33,7 +34,8 @@ public class IndexModel(ArchiveDbContext db) : PageModel
                 || p.FamilyName.ToLower().Contains(term)
                 || p.Phone.Contains(Q)
                 || p.DocumentNumber.Contains(Q)
-                || p.RegistryCode.Contains(Q));
+                || p.RegistryCode.Contains(Q)
+                || p.SecurityCode.Contains(Q));
         }
 
         Members = await query.OrderBy(p => p.RegistryCode).ThenBy(p => p.FullName).ToListAsync();

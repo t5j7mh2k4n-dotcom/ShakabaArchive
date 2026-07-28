@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
 using ShakabaArchive.Data;
 using ShakabaArchive.Models;
@@ -15,6 +16,53 @@ public static class PersonRegistryService
     public const int MaxLevel = 3;
     public const int Level1Width = 2;
     public const int ChildSeqWidth = 3;
+    private const string SecurityAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+    public static async Task EnsureSecurityCodeSchemaAsync(ArchiveDbContext db)
+    {
+        var isPostgres = db.Database.ProviderName?.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) == true;
+        if (isPostgres)
+        {
+            TryAlter(db, """ALTER TABLE "People" ADD COLUMN IF NOT EXISTS "SecurityCode" character varying(16) NOT NULL DEFAULT ''""");
+            TryAlter(db, """
+                CREATE UNIQUE INDEX IF NOT EXISTS "IX_People_SecurityCode"
+                ON "People" ("SecurityCode") WHERE "SecurityCode" <> ''
+                """);
+        }
+        else
+        {
+            TryAlter(db, "ALTER TABLE People ADD COLUMN SecurityCode TEXT NOT NULL DEFAULT ''");
+            TryAlter(db, "CREATE UNIQUE INDEX IF NOT EXISTS IX_People_SecurityCode ON People(SecurityCode) WHERE SecurityCode <> ''");
+        }
+
+        await BackfillMissingSecurityCodesAsync(db);
+    }
+
+    /// <summary>يضمن أن للشخص رمزاً فريداً — يولّد إن كان فارغاً.</summary>
+    public static async Task EnsureSecurityCodeAsync(ArchiveDbContext db, Person person, CancellationToken ct = default)
+    {
+        if (person is null) return;
+        if (!string.IsNullOrWhiteSpace(person.SecurityCode))
+            return;
+
+        person.SecurityCode = await AllocateSecurityCodeAsync(db, ct);
+        person.UpdatedAt = DateTime.UtcNow;
+    }
+
+    public static async Task<string> AllocateSecurityCodeAsync(
+        ArchiveDbContext db,
+        CancellationToken ct = default)
+    {
+        for (var attempt = 0; attempt < 60; attempt++)
+        {
+            var code = GenerateSecurityCode();
+            var exists = await db.People.AnyAsync(p => p.SecurityCode == code, ct);
+            if (!exists)
+                return code;
+        }
+
+        return GenerateSecurityCode() + RandomNumberGenerator.GetInt32(10, 99);
+    }
 
     public static async Task<string> AllocateCodeAsync(
         ArchiveDbContext db,
@@ -91,4 +139,48 @@ public static class PersonRegistryService
         3 => "المستوى الثالث",
         _ => "مستوى " + level
     };
+
+    private static async Task BackfillMissingSecurityCodesAsync(ArchiveDbContext db)
+    {
+        try
+        {
+            var missing = await db.People
+                .Where(p => p.SecurityCode == null || p.SecurityCode == "")
+                .OrderBy(p => p.Id)
+                .Take(500)
+                .ToListAsync();
+
+            while (missing.Count > 0)
+            {
+                foreach (var person in missing)
+                    person.SecurityCode = await AllocateSecurityCodeAsync(db);
+
+                await db.SaveChangesAsync();
+                missing = await db.People
+                    .Where(p => p.SecurityCode == null || p.SecurityCode == "")
+                    .OrderBy(p => p.Id)
+                    .Take(500)
+                    .ToListAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("Backfill person security codes: " + ex.Message);
+        }
+    }
+
+    private static string GenerateSecurityCode()
+    {
+        // 10 أحرف — رمز فردي فريد لا يتكرر
+        Span<char> chars = stackalloc char[10];
+        for (var i = 0; i < chars.Length; i++)
+            chars[i] = SecurityAlphabet[RandomNumberGenerator.GetInt32(SecurityAlphabet.Length)];
+        return new string(chars);
+    }
+
+    private static void TryAlter(ArchiveDbContext db, string sql)
+    {
+        try { db.Database.ExecuteSqlRaw(sql); }
+        catch { /* already exists */ }
+    }
 }

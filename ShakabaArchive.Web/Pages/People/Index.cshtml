@@ -108,6 +108,7 @@
                 <th></th>
                 <th>الكود</th>
                 <th>الباركود</th>
+                <th>رمز الأمان</th>
                 <th>المستوى</th>
                 <th>الاسم الأول</th>
                 <th>اسم الأب</th>
@@ -153,6 +154,7 @@
                     <td class="person-barcode-cell">
                         <partial name="_PersonBarcode" model="PersonBarcodeView.ForPerson(p, compact: true)" />
                     </td>
+                    <td><code class="user-select-all">@(string.IsNullOrWhiteSpace(p.SecurityCode) ? "—" : p.SecurityCode)</code></td>
                     <td>@PersonRegistryService.LevelLabel(p.HierarchyLevel)</td>
                     <td><a asp-page="Details" asp-route-id="@p.Id">@Dash(p.FirstName)</a></td>
                     <td>@Dash(p.FatherName)</td>
